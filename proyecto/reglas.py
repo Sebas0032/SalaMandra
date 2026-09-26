@@ -21,7 +21,7 @@ def has_active_reservation_in_block(reservations, student_code, start, end):
     pass
 
 
-def create_reservation(rooms, reservations, room_id, student_code, start, end, attendees):
+def create_reservation(rooms, reservations, room_id, student_code, start, end,activity_detail, attendees):
     """Crea una reserva si las reglas lo permiten."""
     # Buscar la sala
     room = rooms.get(room_id)
@@ -47,6 +47,7 @@ def create_reservation(rooms, reservations, room_id, student_code, start, end, a
         student_code=student_code,
         start=start,
         end=end,
+        activity_detail=activity_detail,
         status="CONFIRMADA"
     )
     reservations.append(reservation)
