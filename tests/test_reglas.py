@@ -10,3 +10,20 @@ Cada prueba debe:
 
 from proyecto.reglas import ...  # importen aquí lo que vayan probando
 """
+from proyecto import Room, Student, Reservation, create_reservation
+
+
+def test_crear_reserva_caso_normal():
+    # Armar datos
+    room = Room("A-101", "Sala de estudio A", 6)
+    rooms = {"A-101": room}
+    reservations = []
+
+    # Llamar la función
+    result = create_reservation(
+        rooms, reservations, "A-101", "92345", "10:00", "12:00", 4
+    )
+
+    # Verificar
+    assert result.status == "CONFIRMADA"
+    assert result.student_code == "92345"
