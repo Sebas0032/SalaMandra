@@ -21,9 +21,15 @@ def test_crear_reserva_caso_normal():
 
     # Llamar la función
     result = create_reservation(
-        rooms, reservations, "A-101", "92345", "10:00", "12:00", 4
-    )
+        rooms, reservations, "A-101", "92345", "10:00", "12:00", 4,
+        "Comer Hamburguesas")
 
     # Verificar
     assert result.status == "CONFIRMADA"
     assert result.student_code == "92345"
+    assert result.activity_detail == "Estudios"
+
+    def test_estudiante_con_nombre_completo():
+        student = Student("92345", "Juan", "Pérez")
+        assert student.full_name() == "Juan Pérez"
+        assert student.code == "92345"
