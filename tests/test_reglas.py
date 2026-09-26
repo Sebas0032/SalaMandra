@@ -112,3 +112,104 @@ class TestCrearReservaLimite:
         assert reservations[0].student_code == "99999"  # La anterior sigue igual
         assert reservations[1].student_code == "92345"
 
+
+class TestCrearReservaRechazo:
+    """CASO 3: Rechazo — un alumno no puede reservar dos salas en el mismo bloque."""
+
+    def test_rechaza_si_estudiante_ya_tiene_reserva_en_bloque(self):
+        """
+        Estado inicial: el estudiante con código 92345 ya tiene una reserva activa
+        en otra sala (ej. Sala B) para el bloque de 10:00 a 12:00.
+
+        Entrada: intenta realizar una segunda reserva para la Sala de estudio A
+        en el mismo bloque de 10:00 a 12:00.
+
+        Resultado esperado: El sistema rechaza la nueva reserva, conserva
+        la reserva existente e informa que el alumno ya cuenta con un espacio
+        reservado en ese horario.
+        """
+        # Armar datos
+        room_a = Room("A-101", "Sala de estudio A", 6)
+        room_b = Room("B-102", "Sala de estudio B", 4)
+        rooms = {"A-101": room_a, "B-102": room_b}
+
+        # El estudiante 92345 ya tiene una reserva en Sala B para 10:00-12:00
+        existing_reservation = Reservation(
+            reservation_id=1,
+            room_id="B-102",
+            student_code="92345",
+            start="10:00",
+            end="12:00",
+            activity_detail="Haciendo tareas",
+            status="CONFIRMADA"
+        )
+        reservations = [existing_reservation]
+
+        # Intenta crear otra reserva en Sala A para el mismo horario
+        # Debe lanzar StudentAlreadyBookedError
+        from pytest import raises
+
+        with raises(StudentAlreadyBookedError) as exc_info:
+            create_reservation(
+                rooms=rooms,
+                reservations=reservations,
+                room_id="A-101",
+                student_code="92345",
+                start="10:00",
+                end="12:00",
+                attendees=3,
+                activity_detail="Estudios"
+            )
+
+        # Verificar que el error contiene el código del estudiante
+        assert "92345" in str(exc_info.value)
+        # Verificar que la lista no cambió (no se agregó la reserva)
+        assert len(reservations) == 1
+
+
+# Pruebas adicionales para validaciones básicas
+
+class TestValidacionesSala:
+    """Pruebas para validaciones de sala."""
+
+    def test_rechaza_si_sala_no_existe(self):
+        """Rechaza reserva si la sala no existe en el inventario."""
+        rooms = {}  # Inventario vacío
+        reservations = []
+
+        from pytest import raises
+
+        with raises(RoomNotFoundError) as exc_info:
+            create_reservation(
+                rooms=rooms,
+                reservations=reservations,
+                room_id="Z-999",
+                student_code="92345",
+                start="10:00",
+                end="12:00",
+                attendees=2,
+                activity_detail="Estudios"
+            )
+
+        assert "Z-999" in str(exc_info.value)
+
+    def test_rechaza_si_asistentes_exceden_capacidad(self):
+        """Rechaza reserva si el número de asistentes supera la capacidad."""
+        room = Room("A-101", "Sala de estudio A", 3)  # Capacidad 3
+        rooms = {"A-101": room}
+        reservations = []
+
+        from pytest import raises
+
+        with raises(CapacityExceededError):
+            create_reservation(
+                rooms=rooms,
+                reservations=reservations,
+                room_id="A-101",
+                student_code="92345",
+                start="10:00",
+                end="12:00",
+                attendees=5,  # Intenta 5 en sala de 3
+                activity_detail="Estudios"
+            )
+
