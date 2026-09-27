@@ -30,15 +30,15 @@ Facilitador y controlador del tiempo: **Luciana Soza** — indica cuándo rotan 
 > Al finalizar, el solicitante podrá crear una reserva de una sala de estudio, previa validación de su código de estudiante y respetando la restricción de una reserva activa por horario.
 
 **Alcance técnico:**
-- ✅ Verificación de la existencia del código de estudiante en los registros del sistema
-- ✅ Restricción de máximo una reserva por solicitante en un mismo bloque de horario
-- ✅ Validación del margen de tiempo de 15 minutos entre bloques de reserva
-- ✅ Ejecución de pruebas automatizadas con pytest
+-  Verificación de la existencia del código de estudiante en los registros del sistema
+-  Restricción de máximo una reserva por solicitante en un mismo bloque de horario
+-  Validación del margen de tiempo de 15 minutos entre bloques de reserva
+-  Ejecución de pruebas automatizadas con pytest
 
 **Fuera de alcance:**
-- ❌ Interfaz de usuario (UI), base de datos persistente (SQL/NoSQL) y servidores web
-- ❌ Modificación y cancelación de reservas (PB-03, PB-04)
-- ❌ Gestión de salas y horarios (PB-05)
+-  Interfaz de usuario (UI), base de datos persistente (SQL/NoSQL) y servidores web
+-  Modificación y cancelación de reservas (PB-03, PB-04)
+-  Gestión de salas y horarios (PB-05)
 
 **Pregunta de control:** sí, se demuestra ejecutando las pruebas de PB-01, sin funcionalidades que todavía no existen.
 
@@ -112,13 +112,13 @@ Cada prueba arma su propio conjunto de salas y reservas ficticias en memoria.
 
 | Tarea | Personas que colaboran | Estado | Evidencia o ubicación |
 |---|---|---|---|
-| T1. Definir y documentar los ejemplos de aceptación de PB-01 | Todo el equipo | ✅ Terminado | docs/sesion04.md |
-| T2. Implementar clases POO (Student, Room, Reservation) | Todo el equipo | ✅ Terminado | proyecto/estudiante.py, proyecto/sala.py, proyecto/reserva.py |
-| T3. Definir excepciones personalizadas | Todo el equipo | ✅ Terminado | proyecto/excepciones.py |
-| T4. Crear las pruebas (pytest) del caso normal, límite y rechazo | Todo el equipo (rotando) | ✅ Terminado | tests/test_reglas.py |
-| T5. Implementar funciones helper (has_time_conflict, has_active_reservation_in_block) | Todo el equipo (rotando) | 🔄 En curso | proyecto/reglas.py |
-| T6. Implementar create_reservation | Todo el equipo (rotando) | 🔄 En curso | proyecto/reglas.py |
-| T7. Ejecutar pytest, pasar todas las pruebas, revisar y refactorizar | Todo el equipo (rotando) | 🔄 En curso | tests/test_reglas.py / proyecto/reglas.py |
+| T1. Definir y documentar los ejemplos de aceptación de PB-01 | Todo el equipo |  Terminado | docs/sesion04.md |
+| T2. Implementar clases POO (Student, Room, Reservation) | Todo el equipo |  Terminado | proyecto/estudiante.py, proyecto/sala.py, proyecto/reserva.py |
+| T3. Definir excepciones personalizadas | Todo el equipo |  Terminado | proyecto/excepciones.py |
+| T4. Crear las pruebas (pytest) del caso normal, límite y rechazo | Todo el equipo (rotando) |  Terminado | tests/test_reglas.py |
+| T5. Implementar funciones helper (has_time_conflict, has_active_reservation_in_block) | Todo el equipo (rotando) |  En curso | proyecto/reglas.py |
+| T6. Implementar create_reservation | Todo el equipo (rotando) |  En curso | proyecto/reglas.py |
+| T7. Ejecutar pytest, pasar todas las pruebas, revisar y refactorizar | Todo el equipo (rotando) |  En curso | tests/test_reglas.py / proyecto/reglas.py |
 | T8. Integrar en main, verificar que pytest pasa, preparar demostración | Todo el equipo | Por hacer | GitHub / main |
 
 Sesión de programación en grupo: _(25/09/2026 — 27/09/2026)_, por Google Meet. Horario: 10:00–12:00 → Break 1 hora → 14:00–18:00 (total 5 horas de trabajo). La rotación real (quién escribe, quién revisa, quién valida) y el punto de inspección se registran durante la sesión.
