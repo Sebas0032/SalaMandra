@@ -5,33 +5,69 @@ from .excepciones import (
     RoomNotFoundError,
     CapacityExceededError,
     StudentAlreadyBookedError,
-    TimeConflictError
+    TimeConflictError,
+    StudentNotFoundError
 )
+
+def validate_student(students, student_code):
+    """Verifica que el codigo del estudiante este registrado."""
+    student = students.get(student_code)
+    if student is None:
+        raise StudentNotFoundError(
+            f"El estudiante con codigo {student_code} no esta registrado"
+        )
+    return student
 
 
 def has_time_conflict(reservations, room_id, start, end, buffer_minutes=15):
-    """¿Hay conflicto de horario para esta sala en ese intervalo?"""
+    """Verifica si existe conflicto de horario para una sala."""
+
+    from datetime import datetime, timedelta
+
+    new_start = datetime.strptime(start, "%H:%M")
+    new_end = datetime.strptime(end, "%H:%M")
+
     for res in reservations:
         if res.room_id != room_id:
             continue
-        # Aquí va la lógica de comparación de horarios con buffer de 15 min
-        # Por ahora, retorna False para que pasen algunas pruebas
+
+        existing_start = datetime.strptime(res.start, "%H:%M")
+        existing_end = datetime.strptime(res.end, "%H:%M")
+
+        existing_end_with_buffer = existing_end + timedelta(minutes=buffer_minutes)
+
+        if new_start < existing_end_with_buffer and new_end > existing_start:
+            return True
+
     return False
 
 
 def has_active_reservation_in_block(reservations, student_code, start, end):
-    """¿El estudiante ya tiene una reserva activa en este bloque?"""
+    """Verifica si el estudiante ya tiene una reserva activa en ese bloque."""
+
+    from datetime import datetime
+
+    new_start = datetime.strptime(start, "%H:%M")
+    new_end = datetime.strptime(end, "%H:%M")
+
     for res in reservations:
-        if res.student_code == student_code:
-            # Aquí va la lógica de comparación de bloques horarios
-            # Si hay solapamiento, retorna True
-            if res.start == start and res.end == end:
-                return True
+        if res.student_code != student_code:
+            continue
+
+        existing_start = datetime.strptime(res.start, "%H:%M")
+        existing_end = datetime.strptime(res.end, "%H:%M")
+
+        if new_start < existing_end and new_end > existing_start:
+            return True
+
     return False
 
 
-def create_reservation(rooms, reservations, room_id, student_code, start, end, attendees, activity_detail=""):
+def create_reservation(students, rooms, reservations, room_id, student_code, start, end, attendees, activity_detail=""):
     """Crea una reserva si las reglas lo permiten."""
+    # Validar estudiante
+    validate_student(students, student_code)
+
     # Buscar la sala
     room = rooms.get(room_id)
     if not room:
