@@ -102,13 +102,35 @@ Cada prueba arma su propio conjunto de salas y reservas.
 Sesión de programación en grupo: _(completar — fecha y hora exacta de inicio)_, por Google Meet, bloque de 2 a 3 horas. La rotación real y el punto de inspección se registran durante la sesión.
 
 ## Verificación e integración
-Pendiente — resultado real de `python -m pytest -q`, enlace del PR y commit demostrado en `main`.
+# Ejecutar todas las pruebas
+python -m pytest -v
+
+# Ejecutar solo las pruebas de un caso
+python -m pytest tests/test_reglas.py::TestCrearReservaUsoCasoNormal -v
+
+# Ver resultado detallado con output
+python -m pytest -vv --tb=short
+
+# Correr con cobertura (opcional, requiere pip install pytest-cov)
+python -m pytest --cov=proyecto tests/
 
 ## Retroalimentación
-Pendiente — petición o defecto identificado en la revisión y cambio correspondiente en el backlog.
+Pendiente — petición o defecto identificado en la revisión y cambio correspondiente en el backlog, segun lo recomendado del cliente (Sergio).
 
 ## Retrospectiva
-Pendiente — mantener, cambiar y experimentar.
+**Mantener:** Rotar roles (Driver, Navigator, Validator) cada 10 o 15 minutos por Google Meet. Esto permitió que todos los integrantes comprendieran la arquitectura POO y mantuvieran el código libre de errores al momento de hacer commits.
+**Cambiar:** La falta de definición clara e inicial de las firmas de los métodos y parámetros en los test casos, lo que causó fallos de incompatibilidad temporal (TypeError por orden de parámetros) durante las pruebas integradas.
+**Experimentar:** Crear un archivo de datos de prueba compartidos (salas y estudiantes base) para no tener que volver a escribir Room("A-101", ...) en cada archivo de test, lo impulsa Sebastian Soto y comprobaremos si el archivo de pruebas es más corto, claro y rápido de escribir en la siguiente sesión.
+
 
 ## Planificación y adaptación
-Pendiente — respuestas breves sobre las decisiones tomadas y su contexto.
+**¿Qué decisión necesitaba planificación antes de programar?**
+La estructura y modelado de datos en POO (separar Student, Room y Reservation) y definir cómo se representaría el tiempo y los bloques de reserva. Planificar esto con anticipación evitó rehacer la lógica de validación de conflictos.
+
+**¿Qué decisión pudieron mejorar gracias a una prueba o a la revisión del cliente?**
+La regla de negocio sobre reservas simultáneas por un mismo estudiante. Las pruebas      automatizadas permitieron detectar que el sistema permitía reservas dobles en el mismo bloque si eran en salas distintas, lo cual se corrigió agregando la función has_active_reservation_in_block.
+
+**¿En qué contexto de su proyecto sería útil fijar más detalles por anticipado? ¿Qué costo tendría hacerlo si las reglas todavía cambian?**
+Sería útil definir con precisión la política de cancelaciones y modificaciones (PB-03 y PB-04) y los estados permitidos en el ciclo de vida de una reserva.
+El costo de hacerlo por anticipado: Si fijamos reglas rígidas de tiempo (ej. "solo se cancela con 1 hora de anticipación") sin validarlo con el cliente, tendríamos que reescribir gran parte de la lógica de validación, modificar la estructura de las excepciones y rehacer todas las pruebas unitarias cuando el cliente decida cambiar los límites de tiempo.
+

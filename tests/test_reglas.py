@@ -35,9 +35,7 @@ class TestCrearReservaUsoCasoNormal:
         y retorna un estado CONFIRMADA con un ID de reserva.
         """
 
-        students = {
-            "92345": Student("92345", "Luciana", "Perez")
-        }
+        students = {"92345": Student("92345", "Luciana", "Perez")}
 
         # Armar datos
         room = Room("A-101", "Sala de estudio A", 6)
@@ -71,10 +69,7 @@ class TestCrearReservaUsoCasoNormal:
 class TestValidacionEstudiante:
 
     def test_acepta_codigo_de_estudiante_registrado(self):
-        students = {
-            "92345": Student("92345", "Luciana", "Perez")
-        }
-
+        students = {"92345": Student("92345", "Luciana", "Perez")}
         student = validate_student(students, "92345")
 
         assert student.code == "92345"
@@ -94,7 +89,7 @@ class TestValidacionEstudiante:
 
 
 class TestCrearReservaLimite:
-    """CASO 2: Límite — respeto del intervalo de 15 minutos entre reservas."""
+    """CASO 2: Limite — respeto del intervalo de 15 minutos entre reservas."""
 
     def test_crear_reserva_con_intervalo_de_desalojo(self):
         """
@@ -172,10 +167,7 @@ class TestCrearReservaRechazo:
         room_b = Room("B-102", "Sala de estudio B", 4)
         rooms = {"A-101": room_a, "B-102": room_b}
 
-        students = {
-            "92345": Student("92345", "Luciana", "Perez"),
-            "99999": Student("99999", "Carlos", "Gomez")
-        }
+        students = {"92345": Student("92345", "Luciana", "Perez"), "99999": Student("99999", "Carlos", "Gomez")}
 
         # El estudiante 92345 ya tiene una reserva en Sala B para 10:00-12:00
         existing_reservation = Reservation(
@@ -212,9 +204,7 @@ class TestCrearReservaRechazo:
         assert len(reservations) == 1
 
     def test_rechaza_reserva_si_codigo_no_esta_registrado(self):
-        students = {
-            "92345": Student("92345", "Luciana", "Perez")
-        }
+        students = {"92345": Student("92345", "Luciana", "Perez")}
 
         room = Room("A-101", "Sala de estudio A", 6)
         rooms = {"A-101": room}
@@ -237,7 +227,7 @@ class TestCrearReservaRechazo:
 
         assert len(reservations) == 0
 
-# Pruebas adicionales para validaciones básicas
+# Pruebas adicionales para validaciones basicas
 
 class TestValidacionesSala:
     """Pruebas para validaciones de sala."""
@@ -247,9 +237,7 @@ class TestValidacionesSala:
         rooms = {}  # Inventario vacío
         reservations = []
 
-        students = {
-            "92345": Student("92345", "Luciana", "Perez")
-        }
+        students = {"92345": Student("92345", "Luciana", "Perez")}
 
         from pytest import raises
 
@@ -274,9 +262,7 @@ class TestValidacionesSala:
         rooms = {"A-101": room}
         reservations = []
 
-        students = {
-            "92345": Student("92345", "Luciana", "Perez")
-        }
+        students = {"92345": Student("92345", "Luciana", "Perez")}
 
         from pytest import raises
 
