@@ -4,11 +4,11 @@ Proyecto de Ingeniería de Software (P02 — Reservas de espacios),
 adaptado a un sistema de reserva de salas de estudio universitarias.
 
 ## Integrantes
-
-- [Nombre 1]
-- [Nombre 2]
-- [Nombre 3]
-
+| Integrante | GitHub |
+|---|---|
+| Luciana Soza | @luci-solar34 |
+| Sebastian Cruz | @Sebas0032 |
+| Sebastian Toledo | @sebas-sst |
 ## Estado actual
 
 Fase: definición de requisitos y primera capacidad (Sesión 04).
