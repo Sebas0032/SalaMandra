@@ -123,9 +123,23 @@ Cada prueba arma su propio conjunto de salas y reservas ficticias en memoria.
 
 Sesión de programación en grupo: _(25/09/2026 — 27/09/2026)_, por Google Meet. Horario: 10:00–12:00 → Break 1 hora → 14:00–18:00 (total 5 horas de trabajo). La rotación real (quién escribe, quién revisa, quién valida) y el punto de inspección se registran durante la sesión.
 
-## Verificación e integración
+# Verificación e integración
 
-Pendiente — resultado real de `python -m pytest -v`, enlace del PR y commit demostrado en `main`.
+**Ejecutar todas las pruebas**
+
+python -m pytest -v
+
+**Ejecutar solo las pruebas de un caso**
+
+python -m pytest tests/test_reglas.py::TestCrearReservaUsoCasoNormal -v
+
+**Ver resultado detallado con output**
+
+python -m pytest -vv --tb=short
+
+**Correr con cobertura (opcional, requiere pip install pytest-cov)**
+
+python -m pytest --cov=proyecto tests/
 
 ## Retroalimentación
 
