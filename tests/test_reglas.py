@@ -10,12 +10,13 @@ Cada prueba debe:
 
 from proyecto.reglas import ...  # importen aquí lo que vayan probando
 """
-from proyecto import Room, Student, Reservation, create_reservation
+from proyecto import Room, Student, Reservation, create_reservation, validate_student
 from proyecto.excepciones import (
     RoomNotFoundError,
     CapacityExceededError,
     StudentAlreadyBookedError,
-    TimeConflictError
+    TimeConflictError,
+    StudentNotFoundError
 )
 
 
@@ -33,13 +34,20 @@ class TestCrearReservaUsoCasoNormal:
         Resultado esperado: El sistema valida los datos, registra la reserva
         y retorna un estado CONFIRMADA con un ID de reserva.
         """
+
+        students = {
+            "92345": Student("92345", "Luciana", "Perez")
+        }
+
         # Armar datos
         room = Room("A-101", "Sala de estudio A", 6)
         rooms = {"A-101": room}
         reservations = []
 
+
         # Llamar la función
         result = create_reservation(
+            students=students,
             rooms=rooms,
             reservations=reservations,
             room_id="A-101",
@@ -58,6 +66,31 @@ class TestCrearReservaUsoCasoNormal:
         assert result.end == "12:00"
         assert result.activity_detail == "Estudios"
         assert len(reservations) == 1  # Se agregó a la lista
+
+
+class TestValidacionEstudiante:
+
+    def test_acepta_codigo_de_estudiante_registrado(self):
+        students = {
+            "92345": Student("92345", "Luciana", "Perez")
+        }
+
+        student = validate_student(students, "92345")
+
+        assert student.code == "92345"
+        assert student.first_name == "Luciana"
+        assert student.last_name == "Perez"
+        assert student.full_name() == "Luciana Perez"
+
+    def test_rechaza_codigo_de_estudiante_no_registrado(self):
+        students = {
+            "92345": Student("92345", "Luciana", "Perez")
+        }
+
+        from pytest import raises
+
+        with raises(StudentNotFoundError):
+            validate_student(students, "99999")
 
 
 class TestCrearReservaLimite:
@@ -81,6 +114,11 @@ class TestCrearReservaLimite:
         room = Room("A-101", "Sala de estudio A", 6)
         rooms = {"A-101": room}
 
+        students = {
+            "92345": Student("92345", "Luciana", "Perez"),
+            "99999": Student("99999", "Carlos", "Gomez")
+        }
+
         # Crear una reserva anterior (07:45 a 09:45)
         existing_reservation = Reservation(
             reservation_id=1,
@@ -96,6 +134,7 @@ class TestCrearReservaLimite:
         # Intenta crear una reserva en 10:00 a 12:00 (respeta el intervalo de 15 min)
         # Nota: esta prueba fallará hasta que implementes has_time_conflict
         result = create_reservation(
+            students=students,
             rooms=rooms,
             reservations=reservations,
             room_id="A-101",
@@ -133,6 +172,11 @@ class TestCrearReservaRechazo:
         room_b = Room("B-102", "Sala de estudio B", 4)
         rooms = {"A-101": room_a, "B-102": room_b}
 
+        students = {
+            "92345": Student("92345", "Luciana", "Perez"),
+            "99999": Student("99999", "Carlos", "Gomez")
+        }
+
         # El estudiante 92345 ya tiene una reserva en Sala B para 10:00-12:00
         existing_reservation = Reservation(
             reservation_id=1,
@@ -151,6 +195,7 @@ class TestCrearReservaRechazo:
 
         with raises(StudentAlreadyBookedError) as exc_info:
             create_reservation(
+                students=students,
                 rooms=rooms,
                 reservations=reservations,
                 room_id="A-101",
@@ -166,6 +211,31 @@ class TestCrearReservaRechazo:
         # Verificar que la lista no cambió (no se agregó la reserva)
         assert len(reservations) == 1
 
+    def test_rechaza_reserva_si_codigo_no_esta_registrado(self):
+        students = {
+            "92345": Student("92345", "Luciana", "Perez")
+        }
+
+        room = Room("A-101", "Sala de estudio A", 6)
+        rooms = {"A-101": room}
+        reservations = []
+
+        from pytest import raises
+
+        with raises(StudentNotFoundError):
+            create_reservation(
+                students=students,
+                rooms=rooms,
+                reservations=reservations,
+                room_id="A-101",
+                student_code="99999",
+                start="10:00",
+                end="12:00",
+                attendees=4,
+                activity_detail="Estudios"
+            )
+
+        assert len(reservations) == 0
 
 # Pruebas adicionales para validaciones básicas
 
@@ -177,10 +247,15 @@ class TestValidacionesSala:
         rooms = {}  # Inventario vacío
         reservations = []
 
+        students = {
+            "92345": Student("92345", "Luciana", "Perez")
+        }
+
         from pytest import raises
 
         with raises(RoomNotFoundError) as exc_info:
             create_reservation(
+                students=students,
                 rooms=rooms,
                 reservations=reservations,
                 room_id="Z-999",
@@ -199,10 +274,15 @@ class TestValidacionesSala:
         rooms = {"A-101": room}
         reservations = []
 
+        students = {
+            "92345": Student("92345", "Luciana", "Perez")
+        }
+
         from pytest import raises
 
         with raises(CapacityExceededError):
             create_reservation(
+                students=students,
                 rooms=rooms,
                 reservations=reservations,
                 room_id="A-101",

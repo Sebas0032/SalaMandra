@@ -5,10 +5,12 @@ from .excepciones import (
     RoomNotFoundError,
     CapacityExceededError,
     StudentAlreadyBookedError,
-    TimeConflictError
+    TimeConflictError,
+    StudentNotFoundError
 )
 from .reglas import (
     create_reservation,
+    validate_student,
     has_time_conflict,
     has_active_reservation_in_block
 )

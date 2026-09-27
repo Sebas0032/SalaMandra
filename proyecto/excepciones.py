@@ -8,6 +8,9 @@ class CapacityExceededError(Exception):
     """El número de asistentes supera la capacidad de la sala."""
     pass
 
+class StudentNotFoundError(Exception):
+    """El código del estudiante no está registrado."""
+    pass
 
 class StudentAlreadyBookedError(Exception):
     """El estudiante ya tiene una reserva en ese bloque horario."""
