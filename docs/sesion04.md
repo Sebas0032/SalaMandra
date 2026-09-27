@@ -160,9 +160,7 @@ Las pruebas verificaron:
 
 ### Pull Request
 
-PR #8 — fix: validate student before creating reservation
-
-[Enlace al Pull Request]
+[PR#8](https://github.com/Sebas0032/SalaMandra/pull/8)
 
 ### Commit demostrado
 
