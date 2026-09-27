@@ -159,7 +159,7 @@ Las pruebas verificaron:
 - Rechazo cuando la cantidad de asistentes supera la capacidad de la sala.
 
 ### Pull Request
-
+    
 [PR#8](https://github.com/Sebas0032/SalaMandra/pull/8)
 
 ### Commit demostrado
