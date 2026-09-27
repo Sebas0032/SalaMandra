@@ -140,6 +140,36 @@ python -m pytest -vv --tb=short
 
 python -m pytest --cov=proyecto tests/
 
+### Pruebas ejecutadas
+
+Se ejecutó la suite de pruebas automatizadas con pytest para verificar las reglas implementadas para la creación de reservas.
+
+### Resultado
+
+*8 tests passed.*
+
+Las pruebas verificaron:
+
+- Creación correcta de una reserva válida.
+- Validación de estudiantes registrados.
+- Rechazo de estudiantes no registrados.
+- Aplicación del intervalo mínimo de 15 minutos entre reservas.
+- Rechazo de reservas simultáneas del mismo estudiante.
+- Rechazo cuando la sala no existe.
+- Rechazo cuando la cantidad de asistentes supera la capacidad de la sala.
+
+### Pull Request
+
+PR #8 — fix: validate student before creating reservation
+
+[Enlace al Pull Request]
+
+### Commit demostrado
+
+fix: validate student before creating reservation
+
+El cambio valida el código del estudiante antes de procesar la creación de la reserva y evita que una solicitud con un estudiante no registrado modifique la lista de reservas.
+
 ## Retroalimentación
 Pendiente — petición o defecto identificado en la revisión y cambio correspondiente en el backlog, segun lo recomendado del cliente (Sergio).
 
