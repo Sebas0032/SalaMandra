@@ -130,16 +130,20 @@ Sesión de programación en grupo: _(25/09/2026 — 27/09/2026)_, por Google Mee
 python -m pytest -v
 
 ## Verificación e integración 
-# Ejecutar todas las pruebas
+**Ejecutar todas las pruebas**
+
 python -m pytest -v
 
-# Ejecutar solo las pruebas de un caso
+**Ejecutar solo las pruebas de un caso**
+
 python -m pytest tests/test_reglas.py::TestCrearReservaUsoCasoNormal -v
 
-# Ver resultado detallado con output
+**Ver resultado detallado con output**
+
 python -m pytest -vv --tb=short
 
-# Correr con cobertura (opcional, requiere pip install pytest-cov)
+**Correr con cobertura (opcional, requiere pip install pytest-cov)**
+
 python -m pytest --cov=proyecto tests/
 
 ## Retroalimentación
