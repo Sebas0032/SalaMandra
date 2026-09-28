@@ -112,14 +112,14 @@ Cada prueba arma su propio conjunto de salas y reservas ficticias en memoria.
 
 | Tarea | Personas que colaboran | Estado | Evidencia o ubicación |
 |---|---|---|---|
-| T1. Definir y documentar los ejemplos de aceptación de PB-01 | Todo el equipo |  Terminado | docs/sesion04.md |
-| T2. Implementar clases POO (Student, Room, Reservation) | Todo el equipo |  Terminado | proyecto/estudiante.py, proyecto/sala.py, proyecto/reserva.py |
-| T3. Definir excepciones personalizadas | Todo el equipo |  Terminado | proyecto/excepciones.py |
-| T4. Crear las pruebas (pytest) del caso normal, límite y rechazo | Todo el equipo (rotando) |  Terminado | tests/test_reglas.py |
-| T5. Implementar funciones helper (has_time_conflict, has_active_reservation_in_block) | Todo el equipo (rotando) |  Terminado | proyecto/reglas.py |
-| T6. Implementar create_reservation | Todo el equipo (rotando) |  Terminado | proyecto/reglas.py |
-| T7. Ejecutar pytest, pasar todas las pruebas, revisar y refactorizar | Todo el equipo (rotando) |  Terminado | tests/test_reglas.py / proyecto/reglas.py |
-| T8. Integrar en main, verificar que pytest pasa, preparar demostración | Todo el equipo | Por hacer | GitHub / main |
+| T1. Definir y documentar los ejemplos de aceptación de PB-01 | Luciana redacta; revisaron Sebastian y Cruz |  Terminado | docs/sesion04.md |
+| T2. Implementar clases POO (Student, Room, Reservation) | Sebastian escribe; Luciana y Cruz acompañan |  Terminado | proyecto/estudiante.py, proyecto/sala.py, proyecto/reserva.py |
+| T3. Definir excepciones personalizadas | Cruz escribe; Luciana y Sebastian acompañan |  Terminado | proyecto/excepciones.py |
+| T4. Crear las pruebas (pytest) del caso normal, límite y rechazo | Luciana y Cruz escriben; Sebastian Revisa |  Terminado | tests/test_reglas.py |
+| T5. Implementar funciones helper (has_time_conflict, has_active_reservation_in_block) | Sebastian escribe; Luciana revisa |  Terminado | proyecto/reglas.py |
+| T6. Implementar create_reservation | Cruz escribe; Luciana y Sebastian acompañan |  Terminado | proyecto/reglas.py |
+| T7. Ejecutar pytest, pasar todas las pruebas, revisar y refactorizar | Luciana ejecuta y revisa; Sebastian y Cruz verifican |  Terminado | tests/test_reglas.py / proyecto/reglas.py |
+| T8. Integrar en main, verificar que pytest pasa, preparar demostración | Luciana abre PR, Cruz revisa, Sebastian verifica en main | Por hacer | GitHub / main |
 
 Sesión de programación en grupo: _(25/09/2026 — 27/09/2026)_, por Google Meet. Horario: 10:00–12:00 → Break 1 hora → 14:00–18:00 (total 5 horas de trabajo). La rotación real (quién escribe, quién revisa, quién valida) y el punto de inspección se registran durante la sesión.
 
