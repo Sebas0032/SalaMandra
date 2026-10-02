@@ -1,7 +1,7 @@
 # Sesión 6 — Hallazgos y requisitos del proyecto
 
 - Proyecto: SalaMandra — Sistema de Reserva de Salas de Estudio
-- Integrantes: Luciana Soza (@luci-solar34), Sebastian Cruz (@Sebas0032), Sebastian Toledo (@sebas-sst)
+- Integrantes: Luciana Soza (@luci-solar34), Sebastian Cruz (@Sebas0032), Sebastian Soto (@sebas-sst)
 - Fecha: 01 de octubre de 2026
 - Cliente o fuente consultada: Sergio Barrientos (Docente / Cliente)
 - Flujo seleccionado: Gestión, modificación, cancelación y bloqueos de reservas de salas (PB-01 / PB-03 / PB-04)
@@ -11,7 +11,7 @@
 | ID | Pregunta | Respuesta o hallazgo | Fuente | Estado |
 |---|---|---|---|---|
 | ENT-01 | ¿Qué pasa si alguien intenta modificar una reserva que ya empezó? | Solo se puede modificar una reserva siempre y cuando sea al menos una hora (1 hora) antes del inicio de la reserva. Si ya comenzó o falta menos de 1 hora, no se permite la modificación. | Sergio | Confirmado |
-| ENT-02 | ¿Puede un estudiante cancelar una reserva sin penalización? | Tiene penalización si cancela con menos de tres horas (3 horas) de anticipación. La sanción es escalar: 1ra vez = bloqueo por 24 horas; 2da vez = 48 horas; 3ra vez = 1 semana; 4ta vez = todo el semestre. | Sergio | Confirmado |
+| ENT-02 | ¿Puede un estudiante cancelar una reserva sin penalización? | Tiene penalización si cancela con menos de tres horas de anticipación. La sanción es escalar: 1ra vez = bloqueo por 24 horas; 2da vez = 48 horas; 3ra vez = 1 semana; 4ta vez = todo el semestre. | Sergio | Confirmado |
 | ENT-03 | ¿Se puede bloquear una sala para mantenimiento aunque haya reservas? | Sí se puede. El usuario de Mantenimiento / Administración tiene el poder necesario para cancelar las reservas activas y bloquear la sala en caso de presentarse algún problema. | Sergio | Confirmado |
 
 ## 2. Alcance del flujo
@@ -24,7 +24,7 @@
 ### [RES-RF-01 — Restricción de tiempo para modificación de reserva]
 
 - Tipo: Funcional
-- Origen: ENT-01 y encargo inicial (RES-05)
+- Origen: ENT-01 y encargo inicial
 - Prioridad y razón: Alta; garantiza la previsibilidad de uso de las salas y evita cambios de último momento.
 - Estado: Aprobado por el cliente
 - Requisito: El sistema debe permitir modificar una reserva únicamente si la solicitud se realiza con al menos 1 hora de anticipación respecto a la hora de inicio. De lo contrario, la solicitud debe ser rechazada manteniendo la reserva original.
@@ -132,5 +132,5 @@ Estos escenarios están especificados; serán integrados en la suite de pruebas 
 - Aportes de cada integrante: 
   - Luciana Soza: Conducción de la entrevista al cliente, formulación de las preguntas sobre modificaciones y mantenimiento, y redacción de los hallazgos `ENT-01` y `ENT-03`.
   - Sebastian Cruz: Definición de los requisitos funcionales de penalizaciones escalar (`RES-RF-02`) y restricciones de tiempo (`RES-RF-01`), y configuración del Issue.
-  - Sebastian Toledo: Elaboración de criterios de aceptación, diseño de escenarios del flujo y redacción de la restricción técnica `RES-RT-01`.
+  - Sebastian Soto: Elaboración de criterios de aceptación, diseño de escenarios del flujo y redacción de la restricción técnica `RES-RT-01`.
 - Asistencia de IA, si se utilizó: ChatGPT / Gemini para estructurar las respuestas de la entrevista en la plantilla estándar de la Sesión 6 de GitHub en formato Markdown.
