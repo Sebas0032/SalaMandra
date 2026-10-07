@@ -12,11 +12,11 @@
 |---|---|---|---|---|
 | ENT-01 | ¿Qué pasa si alguien intenta modificar una reserva que ya empezó? | Solo se puede modificar una reserva siempre y cuando sea al menos una hora (1 hora) antes del inicio de la reserva. Si ya comenzó o falta menos de 1 hora, no se permite la modificación. | Sergio | Confirmado |
 | ENT-02 | ¿Puede un estudiante cancelar una reserva sin penalización? | Tiene penalización si cancela con menos de tres horas de anticipación. La sanción es escalar: 1ra vez = bloqueo por 24 horas; 2da vez = 48 horas; 3ra vez = 1 semana; 4ta vez = todo el semestre. | Sergio | Confirmado |
-| ENT-03 | ¿Se puede bloquear una sala para mantenimiento aunque haya reservas? | Sí se puede. El usuario de Mantenimiento / Administración tiene el poder necesario para cancelar las reservas activas y bloquear la sala en caso de presentarse algún problema. | Sergio | Confirmado |
+| ENT-03 | ¿Se puede bloquear una sala para mantenimiento aunque haya reservas? | Sí se puede. El usuario de Administración tiene el poder necesario para cancelar las reservas activas y bloquear la sala en caso de presentarse algún problema. | Sergio | Confirmado |
 
 ## 2. Alcance del flujo
 
-- Incluye: Validación del tiempo de modificación (mínimo 1 hora antes); control de cancelaciones con penalización según bloque de 3 horas; registro y escala progresiva de sanciones a estudiantes (24h, 48h, 1 semana, todo el semestre); facultad de rol de Mantenimiento para cancelar reservas existentes y bloquear salas.
+- Incluye: Validación del tiempo de modificación (mínimo 1 hora antes); control de cancelaciones con penalización según bloque de 3 horas; registro y escala progresiva de sanciones a estudiantes (24h, 48h, 1 semana, todo el semestre); facultad de rol de Administrador para cancelar reservas existentes y bloquear salas.
 - No incluye: Pago o multas monetarias. Envíos automáticos de correos o notificaciones.
 
 ## 3. Requisitos
@@ -49,7 +49,7 @@
 
 ---
 
-### [RES-RF-03 — Bloqueo de sala por Mantenimiento y cancelación de reservas]
+### [RES-RF-03 — Bloqueo de sala por mantenimiento y cancelación de reservas]
 
 - Tipo: Funcional
 - Origen: ENT-03
@@ -58,8 +58,8 @@
 - Requisito: El sistema debe permitir que un usuario con rol de Mantenimiento bloquee una sala por imprevistos. Si existen reservas confirmadas en esa sala, el sistema debe cancelarlas automáticamente cambiando su estado a "CANCELADA_POR_MANTENIMIENTO".
 - Criterio de aceptación o comprobación:
   - Situación inicial: Sala "B-102" con reserva activa para las 15:00 del estudiante "92345".
-  - Acción: Usuario con rol Mantenimiento efectúa un bloqueo por fuga de agua en "B-102".
-  - Resultado esperado: La sala "B-102" pasa a estado "EN_MANTENIMIENTO" y la reserva del estudiante pasa a "CANCELADA_POR_MANTENIMIENTO" sin aplicar penalización al estudiante.
+  - Acción: Usuario con rol Administrador efectúa un bloqueo por fuga de agua en "B-102".
+  - Resultado esperado: La sala "B-102" que estaba reservada ya no se encuentra disponible y la reserva del estudiante pasa a "MANTENIMIENTO" sin aplicar penalización al estudiante.
 
 ---
 
