@@ -1,10 +1,10 @@
-# Sesiones 8 y 9 — Plan del incremento: Bloqueo de salas por Mantenimiento
+# Sesiones 8 y 9 — Plan del incremento: Bloqueo de horarios de sala por Mantenimiento
 
 - Proyecto: SalaMandra — Reserva de Salas de Estudio
 - Integrantes: Luciana Soza (@luci-solar34), Sebastian Cruz (@Sebas0032), Sebastian Soto (@sebas-sst)
 - Fecha de planificación: 06 de octubre de 2026
 - Fuentes: [`docs/sesion-06-requisitos.md`](sesion-06-requisitos.md) (RES-RF-03), [`docs/sesion-07-modelos.md`](sesion-07-modelos.md) (RES-HU-02, RES-CU-02, RES-MOD-02)
-- Flujo elegido: **Bloqueo de sala por Mantenimiento y cancelación automática de reservas**
+- Flujo elegido: **Bloqueo de un horario específico de una sala por Mantenimiento y cambio automático de la reserva asociada**
 - IDs de requisitos: **RES-RF-03**
 
 ---
@@ -12,33 +12,37 @@
 ## 1. Alcance del incremento
 
 ### Incluye:
-- Implementación de los estados `EN_MANTENIMIENTO` y `POR_MANTENIMIENTO` en los modelos de Django para Sala y Reserva
-- Lógica de autorización: solo usuarios con rol Administrador pueden bloquear salas
-- Función `block_room_for_maintenance()` que:
-  - Valida permisos del usuario
-  - Verifica que la sala exista
-  - Busca todas las reservas confirmadas en esa sala
-  - Cambia estado de reservas a `POR_MANTENIMIENTO` **sin aplicar penalizaciones**
-  - Cambia estado de la sala a `EN_MANTENIMIENTO`
-  - Registra el motivo del bloqueo
-- Casos de aceptación: bloqueo exitoso de una sala con la reserva confirmada
-- Casos de rechazo: usuario sin permisos, sala no existe
+- Implementación del estado `MANTENIMIENTO` para `Sala_Horario` y del estado `POR_MANTENIMIENTO` para `Reserva`
+- Lógica de autorización: solo usuarios con rol Administrador pueden bloquear un horario específico de una sala
+- Función `block_sala_horario_for_maintenance()` que:
+  - Valida los permisos del usuario
+  - Verifica que la sala y el horario seleccionado existan
+  - Verifica que el `Sala_Horario` no esté ya en estado `MANTENIMIENTO`
+  - Busca la reserva confirmada asociada al horario seleccionado
+  - Cambia la reserva a `POR_MANTENIMIENTO` **sin aplicar penalizaciones**
+  - Cambia el estado del `Sala_Horario` a `MANTENIMIENTO`
+  - Registra el motivo y la fecha del bloqueo
+- Caso de aceptación: bloqueo exitoso de un horario específico de una sala con una reserva confirmada
+- Casos de rechazo: usuario sin permisos, sala no existe o el horario ya está bloqueado
 - Pruebas unitarias con pytest/Django Test Runner
 - Demostración funcional o ejemplo de uso
 
 ### Excluye (futura iteración):
 - Notificación automática a estudiantes (pendiente de aclaración con Sergio)
-- Desbloqueo manual de salas
-- Historial detallado de bloqueos
+- Liberación o desbloqueo del horario de la sala (pendiente de aclaración con Sergio)
 
 ### Supuestos:
-- La base de datos ya realizada y planteada
-- Existe un modelo `Room` con estado y un modelo `Reservation` con estado
-- Existe modelo de autorización para usuarios con rol Administrador
-- Las reservas activas/confirmadas ya existen en la BD con estado `CONFIRMADA`
+- La estructura de base de datos y las relaciones entre Sala, Sala_Horario y Reserva ya están planteadas
+- Existe un modelo `Sala_Horario` relacionado con una sala y con las reservas correspondientes
+- Existe un modelo de autorización para usuarios con rol Administrador
+- Las reservas confirmadas ya existen en la BD con estado `CONFIRMADA`
+- El bloqueo afecta únicamente al horario seleccionado; los demás horarios de la misma sala permanecen disponibles
+- Si el horario seleccionado no tiene una reserva confirmada, el bloqueo se realiza igualmente
 
 ### Dependencias técnicas externas:
-- Modelo de usuarios con roles 
+- Modelo de usuarios con roles
+- Relaciones existentes entre `Sala`, `Sala_Horario` y `Reserva`
+- Persistencia mediante Django 
 
 ---
 
@@ -46,16 +50,16 @@
 
 | Tarea | Descripción | Esfuerzo (h-p) | Duración (días) | Predecesoras | Responsable | Evidencia de cierre |
 |---|---|---|---|---|---|---|
-| **T1: Realizar modelos de Django** | Agregar estado EN_MANTENIMIENTO y POR_MANTENIMIENTO a Room y Reservation. Crear migraciones. | 3 | 1 | — | Sebastian Cruz | Migraciones por ejecutar sin errores, modelos comprobados en Django shell |
-| **T2: Implementar función de negocio** | Codificar `block_room_for_maintenance(user, room_id, reason)` en `services.py`. Incluir validaciones de autorización, existencia de sala, búsqueda y cambio de estado de reservas. | 4 | 1 | T1 | Sebastian Soto | Función por implementar, pruebas manuales en consola Django |
-| **T3: Escribir pruebas automatizadas** | Test unitario: bloqueo exitoso (pasa a POR_MANTENIMIENTO). Test de rechazo: usuario sin permisos (rechaza, no cambia). Test límite: sala sin reservas (bloquea, estado actualizado). | 3 | 1 | T2 | Luciana Soza | Archivo `test_maintenance_block.py` con 4 casos, cobertura por verificar, tests ejecutados |
-| **T4: Demostración** | Hacer demostración con datos . Actualizar README o docs con ejemplo de uso. | 2.5 | 1 | T3 | [Rotativa] | ejemplo ejecutable sin errores, documentación actualizada en repo |
+| **T1: Agregar modelos de Django** | Agregar el estado `MANTENIMIENTO` a `Sala_Horario` y `POR_MANTENIMIENTO` a `Reservas`. Crear las migraciones necesarias. | 3 | 1 | — | Sebastian Cruz | Migraciones ejecutadas sin errores y modelos comprobados en Django shell |
+| **T2: Implementar función de negocio** | Codificar `block_sala_horario_for_maintenance(user, sala_horario_id, reason)` en `services.py`. Incluir validación de autorización, existencia del horario, bloqueo y actualización de la reserva asociada. | 4 | 1 | T1 | Sebastian Soto | Función implementada y prueba manual del flujo en Django |
+| **T3: Escribir pruebas automatizadas** | Crear pruebas para bloqueo exitoso, usuario sin permisos, sala inexistente y bloqueo de un horario sin reserva confirmada. | 3 | 1 | T2 | Luciana Soza | Archivo de pruebas creado y pruebas ejecutadas correctamente |
+| **T4: Demostración y documentación** | Realizar la demostración del flujo y actualizar la documentación con un ejemplo de uso. | 2.5 | 1 | T3 | Sebastian Soto | Demostración realizada y documentación actualizada en el repositorio |
 
 **Notas de estimación:**
-- **T1 (3 h-p, 1 día):** Modelos simples, sin lógica compleja. Cabe en 1 día de trabajo concentrado (8h). 
-- **T2 (4 h-p, 1 día):** Lógica de autorización + búsqueda + actualización. Complejidad media, pero concentrable en 1 día con foco. Referencia: función `create_reservation()` existente.
-- **T3 (3 h-p, 1 día):** 4 tests (caso aceptado, 2 rechazos, límite). Ejecutable en 1 día con tests de PyTest.
-- **T4 (2.5 h-p, 1 día):** Documentación integrada. Cabe en 1 día.
+- **T1 (3 h-p, 1 día):** Agregar modelos y migraciones. Es una tarea acotada y puede realizarse durante un día de trabajo.
+- **T2 (4 h-p, 1 día):** Implementación de la lógica de autorización, validación y actualización del `Sala_Horario` y su reserva asociada.
+- **T3 (3 h-p, 1 día):** Elaboración y ejecución de las pruebas correspondientes al flujo y sus casos de rechazo.
+- **T4 (2.5 h-p, 1 día):** Demostración del flujo y actualización de la documentación.
 
 **Total de esfuerzo: 12.5 h-p**
 **Duración total: 4 días** (T1 + T2 + T3 + T4 secuenciales)
@@ -76,10 +80,10 @@ T1 (Duración: 1 día) ← Actualizar modelos
 T2 (Duración: 1 día) ← Implementar función
   |
   v
-T3 (Duración: 1 día) ← Escribir tests
+T3 (Duración: 1 día) ← Escribir pruebas
   |
   v
-T4 (Duración: 1 día) ← demostración
+T4 (Duración: 1 día) ← Demostración y documentación
   |
   v
 Fin
@@ -96,7 +100,9 @@ Fin
 | T3 | 2 | 2 + 1 = **3** |
 | T4 | 3 | 3 + 1 = **4** |
 
-**Meta final:** 4 días
+**Inicio del incremento:** martes.
+**Meta final:** viernes, después de completar T4.
+**Duración total:** 4 días.
 
 ### Cálculos de tiempos tardíos (Backward Pass)
 
@@ -112,7 +118,7 @@ Fin
 ### Gantt sencillo (representación en texto)
 
 ```
-Semana 1 (Lunes–Jueves = 4 días de trabajo)
+Semana 1 (Martes–Viernes = 4 días de trabajo)
 ══════════════════════════════════════════════════════════════
 
 Martes        │ Miercoles     │ Jueves        │ Viernes
@@ -124,7 +130,7 @@ T1 Modelos    │ T2 Función    │ T3 Tests      │ T4 Demo
 Día 1         │ Día 2         │ Día 3         │ Día 4
 ```
 
-**Duración total:** 4 días consecutivos de trabajo (1 día por tarea, secuencial).
+**Duración total:** 4 días consecutivos de trabajo (1 día por tarea).
 
 ---
 
@@ -132,22 +138,21 @@ Día 1         │ Día 2         │ Día 3         │ Día 4
 
 ### Supuesto de disponibilidad del equipo:
 
-Asumiendo que cuentan con **4 días de trabajo concentrado** (Martes-Viernes):
+Se considera que el equipo cuenta con disponibilidad durante los **4 días de trabajo del incremento, de martes a viernes**.
 
 | Persona | Disponible | Tareas asignadas | Esfuerzo requerido (h-p) | ¿Puede hacerlo? |
 |---|---|---|---|---|
-| Luciana Soza | 4 días (32h) | T3 (2.5 h-p, rol: escritura de tests, 1 día) | 2.5 h-p |  Sí |
-| Sebastian Cruz | 4 días (32h) | T1 (3 h-p, rol: modelos, 1 día) | 3 h-p |  Sí |
-| Sebastian Soto | 4 días (32h) | T2 (4 h-p, rol: lógica principal, 1 día) + T4 (2.5 h-p, 1 día) | 6.5 h-p | Sí |
+| Luciana Soza | Martes–viernes | T3 (tests) | 3 h-p | Sí |
+| Sebastian Cruz | Martes–viernes | T1 (modelos) | 3 h-p | Sí |
+| Sebastian Soto | Martes–viernes | T2 (función) + T4 (demostración) | 6.5 h-p | Sí |
 
 **Total de esfuerzo-persona necesario: 12.5 h-p**
-**Total de disponibilidad (3 personas × 32h/persona): 96 h-p**
+**Total de disponibilidad: 96 h-p (3 personas × 32 h por persona)**
 
-**Conclusión:** La disponibilidad es **ampliamente suficiente**. Cada persona necesita menos de 7 h-p de un total de 32h disponibles. La secuencialidad de tareas (4 días) cabe perfectamente en la semana de trabajo.
+**Conclusión:** La disponibilidad del equipo es suficiente para ejecutar las cuatro tareas durante los cuatro días planificados. No existe conflicto de recursos porque las tareas se realizan de forma secuencial y cada integrante tiene asignada una tarea en el momento correspondiente.
 
-### Potencial conflicto (si ocurre):
-
-Si una tarea se demora más de 1 día (ej: T2 toma 1.5 días), se desplaza todo lo posterior. **Solución:** Aumentar paralelismo donde sea posible (ej: Luciana comienza a escribir templates de tests mientras Sebastian termina la función, preparando el código para T3).
+### Gestión ante retrasos:
+Si una tarea se demora más de 1 día, se desplazan las tareas posteriores debido a que la ruta crítica es completamente secuencial. En ese caso, se revisará el calendario del incremento y se ajustarán las fechas de las tareas afectadas.
 
 ---
 
@@ -155,54 +160,70 @@ Si una tarea se demora más de 1 día (ej: T2 toma 1.5 días), se desplaza todo 
 
 | Riesgo | Probabilidad y razón | Consecuencia en el incremento | Respuesta antes del problema | Señal y contingencia | Responsable |
 |---|---|---|---|---|---|
-| **R1: Modelo de usuarios/roles no definido o incompleto** | **Media** — Aun está pendiente cómo se almacenan y validan los roles de Administrador en Django. | T1 podría no poder crear la validación; T2 se bloquea esperando un patrón de autorización. Duración de T1 puede pasar de 2h a 3.5h; cascada a T2 y T3. | Sesión 6–7: aclarar con Sergio cómo se modelan usuarios/roles. Si no está listo, T1 puede crear un stub (ej: `is_maintenance` bool) para avanzar. Revisar `proyecto/estudiante.py` y confirmar si existe modelo de User. | Si T1 se demora >30min sin claridad, activar OP-01: pausa de 1h con Sergio para definir roles. | Sebastian Cruz |
-| **R2: Cambio de estado de 3+ reservas sin errores de concurrencia** | **Baja-Media** — Si dos usuarios llaman a `block_room_for_maintenance()` simultáneamente, la BD podría actualizar reservas dos veces. En equipo pequeño y pruebas locales, probabilidad **baja**; si se integra con servidor, sube a **media**. | T2/T3 no validan transacciones; pruebas falsamente positivas. En producción, perderían garantía de "una sola cancelación por reserva". Duración de T3 +1h para agregar transacciones y test de concurrencia. | T2: usar `@transaction.atomic()` en `block_room_for_maintenance()` desde el inicio. T3: agregar test de concurrencia simulado (ej: dos llamadas en paralelo, comprobar que solo una gana). | Si el primer test de concurrencia falla, pausa de 30min. Si la BD local carece de capacidad de transacciones, usar SQLite en modo WAL y documentar limitación. | Sebastian Soto |
+| **R1: Ambigüedad sobre el rol autorizado y el estado de la reserva** | **Media** — En los requisitos anteriores aparecen diferencias entre el rol Administrador/Mantenimiento y entre los nombres de estado utilizados para la reserva. | Puede provocar cambios en los modelos y retrasar T1 y T2. | Consultar con Sergio antes de finalizar los modelos y conservar el ID `RES-RF-03`. Registrar la decisión adoptada. | Si no existe una definición confirmada antes de terminar T1, revisar el modelo y el calendario de T2. | Sebastian Cruz |
+| **R2: Cambio incorrecto de estados durante el bloqueo** | **Media** — El bloqueo debe actualizar correctamente el `Sala_Horario` y, cuando corresponda, la reserva asociada. | Una actualización incompleta podría dejar el horario bloqueado pero la reserva sin cambiar, o modificar una reserva que no corresponde. | Implementar el flujo de forma controlada y cubrir los estados esperados mediante las pruebas de T3. | Si una prueba detecta que el `Sala_Horario` y la reserva quedan en estados inconsistentes, detener T4 y corregir T2. | Sebastian Soto |
 
 ---
 
 ## 6. Entregable, hito y evidencia
 
 ### Entregable:
-1. **Código implementado** (`proyecto/models.py` o módulo equivalente, `services.py`)
-2. **Suite de pruebas** (`tests/test_maintenance_block.py`)
-3. **Documentación de uso** (endpoint REST o comando CLI con ejemplo)
-4. **Commit en rama o PR en GitHub** con mensaje que referencia RES-RF-03 de sesión 6
-5. **Estado verificable** en GitHub (rama actualizada, tests ejecutándose en CI si aplica)
+1. **Código implementado** para el bloqueo de un `Sala_Horario` por Mantenimiento.
+2. **Suite de pruebas automatizadas** que compruebe el flujo y sus casos de rechazo.
+3. **Documentación de uso** del flujo implementado.
+4. **Commit en GitHub** que relacione la implementación con `RES-RF-03`.
 
-### Hito verificable: "RES-RF-03 implementado y comprobado"
+### Hito verificable: "Bloqueo de un horario de sala por Mantenimiento implementado y comprobado"
 
-**Criterios de aceptación:**
--  **Caso aceptado:** Usuario con rol Mantenimiento bloquea Sala B-102 que tiene 2 reservas confirmadas.
-  - Sala pasa a estado `EN_MANTENIMIENTO`
-  - Ambas reservas pasan a estado `POR_MANTENIMIENTO`
-  - No se registran penalizaciones en el historial de estudiantes
-  - Se registra el motivo del bloqueo en la BD
-  - Sistema responde en < 2 segundos
-- **Caso de rechazo 1:** Usuario **sin** rol Administrador intenta bloquear.
-- Sistema rechaza con mensaje "No tienes permisos para bloquear salas"
-  - Sala y reservas no cambian de estado
--  **Caso de rechazo 2:** Usuario intenta bloquear Sala X (no existe).
-  - Sistema rechaza con mensaje "La sala X no existe"
-  - No se modifica nada en la BD
--  **Caso límite:** Sala sin reservas se bloquea exitosamente.
-  - Sala pasa a `EN_MANTENIMIENTO`
-  - Sistema no lanza excepción
--  **Pruebas:** la función `block_room_for_maintenance()` hace su trabajo y sus validaciones
--  **Documentación:** README actualizado con ejemplo ejecutable
+El hito se considera cumplido cuando se pueda comprobar que:
 
-**No es suficiente:**
--  Código que compila pero tests no pasan
--  Tests que pasan pero funcionalidad no demostrare en vivo
--  Documentación incompleta sin ejemplo de uso
+- Un usuario con rol Administrador selecciona una sala y un horario específico.
+- El `Sala_Horario` seleccionado pasa a estado `MANTENIMIENTO`.
+- Si existe una reserva confirmada asociada a ese horario, pasa a `POR_MANTENIMIENTO`.
+- La reserva no genera penalización al estudiante.
+- Se registra el motivo del bloqueo.
+- Los demás horarios de la misma sala no son modificados.
+- Los casos de rechazo definidos en la Sesión 7 no producen cambios en el sistema.
+
+### Criterios de aceptación:
+
+- **Caso aceptado:** Administrador bloquea un horario específico de una sala que tiene una reserva confirmada.
+  - El `Sala_Horario` pasa a `MANTENIMIENTO`.
+  - La reserva asociada pasa a `POR_MANTENIMIENTO`.
+  - No se aplica penalización.
+  - Se registra el motivo y la fecha del bloqueo.
+  - Los demás horarios de la sala permanecen sin cambios.
+
+- **Caso de rechazo 1:** Usuario sin rol Administrador intenta bloquear un horario.
+  - El sistema rechaza la operación.
+  - El `Sala_Horario` y la reserva permanecen sin cambios.
+
+- **Caso de rechazo 2:** Se intenta bloquear un horario perteneciente a una sala que no existe.
+  - El sistema rechaza la operación.
+  - No se modifica ningún estado.
+
+- **Caso sin reserva confirmada:** Se bloquea un horario que no tiene una reserva confirmada.
+  - El `Sala_Horario` pasa a `MANTENIMIENTO`.
+  - No se modifica ninguna reserva.
+
+- **Pruebas:** Las pruebas automatizadas comprueban los casos definidos.
+
+- **Documentación:** El repositorio contiene un ejemplo claro del flujo implementado.
+
+### No es suficiente:
+
+- Código que compile pero no tenga pruebas ejecutadas.
+- Pruebas que pasen sin comprobar el cambio correcto de estados.
+- Documentación que no corresponda al flujo implementado.
 
 ### Estado real del trabajo (al cerrar esta actividad — sesión 08-09)
 
 | Tarea | Estado | Evidencia o explicación |
 |---|---|---|
-| T1 | **No iniciada** | Se inicia hoy. Modelo y migraciones pendientes de implementar. |
-| T2 | **No iniciada** | Depende de T1. Función `block_room_for_maintenance()` aún no codificada. |
-| T3 | **No iniciada** | Depende de T2. Archivo `test_maintenance_block.py` no existe. |
-| T4 | **No iniciada** | Depende de T3. Documentación no integrados. |
+| T1 | **No iniciada** | Los cambios en los modelos y las migraciones todavía no fueron implementados. |
+| T2 | **No iniciada** | La función `block_sala_horario_for_maintenance()` todavía no fue implementada. |
+| T3 | **No iniciada** | Las pruebas automatizadas todavía no fueron creadas ni ejecutadas. |
+| T4 | **No iniciada** | La demostración y la documentación todavía no fueron realizadas. |
 
 **Horas reales registradas:** No registradas (planificación solo; implementación comienza después).
 
@@ -211,17 +232,19 @@ Si una tarea se demora más de 1 día (ej: T2 toma 1.5 días), se desplaza todo 
 ## 7. Siguiente paso y revisión
 
 ### Siguiente acción:
-1. **Revisar con Sergio:** Aclarar modelo de usuarios y roles antes de iniciar T1 (OP-01 si es necesario).
-2. **Iniciar T1 esta semana:** Crear/actualizar modelos de Room, Reservation, Maintenance en Django.
-3. **Hito intermedio:** Migraciones ejecutadas correctamente, modelos verificados.
-4. **Revisión en sesión 10:** Presentar incremento terminado con pruebas y demostración.
+1. **Revisar con Sergio:** aclarar las diferencias identificadas en los requisitos anteriores sobre el rol autorizado y el estado de la reserva, antes de finalizar T1.
+2. **Iniciar T1 el martes:** crear y definir los modelos de `Sala_Horario` y `Reservas` y crear las migraciones necesarias.
+3. **Hito intermedio:** ejecutar correctamente las migraciones y verificar los estados de los modelos.
+4. **Continuar con T2, T3 y T4:** implementar la función, ejecutar las pruebas y realizar la demostración.
+5. **Revisión en sesión 10:** presentar el incremento implementado, probado y documentado.
 
 ### Condición que obliga a revisar el plan:
 
--  Si el modelo de usuarios/roles **no existe y no está aprobado por Sergio**, parar T1 y escalar.
--  Si T1 se demora > 3.5 horas (en lugar de 2), revisar holgura en T2/T3/T4.
--  Si en T3 descubren que la función de T2 tiene diseño defectuoso, retroceder y corregir (T2 → T3 no puede avanzar).
--  Si Sergio cambia los requisitos de bloqueo (ej: agregar notificaciones automáticas), actualizar alcance y replanificar.
+- Si Sergio define un rol autorizado diferente al considerado en el plan, actualizar T1 y T2 antes de continuar.
+- Si se modifica el nombre o comportamiento de los estados `MANTENIMIENTO` o `POR_MANTENIMIENTO`, actualizar los modelos, pruebas y criterios de aceptación.
+- Si durante T1 se detecta que la estructura necesaria para `Sala_Horario` y `Reserva` requiere decisiones adicionales, revisar las estimaciones de T1 y T2.
+- Si durante T3 se detecta que el comportamiento implementado en T2 no coincide con los casos definidos en la Sesión 7, detener T4 y corregir T2.
+- Si Sergio confirma nuevos requisitos, como notificaciones automáticas o una regla de liberación del horario, actualizar el alcance y replanificar el incremento.
 
 ---
 
@@ -229,30 +252,30 @@ Si una tarea se demora más de 1 día (ej: T2 toma 1.5 días), se desplaza todo 
 
 ### Checklist de revisión antes de entregar
 
-- [x] El incremento continúa requisitos RES-RF-03 (sesión 6) y modelos RES-CU-02/MOD-02 (sesión 7)
-- [x] Alcance es pequeño y con sentido (un flujo, caso aceptado + rechazo)
-- [x] Las 4 tareas tienen esfuerzo, duración, responsables y evidencia concreta
-- [x] Red CPM es acíclica y el cálculo de tiempos es correcto
-- [x] Ruta crítica está identificada (holgura 0 en todas las tareas)
-- [x] Gantt visual es coherente con la secuencia
-- [x] Disponibilidad: 12.5 h-p requeridas vs 30 h-p disponibles 
-- [x] Se definen 2 riesgos concretos con probabilidad, consecuencia y respuesta
-- [x] Hito verificable y criterios de aceptación explícitos
-- [x] Estado real: tareas no iniciadas, horas no registradas
-- [x] Siguiente paso tiene responsable y momento de revisión
+- [x] El incremento continúa el requisito `RES-RF-03` de la sesión 6 y los modelos `RES-CU-02` / `RES-MOD-02` de la sesión 7.
+- [x] El alcance se centra en el bloqueo de un `Sala_Horario` específico por Mantenimiento.
+- [x] Las 4 tareas tienen esfuerzo, duración, responsables, predecesoras y evidencia de cierre.
+- [x] La red CPM es acíclica y corresponde a la secuencia T1 → T2 → T3 → T4.
+- [x] La ruta crítica está identificada y todas las tareas tienen holgura 0.
+- [x] El Gantt es coherente con el inicio el martes y la finalización el viernes.
+- [x] La disponibilidad del equipo es suficiente: 12.5 h-p requeridas frente a 96 h-p disponibles.
+- [x] Se identifican 2 riesgos con probabilidad, consecuencia, respuesta, señal y responsable.
+- [x] Se define un entregable y un hito verificable.
+- [x] El estado real refleja que las tareas todavía no fueron iniciadas.
+- [x] Se define el siguiente paso y las condiciones que obligarían a revisar el plan.
 
 ---
 
 ## Participación y notas
 
-- **Luciana Soza:** Responsable de T3 (tests); revisión de coherencia global.
-- **Sebastian Cruz:** Responsable de T1 (modelos); coordinación de dependencias con T2.
-- **Sebastian Soto:** Responsable de T2 (lógica) y co-responsable de T4 (integración).
+- **Luciana Soza:** Responsable de T3 (pruebas); revisión de coherencia global.
+- **Sebastian Cruz:** Responsable de T1 (modelos).
+- **Sebastian Soto:** Responsable de T2 (lógica) y T4 (demostración y documentación).
 
 **Asistencia de IA:**
 - Herramienta: Claude (asistente IA)
 - Propósito: Estructura del archivo, tabla de tareas, cálculos CPM y Gantt
 - Aporte: Template de plan, ejemplos de estimación y formato de riesgos
-- Verificación: El equipo adaptó IDs, duraciones y responsables a SalaMandra; confirmaron que T1→T2→T3→T4 es la secuencia correcta
+- Verificación: Se adaptó IDs, duraciones y responsables.
 
 ---
