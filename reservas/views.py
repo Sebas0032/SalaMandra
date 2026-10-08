@@ -2,27 +2,26 @@
 Vistas de SalaMandra.
 
 Hay un único caso de uso en esta etapa (Sesión 07, RES-CU-02): un
-Administrador inicia sesión, ve las salas/reservas/bloqueos existentes,
-y puede bloquear el horario de una sala por mantenimiento.
+Administrador inicia sesión, ve las salas/horarios/reservas/bloqueos
+existentes, y puede bloquear una combinación sala+horario por
+mantenimiento.
 
-El "login de Administrador" NO usa django.contrib.auth (ese módulo
-depende del ORM de Django). En cambio:
-    - Las credenciales del Administrador viven en MongoDB
-      (colección `admins`, ver management/commands/seed_data.py).
+El login NO usa django.contrib.auth (ese módulo depende del ORM de
+Django). En cambio:
+    - Las credenciales viven en MongoDB (colección `usuarios`, con el
+      rol Administrador asignado vía `usuarios_roles` + `roles`).
     - La sesión iniciada se guarda con las sesiones de Django
-      configuradas en modo "signed_cookies" (ver settings.py),
-      que no requieren base de datos relacional.
+      configuradas en modo "signed_cookies" (ver settings.py), que no
+      requieren base de datos relacional.
 """
 
 from functools import wraps
 
 from django.contrib import messages
-from django.contrib.auth.hashers import check_password
 from django.shortcuts import redirect, render
 from pymongo.errors import PyMongoError
 
 from . import services
-from .mongo import get_db
 
 
 # --- Decoradores de ayuda ----------------------------------------------------
@@ -50,7 +49,7 @@ def admin_login_required(view_func):
 
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
-        if not request.session.get("admin_username"):
+        if not request.session.get("codigo_usuario"):
             messages.error(
                 request, "Debes iniciar sesión como Administrador para continuar."
             )
@@ -64,22 +63,28 @@ def admin_login_required(view_func):
 
 @handle_mongo_errors
 def login_view(request):
-    if request.session.get("admin_username"):
+    if request.session.get("codigo_usuario"):
         return redirect("dashboard")
 
     if request.method == "POST":
-        username = request.POST.get("username", "").strip()
+        email = request.POST.get("email", "").strip().lower()
         password = request.POST.get("password", "")
 
-        db = get_db()
-        admin = db.admins.find_one({"username": username})
+        usuario = services.authenticate_admin(email, password)
 
-        if admin and check_password(password, admin["password_hash"]):
-            request.session["admin_username"] = username
-            messages.success(request, f"Bienvenido/a, {username}.")
+        if usuario:
+            request.session["codigo_usuario"] = usuario["codigo_usuario"]
+            request.session["nombre_completo"] = (
+                f"{usuario['nombre']} {usuario['apellido']}"
+            )
+            messages.success(request, f"Bienvenido/a, {usuario['nombre']}.")
             return redirect("dashboard")
 
-        messages.error(request, "Usuario o contraseña incorrectos.")
+        messages.error(
+            request,
+            "Correo o contraseña incorrectos, o el usuario no tiene rol de "
+            "Administrador.",
+        )
 
     return render(request, "reservas/login.html")
 
@@ -93,19 +98,13 @@ def logout_view(request):
 @admin_login_required
 @handle_mongo_errors
 def dashboard_view(request):
-    rooms = services.get_rooms()
-    reservations = services.get_reservations()
-    bloqueos = services.get_bloqueos()
-
-    reservas_por_sala = {}
-    for reserva in reservations:
-        reservas_por_sala.setdefault(reserva["room_id"], []).append(reserva)
-
     context = {
-        "admin_username": request.session.get("admin_username"),
-        "rooms": rooms,
-        "reservas_por_sala": reservas_por_sala,
-        "bloqueos": bloqueos,
+        "nombre_completo": request.session.get("nombre_completo"),
+        "salas": services.get_salas(),
+        "horarios": services.get_horarios(),
+        "sala_horarios": services.get_sala_horarios_con_detalle(),
+        "reservas": services.get_reservas_con_detalle(),
+        "bloqueos": services.get_bloqueos_con_detalle(),
     }
     return render(request, "reservas/dashboard.html", context)
 
@@ -116,51 +115,54 @@ def block_room_view(request):
     if request.method != "POST":
         return redirect("dashboard")
 
-    room_id = request.POST.get("room_id", "").strip()
-    start = request.POST.get("start", "").strip()
-    end = request.POST.get("end", "").strip()
     motivo = request.POST.get("motivo", "").strip()
+    id_sala_horario_raw = request.POST.get("id_sala_horario", "").strip()
 
-    if not room_id or not start or not end or not motivo:
+    if not id_sala_horario_raw or not motivo:
         messages.error(
             request,
-            "Todos los campos son obligatorios: sala, hora de inicio, "
-            "hora de fin y motivo.",
+            "Selecciona una sala/horario y escribe un motivo para el bloqueo.",
         )
         return redirect("dashboard")
 
     try:
+        id_sala_horario = int(id_sala_horario_raw)
+    except ValueError:
+        messages.error(request, "La sala/horario seleccionado no es válido.")
+        return redirect("dashboard")
+
+    try:
         resultado = services.block_room_schedule_for_maintenance(
-            is_admin=True,  # ya lo garantizó @admin_login_required
-            room_id=room_id,
-            start=start,
-            end=end,
+            codigo_usuario_admin=request.session["codigo_usuario"],
+            id_sala_horario=id_sala_horario,
             motivo=motivo,
         )
     except (
-        services.RoomNotFoundError,
+        services.ScheduleNotFoundError,
         services.ScheduleAlreadyBlockedError,
         services.NotAuthorizedError,
     ) as exc:
         messages.error(request, str(exc))
         return redirect("dashboard")
 
-    reserva_cancelada = resultado["reserva_cancelada"]
-    if reserva_cancelada:
-        quien = reserva_cancelada.get(
-            "student_name", reserva_cancelada.get("student_code", "un estudiante")
-        )
+    sala = resultado["sala"]
+    horario = resultado["horario"]
+    canceladas = resultado["reservas_canceladas"]
+
+    if canceladas:
         messages.success(
             request,
-            f"Horario {start}-{end} de la sala {room_id} bloqueado por "
-            f"mantenimiento. La reserva de {quien} pasó a estado "
-            "POR_MANTENIMIENTO (sin penalización).",
+            f"Horario {horario['hora_inicio']}-{horario['hora_fin']} de "
+            f"{sala['nombre_sala']} bloqueado por mantenimiento. "
+            f"{len(canceladas)} reserva(s) pasaron a POR_MANTENIMIENTO "
+            "(sin penalización).",
         )
     else:
         messages.success(
             request,
-            f"Horario {start}-{end} de la sala {room_id} bloqueado por "
-            "mantenimiento. No había ninguna reserva asociada a ese horario.",
+            f"Horario {horario['hora_inicio']}-{horario['hora_fin']} de "
+            f"{sala['nombre_sala']} bloqueado por mantenimiento. No había "
+            "reservas asociadas.",
         )
 
     return redirect("dashboard")
