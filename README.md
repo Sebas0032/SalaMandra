@@ -1,4 +1,4 @@
-# Reserva de Salas de Estudio
+# SalaMandra — Reserva de Salas de Estudio
 
 Proyecto de Ingeniería de Software (P02 — Reservas de espacios),
 adaptado a un sistema de reserva de salas de estudio universitarias.
@@ -9,7 +9,8 @@ adaptado a un sistema de reserva de salas de estudio universitarias.
 | Luciana Soza | @luci-solar34 |
 | Sebastian Cruz | @Sebas0032 |
 | Sebastian Toledo | @sebas-sst |
-## Estado actual
+
+## Estado actual del proyecto
 
 Este repo contiene **dos partes independientes**:
 
@@ -25,7 +26,7 @@ Este repo contiene **dos partes independientes**:
    cancela automáticamente (sin penalización) la reserva asociada a ese
    horario, si existe.
 
-   **Alcance:** esto llega hasta la Sesión 07. El plan de tareas de las
+   ⚠️ **Alcance:** esto llega hasta la Sesión 07. El plan de tareas de las
    Sesiones 08–09 (`docs/sesion-08-09-plan-salamandra_dias.md`) describe
    el *siguiente* incremento (pruebas automatizadas, estimaciones, etc.)
    y **todavía no está implementado a propósito** — queda para la
@@ -100,18 +101,19 @@ Si responde algo como `{ ok: 1 }`, está funcionando en
 
 ---
 
-## Preparar el entorno
+## 2. Preparar el entorno de Python
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate      # En Windows: .venv\Scripts\activate
 python -m pip install -r requirements.txt
 ```
+
 Esto instala `django`, `pymongo` y `pytest`.
 
 ---
 
-## Configuración (opcional)
+## 3. Configuración (opcional)
 
 Por defecto, el proyecto se conecta a `mongodb://localhost:27017/` y usa
 la base de datos `salamandra_db`. Si usas MongoDB Atlas o quieres otro
@@ -131,7 +133,9 @@ $env:MONGO_DB_NAME = "salamandra_db"
 Si no las defines, se usan los valores por defecto (MongoDB local) y no
 necesitas hacer nada en este paso.
 
-## Cargar datos de ejemplo
+---
+
+## 4. Cargar datos de ejemplo
 
 Con MongoDB corriendo y el entorno virtual activado:
 
@@ -178,14 +182,14 @@ python manage.py seed_data --reset
 > nombres de columna que definieron. No tienen que cambiar nada; es solo
 > para que lo tengan en cuenta si Sergio pregunta por el diagrama.
 
-> **No ejecuten `python manage.py migrate`.** Este proyecto no usa la
+> ⚠️ **No ejecuten `python manage.py migrate`.** Este proyecto no usa la
 > base de datos relacional de Django (ver la nota técnica arriba), así
 > que ese comando no aplica aquí y va a fallar — es esperado, no es un
 > error en el código.
 
 ---
 
-## Levantar el servidor
+## 5. Levantar el servidor
 
 ```bash
 python manage.py runserver
@@ -216,7 +220,7 @@ regla de negocio no dependa únicamente de la pantalla de login.
 
 ---
 
-## Ejecutar las pruebas de las reglas de negocio (Sesión 04–06)
+## 6. Ejecutar las pruebas de las reglas de negocio (Sesión 04–06)
 
 Estas pruebas son independientes de Django/MongoDB — prueban las
 funciones puras de `proyecto/reglas.py`:
@@ -227,7 +231,7 @@ python -m pytest -q
 
 ---
 
-## Estructura del proyecto
+## 7. Estructura del proyecto
 
 ```
 manage.py                      Punto de entrada de Django
@@ -247,7 +251,7 @@ tests/                          Pruebas pytest de esas reglas
 docs/                            Registro de requisitos, modelos y planes por sesión
 ```
 
-## Limitaciones actuales (a propósito, quedan para después)
+## 8. Limitaciones actuales (a propósito, quedan para después)
 
 - No hay pruebas automatizadas todavía para el flujo de bloqueo por
   mantenimiento (eso es parte del plan de las Sesiones 08–09, que se

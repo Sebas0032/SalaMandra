@@ -15,7 +15,7 @@ de reservas/services.py.
 """
 
 from django.conf import settings
-from pymongo import MongoClient
+from pymongo import MongoClient, ReturnDocument
 
 _client = None
 
@@ -34,3 +34,19 @@ def get_client():
 def get_db():
     """Devuelve la base de datos de SalaMandra (salamandra_db por defecto)."""
     return get_client()[settings.MONGO_DB_NAME]
+
+
+def get_next_sequence(db, nombre):
+    """Simula un PK autoincremental `int` (como en el diagrama MySQL del
+    equipo) usando una colección `counters` con un contador por nombre.
+
+    MongoDB no tiene autoincremento nativo (usa ObjectId), así que este es
+    el patrón estándar para lograr IDs enteros secuenciales con pymongo.
+    """
+    resultado = db.counters.find_one_and_update(
+        {"_id": nombre},
+        {"$inc": {"seq": 1}},
+        upsert=True,
+        return_document=ReturnDocument.AFTER,
+    )
+    return resultado["seq"]
