@@ -1,0 +1,202 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SalaMandra{% endblock %}</title>
+    <style>
+        :root {
+            --verde: #1f7a4d;
+            --verde-oscuro: #15542f;
+            --gris-fondo: #f4f6f5;
+            --gris-borde: #dde2e0;
+            --texto: #22292a;
+            --rojo: #b3261e;
+            --naranja: #b35a00;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--gris-fondo);
+            color: var(--texto);
+        }
+        header.navbar {
+            background: var(--verde-oscuro);
+            color: white;
+            padding: 0.9rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        header.navbar .brand {
+            font-size: 1.25rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        header.navbar .brand span {
+            opacity: 0.75;
+            font-weight: 400;
+            font-size: 0.85rem;
+            margin-left: 0.5rem;
+        }
+        header.navbar .session-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 0.95rem;
+        }
+        header.navbar a.logout {
+            color: white;
+            background: rgba(255,255,255,0.15);
+            padding: 0.35rem 0.8rem;
+            border-radius: 6px;
+            text-decoration: none;
+        }
+        header.navbar a.logout:hover { background: rgba(255,255,255,0.3); }
+
+        main {
+            max-width: 1000px;
+            margin: 1.5rem auto;
+            padding: 0 1.25rem 3rem;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid var(--gris-borde);
+            border-radius: 10px;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+        .card h2 {
+            margin-top: 0;
+            font-size: 1.1rem;
+            color: var(--verde-oscuro);
+            border-bottom: 1px solid var(--gris-borde);
+            padding-bottom: 0.6rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.92rem;
+        }
+        th, td {
+            text-align: left;
+            padding: 0.5rem 0.6rem;
+            border-bottom: 1px solid var(--gris-borde);
+        }
+        th { color: #556; font-weight: 600; font-size: 0.82rem; text-transform: uppercase; }
+        tr:last-child td { border-bottom: none; }
+
+        .badge {
+            display: inline-block;
+            padding: 0.15rem 0.55rem;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+        .badge-confirmada { background: #e3f3e9; color: var(--verde-oscuro); }
+        .badge-mantenimiento { background: #fdecea; color: var(--rojo); }
+        .badge-otro { background: #eee; color: #555; }
+
+        form.form-bloqueo {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.9rem;
+        }
+        form.form-bloqueo .full { grid-column: 1 / -1; }
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+            color: #444;
+        }
+        input[type=text], input[type=password], input[type=time], select, textarea {
+            width: 100%;
+            padding: 0.5rem 0.6rem;
+            border: 1px solid var(--gris-borde);
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-family: inherit;
+        }
+        textarea { resize: vertical; min-height: 2.4rem; }
+
+        button, .btn {
+            background: var(--verde);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.1rem;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        button:hover, .btn:hover { background: var(--verde-oscuro); }
+
+        .login-wrapper {
+            max-width: 380px;
+            margin: 4rem auto;
+        }
+        .login-wrapper .card { text-align: left; }
+        .login-wrapper h1 {
+            text-align: center;
+            color: var(--verde-oscuro);
+            margin-bottom: 0.2rem;
+        }
+        .login-wrapper p.subtitle {
+            text-align: center;
+            color: #667;
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        ul.messages { list-style: none; padding: 0; margin: 1rem 0 0; }
+        ul.messages li {
+            padding: 0.6rem 0.9rem;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        ul.messages li.success { background: #e3f3e9; color: var(--verde-oscuro); }
+        ul.messages li.error { background: #fdecea; color: var(--rojo); }
+        ul.messages li.info { background: #eef3fb; color: #1b4e8a; }
+
+        .hint {
+            font-size: 0.82rem;
+            color: #778;
+            margin-top: 0.4rem;
+        }
+        .empty { color: #889; font-style: italic; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <header class="navbar">
+        <div class="brand">🛡️ SalaMandra <span>Panel de Administrador</span></div>
+        {% if nombre_completo %}
+        <div class="session-info">
+            <span>Conectado como <strong>{{ nombre_completo }}</strong></span>
+            <a class="logout" href="{% url 'logout' %}">Cerrar sesión</a>
+        </div>
+        {% endif %}
+    </header>
+
+    <main>
+        {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+            <li class="{{ message.tags }}">{{ message }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
