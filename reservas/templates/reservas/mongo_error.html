@@ -1,0 +1,21 @@
+{% extends "reservas/base.html" %}
+{% block title %}No hay conexión con MongoDB — SalaMandra{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>No se pudo conectar a MongoDB</h2>
+    <p>SalaMandra necesita que MongoDB esté corriendo para funcionar, porque
+       toda la persistencia de datos pasa por MongoDB (no se usa el ORM de
+       Django).</p>
+    <p><strong>Revisa lo siguiente:</strong></p>
+    <ol>
+        <li>¿Está corriendo el servicio de MongoDB en tu computadora (<code>mongod</code>)?</li>
+        <li>¿La variable <code>MONGO_URI</code> apunta al lugar correcto?
+            Por defecto es <code>mongodb://localhost:27017/</code>.</li>
+        <li>Si usas MongoDB Atlas, revisa que tu IP esté en la lista blanca
+            del clúster.</li>
+    </ol>
+    <p>Instrucciones completas de instalación en el <code>README.md</code> del proyecto.</p>
+    <p class="hint">Detalle técnico: {{ error }}</p>
+</div>
+{% endblock %}

@@ -1,0 +1,146 @@
+{% extends "reservas/base.html" %}
+{% block title %}Panel — SalaMandra{% endblock %}
+
+{% block content %}
+
+<div class="card">
+    <h2>Bloquear un horario por mantenimiento</h2>
+    <p class="hint" style="margin-top: -0.3rem; margin-bottom: 1rem;">
+        Caso de uso RES-CU-02 (docs/sesion-07-modelos.md): si el horario
+        seleccionado tiene una reserva CONFIRMADA, pasará a
+        <strong>POR_MANTENIMIENTO</strong> sin penalizar al estudiante.
+    </p>
+    <form class="form-bloqueo" method="post" action="{% url 'block_room' %}">
+        {% csrf_token %}
+        <div class="full">
+            <label for="id_sala_horario">Sala y horario</label>
+            <select id="id_sala_horario" name="id_sala_horario" required>
+                <option value="" disabled selected>Selecciona una sala y horario…</option>
+                {% for combo in sala_horarios %}
+                <option value="{{ combo.id_sala_horario }}">
+                    {{ combo.sala_nombre }} — {{ combo.hora_inicio }} a {{ combo.hora_fin }}
+                    ({{ combo.estado_sala_horario }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="full">
+            <label for="motivo">Motivo del bloqueo</label>
+            <textarea id="motivo" name="motivo" placeholder="Ej. Fuga de agua" required></textarea>
+        </div>
+        <div class="full">
+            <button type="submit">Bloquear horario por mantenimiento</button>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Salas y sus horarios (sala_horario)</h2>
+    {% if sala_horarios %}
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Sala</th>
+                <th>Horario</th>
+                <th>Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for combo in sala_horarios %}
+            <tr>
+                <td>{{ combo.id_sala_horario }}</td>
+                <td>{{ combo.sala_nombre }}</td>
+                <td>{{ combo.hora_inicio }} – {{ combo.hora_fin }}</td>
+                <td>
+                    {% if combo.estado_sala_horario == "DISPONIBLE" %}
+                    <span class="badge badge-confirmada">DISPONIBLE</span>
+                    {% else %}
+                    <span class="badge badge-mantenimiento">{{ combo.estado_sala_horario }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty">
+        No hay combinaciones sala+horario todavía. Ejecuta
+        <code>python manage.py seed_data</code> para crear datos de ejemplo.
+    </p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Reservas</h2>
+    {% if reservas %}
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Sala</th>
+                <th>Horario</th>
+                <th>Fecha</th>
+                <th>Estudiante</th>
+                <th>Actividad</th>
+                <th>Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for reserva in reservas %}
+            <tr>
+                <td>{{ reserva.id_reserva }}</td>
+                <td>{{ reserva.sala_nombre }}</td>
+                <td>{{ reserva.hora_inicio }} – {{ reserva.hora_fin }}</td>
+                <td>{{ reserva.fecha }}</td>
+                <td>{{ reserva.usuario_nombre }}</td>
+                <td>{{ reserva.tipo_actividad }}</td>
+                <td>
+                    {% if reserva.estado_reserva == "CONFIRMADA" %}
+                    <span class="badge badge-confirmada">CONFIRMADA</span>
+                    {% elif reserva.estado_reserva == "POR_MANTENIMIENTO" %}
+                    <span class="badge badge-mantenimiento">POR_MANTENIMIENTO</span>
+                    {% else %}
+                    <span class="badge badge-otro">{{ reserva.estado_reserva }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty">No hay reservas registradas.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Horarios bloqueados por mantenimiento</h2>
+    {% if bloqueos %}
+    <table>
+        <thead>
+            <tr>
+                <th>Sala</th>
+                <th>Horario</th>
+                <th>Motivo</th>
+                <th>Bloqueado por</th>
+                <th>Fecha de bloqueo</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for bloqueo in bloqueos %}
+            <tr>
+                <td>{{ bloqueo.sala_nombre }}</td>
+                <td>{{ bloqueo.hora_inicio }} – {{ bloqueo.hora_fin }}</td>
+                <td>{{ bloqueo.motivo }}</td>
+                <td>{{ bloqueo.admin_nombre }}</td>
+                <td>{{ bloqueo.fecha|date:"d/m/Y H:i" }} UTC</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty">Todavía no se bloqueó ningún horario por mantenimiento.</p>
+    {% endif %}
+</div>
+
+{% endblock %}
