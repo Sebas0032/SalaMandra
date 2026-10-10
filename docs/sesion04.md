@@ -17,14 +17,16 @@ Facilitador y controlador del tiempo: **Luciana Soza** — indica cuándo rotan 
 
 | Orden | ID | Capacidad | ¿A quién ayuda y para qué? | Duda pendiente |
 |---|---|---|---|---|
-| 1 | PB-01 | Validar código del solicitante y crear una reserva | Al solicitante y al operador, para verificar que el solicitante está registrado y permitir el registro de una reserva válida. | ¿La información del solicitante se autocompleta desde la base de datos o se ingresará manualmente? — (aclarada, ver abajo) |
-| 2 | PB-02 | Consultar espacios disponibles | Al solicitante y al operador, para encontrar un espacio según la fecha, horario y capacidad. | ¿Existe un intervalo de tiempo entre reservas para el desalojo? — (aclarada, ver abajo) |
-| 3 | PB-03 | Modificar una reserva | Al solicitante para modificar su reserva y al operador para ayudarlo. | ¿Hasta cuánto tiempo antes se permite modificar? — (aclarada, ver abajo) |
-| 4 | PB-04 | Cancelar una reserva | Al estudiante para cancelar su reserva y al operador para ayudarlo. | ¿Hasta cuánto tiempo antes se permite cancelar? |
-| 5 | PB-05 | Gestionar salas y horarios | Al administrador, para crear salas y establecer los horarios disponibles. | ¿Se pueden crear horarios especiales para una sala? |
+| 1 | **PB-01** | Crear y consultar reservas | Al solicitante (alumno/docente) y al operador, para verificar el código UPB y registrar una reserva válida en un bloque disponible. | ¿La información del solicitante se autocompleta desde la base de datos o se ingresará manualmente? |
+| 2 | **PB-02** | Gestionar disponibilidad y horarios | Al solicitante y operador, para consultar salas libres según la fecha y bloques de horarios fijos. | ¿Existe un intervalo de tiempo entre reservas para el desalojo? |
+| 3 | **PB-03** | Modificar reservas | Al solicitante para cambiar de sala u horario antes del inicio de su bloque reservado. | ¿Hasta cuánto tiempo antes se permite modificar una reserva? |
+| 4 | **PB-04** | Cancelar reservas y gestionar sanciones | Al estudiante para cancelar su reserva y al administrador para aplicar sanciones por inasistencia o cancelación tardía. | ¿Hasta cuánto tiempo antes se permite cancelar y cómo se aplican las penalizaciones? |
+| 5 | **PB-05** | Gestionar mantenimiento | Al administrador, para bloquear o desbloquear salas y horarios por imprevistos o reparaciones. | ¿Se pueden cancelar reservas activas por mantenimiento y qué ocurre con los estudiantes? |
+| 6 | **PB-06** | Gestionar usuarios y permisos | Al administrador, para asignar roles (Solicitante, Operador, Administrador) y gestionar los permisos correspondientes. | ¿Cada usuario debe tener un único rol o una misma persona puede acumular varios roles? |
 
-**Razón de la prioridad:** elegimos PB-01 como primera capacidad a implementar porque resuelve la necesidad central del cliente: permitir que un solicitante pueda reservar una sala de estudio de forma sencilla, verificando que esté registrado. Sus reglas (validación de código, capacidad, conflicto de horario, límite de una reserva por bloque) ya fueron aclaradas con Sergio en las respuestas de cliente. Aunque la solicitante es una característica nueva de esta iteración (antes era solo "crear reserva"), la refactorización a POO con clases separadas para Student, Room y Reservation permite testear cada regla de forma independiente usando datos ficticios en memoria, sin necesidad de implementar PB-02 y PB-05 todavía.
+**Razón de la prioridad:** elegimos **PB-01** como primera capacidad a implementar porque resuelve la necesidad central del cliente: permitir que un solicitante (alumno o docente) pueda reservar una sala de estudio de forma sencilla previa verificación de su código institucional UPB. Sus reglas asociadas (validación de código, autocompletado asíncrono, conflicto de horario, margen de 15 minutos entre bloques y restricción de bloques continuos) fueron totalmente aclaradas con Sergio en la entrevista.
 
+---
 ## Objetivo y alcance
 
 > Al finalizar, el solicitante podrá crear una reserva de una sala de estudio, previa validación de su código de estudiante y respetando la restricción de una reserva activa por horario.
@@ -46,13 +48,12 @@ Facilitador y controlador del tiempo: **Luciana Soza** — indica cuándo rotan 
 
 | Pregunta | Respuesta del cliente | Efecto sobre el comportamiento esperado |
 |---|---|---|
-| ¿Existe un intervalo de tiempo entre reservas para el desalojo? | Se propone un intervalo de 15 minutos. | El sistema permite iniciar una nueva reserva solo si han pasado 15 minutos desde que terminó la reserva anterior de esa sala. |
-| ¿La información del solicitante se autocompleta desde la base de datos o se ingresará manualmente? | La información deberá autocompletar desde la base de datos. | Para esta iteración, simulamos la base de datos con datos ficticios en memoria; el estudiante se valida por su código. |
-| ¿Cuántas salas puede reservar un alumno por horario? | Una sala. | Un alumno no puede tener dos reservas activas en el mismo bloque horario, incluso si son en salas distintas. |
-| ¿Hasta cuánto tiempo antes se permite modificar? | Se permitirá modificar una reserva hasta 10 minutos después de haber sido realizada. | Queda pendiente para PB-03 (fuera del alcance de esta iteración). |
-| ¿Hasta cuánto tiempo antes se permite cancelar? | Pendiente de confirmación. Se plantea inicialmente considerar un límite de una hora. | Queda pendiente para PB-04 (fuera del alcance de esta iteración). |
-
-**Pendiente:** cómo se estructura la base de datos de estudiantes (será relevante para PB-02); penalizaciones por cancelaciones múltiples; mecanismo de login/autenticación (a acordar en una iteración posterior).
+| **¿La información del solicitante se autocompleta desde la base de datos o se ingresará manualmente?** | La información deberá autocompletarse desde la base de datos considerando el comportamiento asíncrono de la consulta. | Al ingresar un código UPB válido, el sistema autocompleta de forma asíncrona los datos del solicitante (nombre y apellido). |
+| **¿Existe un intervalo de tiempo entre reservas para el desalojo?** | Se establece un intervalo obligatorio de 15 minutos entre reservas. | El sistema permite iniciar una nueva reserva en una sala solo si han transcurrido al menos 15 minutos desde que terminó la reserva anterior en esa misma sala. |
+| **¿Hasta cuánto tiempo antes se permite modificar una reserva?** | Se permite modificar únicamente antes de que inicie el horario reservado. | No se permite modificar una reserva si ya comenzó o está en curso. Si la modificación falla o el usuario se arrepiente, se mantiene la reserva original. |
+| **¿Hasta cuánto tiempo antes se permite cancelar y cómo se aplican las penalizaciones?** | Se cancela libremente hasta 1 hora antes. Si cancela con menos de 1 hora, se aplica sanción escalar (1ª vez = 24h, 2ª = 48h, 3ª = 1 semana, 4ª = todo el semestre). | Cancelaciones tardías (<1h) activan bloqueo temporal automático. Las sanciones se reinician al inicio de cada semestre. |
+| **¿Se pueden cancelar reservas activas por mantenimiento y qué ocurre con las reservas afectadas?** | Sí, el Administrador puede bloquear la sala por mantenimiento. Las reservas del período afectado se cancelan automáticamente y se notifica al usuario. | Las reservas afectadas pasan a estado `POR_MANTENIMIENTO` sin generar ninguna penalización al estudiante. |
+| **¿Cada usuario debe tener un único rol o una misma persona puede acumular varios roles?** | Una misma persona puede tener varios roles asignados (por ejemplo, Solicitante y Administrador al mismo tiempo). | El sistema valida los permisos del usuario evaluando la matriz de roles asociados a su cuenta. |
 
 ## Ejemplos de aceptación
 
