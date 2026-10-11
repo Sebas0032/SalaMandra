@@ -1,7 +1,7 @@
 # SalaMandra — Reserva de Salas de Estudio
 
-Proyecto de Ingeniería de Software (P02 — Reservas de espacios),
-adaptado a un sistema de reserva de salas de estudio universitarias.
+Proyecto de Ingeniería de Software (P02 — Reservas de espacios), adaptado a
+un sistema de reserva de salas de estudio universitarias.
 
 ## Integrantes
 | Integrante | GitHub |
@@ -10,184 +10,102 @@ adaptado a un sistema de reserva de salas de estudio universitarias.
 | Sebastian Cruz | @Sebas0032 |
 | Sebastian Toledo | @sebas-sst |
 
-## Estado actual del proyecto
+## Estado actual
 
 Este repo contiene **dos partes independientes**:
 
-1. **`proyecto/` + `tests/`** — las reglas de negocio puras en Python
-   (Sesiones 04–06: crear reserva, validar estudiante, conflictos de
-   horario, capacidad). No tienen interfaz ni base de datos; se
-   comprueban con pytest.
-
-2. **`salamandra_project/` + `reservas/`** — la interfaz web funcional
-   que implementa el **único caso de uso de la Sesión 07**
+1. **`proyecto/` + `tests/`**: reglas de negocio puras en Python (Sesiones
+   04–06), sin interfaz ni base de datos. Se comprueban con pytest.
+2. **`salamandra_project/` + `reservas/`**: la interfaz web (Django +
+   **SQLite**) que implementa el **único caso de uso de la Sesión 07**
    (`docs/sesion-07-modelos.md`, RES-CU-02): un **Administrador** inicia
-   sesión y **bloquea el horario de una sala por mantenimiento**, lo que
-   cancela automáticamente (sin penalización) la reserva asociada a ese
-   horario, si existe.
+   sesión y **bloquea el horario de una sala por mantenimiento**; las
+   reservas confirmadas de ese horario pasan a `POR_MANTENIMIENTO` sin
+   penalizar al estudiante.
 
-   ⚠️ **Alcance:** esto llega hasta la Sesión 07. El plan de tareas de las
-   Sesiones 08–09 (`docs/sesion-08-09-plan-salamandra_dias.md`) describe
-   el *siguiente* incremento (pruebas automatizadas, estimaciones, etc.)
-   y **todavía no está implementado a propósito** — queda para la
-   siguiente iteración.
+> **Alcance:** llega hasta la Sesión 07. El plan de las Sesiones 08–09
+> (`docs/sesion-08-09-plan-salamandra_dias.md`) queda para la siguiente
+> iteración y no está implementado a propósito.
 
-### Decisión técnica importante: MongoDB, sin el ORM de Django
+### Base de datos
 
-El equipo decidió usar **MongoDB** como base de datos. Por eso:
+Se usa **SQLite** con el **ORM de Django**: no hay que instalar ningún
+servicio ni configurar usuario o contraseña. Todo se guarda en un archivo,
+`db.sqlite3`, que Django crea solo en la raíz del proyecto.
 
-- Se usa Django **solo como framework web** (rutas, vistas, plantillas,
-  sesiones).
-- El acceso a datos se hace **directamente con `pymongo`**
-  (ver `reservas/mongo.py` y `reservas/services.py`), **sin** usar
-  `django.db.models` ni ejecutar `python manage.py migrate`.
-- Por la misma razón, **no están instaladas** las apps
-  `django.contrib.admin`, `django.contrib.auth` ni
-  `django.contrib.contenttypes` (todas dependen del ORM). El login de
-  Administrador se implementó a mano, guardando el usuario en MongoDB y
-  la sesión en una cookie firmada de Django (no requiere base de datos
-  relacional).
+Los modelos (`reservas/models.py`) reproducen el diagrama entidad-relación
+del equipo: `roles`, `usuarios`, `usuarios_roles`, `tipo_sancion`,
+`sanciones`, `horarios`, `salas`, `sala_horario`, `reservas`, `bloqueos`,
+con los mismos nombres de tabla y de columna.
+
+Dos aclaraciones sobre el esquema:
+
+- **`usuarios.password_hash`** no estaba en el diagrama original; se agregó
+  porque el login necesita guardar la contraseña.
+- En el DDL original, algunas `FOREIGN KEY` de `sala_horario`, `reservas` y
+  `bloqueos` apuntaban a la columna equivocada. Se implementó la relación
+  lógica correcta (`id_sala → salas.id_salas`, `id_horario →
+  horarios.id_horario`, `id_sala_horario → sala_horario.id_sala_horario`).
+
+Solo están instaladas las apps de Django necesarias, así que la base de datos
+contiene únicamente las tablas del equipo (más `django_migrations`).
 
 ---
 
 ## 1. Qué necesitas instalar
 
-| Herramienta | Para qué | Versión sugerida |
+| Herramienta | Para qué | Versión |
 |---|---|---|
-| **Python** | Ejecutar Django y las pruebas | 3.10 o superior |
-| **pip** | Instalar las librerías de `requirements.txt` | viene con Python |
-| **MongoDB** (local o Atlas) | Guardar salas, reservas, bloqueos y el usuario Administrador | MongoDB 6 o 7 |
+| **Python** | Ejecutar Django (SQLite ya viene incluido con Python) | 3.12 o superior (probado con 3.14) |
 | **git** | Clonar/subir el repo | cualquiera reciente |
 
-Todo lo demás (Django, pymongo) se instala con `pip install -r requirements.txt` más abajo.
+Nada más. Django se instala con `pip` en el paso 2.
 
-### 1.1. Instalar MongoDB
-
-Elige **una** de estas dos opciones:
-
-**Opción A — MongoDB local (recomendada para el curso)**
-
-- **Windows:** descarga el instalador "MongoDB Community Server" desde
-  https://www.mongodb.com/try/download/community, instálalo dejando
-  marcada la opción "Install MongoDB as a Service" (así se inicia solo).
-- **macOS (con Homebrew):**
-  ```bash
-  brew tap mongodb/brew
-  brew install mongodb-community
-  brew services start mongodb-community
-  ```
-- **Linux (Ubuntu/Debian):** sigue la guía oficial
-  https://www.mongodb.com/docs/manual/administration/install-on-linux/
-  (el paquete se llama `mongodb-org`) y luego:
-  ```bash
-  sudo systemctl start mongod
-  sudo systemctl enable mongod   # para que arranque solo
-  ```
-
-Para confirmar que MongoDB está corriendo:
-```bash
-mongosh --eval "db.runCommand({ ping: 1 })"
-```
-Si responde algo como `{ ok: 1 }`, está funcionando en
-`mongodb://localhost:27017/`, que es lo que este proyecto usa por defecto.
-
-**Opción B — MongoDB Atlas (en la nube, sin instalar nada local)**
-
-1. Crea un clúster gratuito en https://www.mongodb.com/cloud/atlas/register
-2. En "Network Access", agrega tu IP (o `0.0.0.0/0` solo para pruebas).
-3. Copia tu cadena de conexión (botón "Connect" → "Drivers"), se ve así:
-   `mongodb+srv://usuario:contraseña@cluster0.xxxxx.mongodb.net/`
-4. Define esa cadena como variable de entorno `MONGO_URI` (ver sección 3).
-
----
-
-## 2. Preparar el entorno de Python
+## 2. Preparar el entorno
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate      # En Windows: .venv\Scripts\activate
+python -m venv .venv
+.venv\Scripts\activate          # Windows  (macOS/Linux: source .venv/bin/activate)
 python -m pip install -r requirements.txt
 ```
 
-Esto instala `django`, `pymongo` y `pytest`.
+Instala `django` y `pytest`.
 
----
-
-## 3. Configuración (opcional)
-
-Por defecto, el proyecto se conecta a `mongodb://localhost:27017/` y usa
-la base de datos `salamandra_db`. Si usas MongoDB Atlas o quieres otro
-nombre de base de datos, define estas variables de entorno **antes** de
-correr cualquier comando:
+## 3. Crear las tablas
 
 ```bash
-# Linux/macOS
-export MONGO_URI="mongodb+srv://usuario:contraseña@tu-cluster.mongodb.net/"
-export MONGO_DB_NAME="salamandra_db"
-
-# Windows (PowerShell)
-$env:MONGO_URI = "mongodb+srv://usuario:contraseña@tu-cluster.mongodb.net/"
-$env:MONGO_DB_NAME = "salamandra_db"
+python manage.py makemigrations reservas
+python manage.py migrate
 ```
 
-Si no las defines, se usan los valores por defecto (MongoDB local) y no
-necesitas hacer nada en este paso.
-
----
+- `makemigrations` genera `reservas/migrations/0001_initial.py` a partir de
+  `models.py`. **Haz commit de ese archivo** para que todo el equipo cree
+  las mismas tablas.
+- `migrate` crea el archivo `db.sqlite3` con todas las tablas.
 
 ## 4. Cargar datos de ejemplo
-
-Con MongoDB corriendo y el entorno virtual activado:
 
 ```bash
 python manage.py seed_data
 ```
 
-Esto crea, **solo si no existen todavía**, siguiendo el modelo de datos
-del equipo (`usuarios`, `roles`, `usuarios_roles`, `tipo_sancion`, `salas`,
-`horarios`, `sala_horario`, `reservas`, `bloqueos`):
+Crea (sin duplicar si lo corres de nuevo):
 
-- 2 roles: `Administrador` y `Estudiante`
-- 2 usuarios:
-  - **Administrador:** `admin@salamandra.upb.edu` / `admin123`
-  - Estudiante: Luciana Perez (sin login, solo tiene reservas a su nombre)
-- Catálogo `tipo_sancion` (la escala de `docs/sesion-06-requisitos.md`:
-  24h, 48h, 1 semana, semestre) — cargado como catálogo, pero su lógica
-  (RES-RF-02) todavía no está implementada, queda para otra iteración
-- 2 salas: *Sala de estudio A* y *Sala de estudio B*
-- 2 horarios: `10:00-12:00` y `15:00-17:00`
-- 2 combinaciones `sala_horario` (Sala A + 10:00-12:00, Sala B + 15:00-17:00)
-- 2 reservas `CONFIRMADA` de ejemplo, una por cada combinación
+- Roles `Administrador` y `Estudiante`
+- **Administrador: `admin@salamandra.upb.edu` / `admin123`**
+- Una estudiante (Luciana Perez), sin login, con reservas a su nombre
+- Catálogo `tipo_sancion` (escala de la Sesión 06; su lógica aún no existe)
+- 2 salas, 2 horarios (`10:00-12:00`, `15:00-17:00`) y sus combinaciones
+  `sala_horario`
+- 2 reservas `CONFIRMADA` para mañana
 
-Si quieres borrar todo y empezar de cero:
+Para borrar todos los datos y volver a cargarlos:
 ```bash
 python manage.py seed_data --reset
 ```
 
-> **Nota sobre el campo `password_hash`:** el diagrama entidad-relación
-> que diseñaron no incluye una columna de contraseña en `usuarios`. Se
-> agregó ese único campo porque el login necesita guardarla de alguna
-> forma — es la única diferencia respecto al esquema que definieron.
->
-> **Nota sobre las llaves foráneas:** en el DDL que generaron, algunas
-> `FOREIGN KEY` de `sala_horario`, `reservas` y `bloqueos` apuntan a la
-> columna equivocada (por ejemplo, `sala_horario.id_sala_horario`
-> referenciando `salas.id_salas`, cuando lógicamente debería ser
-> `id_sala` el que referencia `salas`). Esto es común cuando el DDL se
-> genera automáticamente con una herramienta tipo dbdiagram.io y se
-> reordenan o repiten nombres de columnas. Aquí se implementó la
-> relación **lógica correcta** (`id_sala` → `salas.id_salas`,
-> `id_horario` → `horarios.id_horario`, `id_sala_horario` en `reservas`
-> y `bloqueos` → `sala_horario.id_sala_horario`), manteniendo los mismos
-> nombres de columna que definieron. No tienen que cambiar nada; es solo
-> para que lo tengan en cuenta si Sergio pregunta por el diagrama.
-
-> ⚠️ **No ejecuten `python manage.py migrate`.** Este proyecto no usa la
-> base de datos relacional de Django (ver la nota técnica arriba), así
-> que ese comando no aplica aquí y va a fallar — es esperado, no es un
-> error en el código.
-
----
+> `db.sqlite3` es local de cada integrante y no se sube a GitHub (está en
+> `.gitignore`). Cada uno crea el suyo con los pasos 3 y 4.
 
 ## 5. Levantar el servidor
 
@@ -195,75 +113,77 @@ python manage.py seed_data --reset
 python manage.py runserver
 ```
 
-Abre tu navegador en **http://localhost:8000/**
+Abre **http://localhost:8000/**
 
-1. Te va a pedir iniciar sesión → usa `admin@salamandra.upb.edu` / `admin123`.
-2. Verás el panel con: las combinaciones sala+horario (`sala_horario`),
-   las reservas y los horarios ya bloqueados por mantenimiento.
-3. En "Bloquear un horario por mantenimiento", selecciona en el
-   desplegable, por ejemplo, **"Sala de estudio B — 15:00 a 17:00
-   (DISPONIBLE)"** y escribe un motivo, por ejemplo `Fuga de agua`.
-4. Al enviar el formulario, el sistema:
-   - Busca las reservas `CONFIRMADA` de esa combinación sala+horario y
-     las cambia a **`POR_MANTENIMIENTO`** (sin penalizar al estudiante).
-   - Cambia el estado de esa fila de `sala_horario` a `MANTENIMIENTO`.
-   - Registra el bloqueo (quién, motivo, fecha) en `bloqueos`.
-   - Si intentas bloquear la misma combinación dos veces, lo rechaza
-     (ya está en mantenimiento).
-   - Si envían un `id_sala_horario` que no existe, lo rechaza.
+1. Inicia sesión con `admin@salamandra.upb.edu` / `admin123`.
+2. Verás las combinaciones sala+horario, las reservas y los bloqueos.
+3. En **"Bloquear un horario por mantenimiento"** elige, por ejemplo,
+   *Sala de estudio B — 15:00 a 17:00* y escribe un motivo (`Fuga de agua`).
+4. Al enviar, el sistema (todo dentro de **una sola transacción**):
+   - pasa las reservas `CONFIRMADA` de ese horario a **`POR_MANTENIMIENTO`**
+     (sin penalizar al estudiante),
+   - cambia `sala_horario.estado_sala_horario` a `MANTENIMIENTO`,
+   - registra el bloqueo (quién, motivo, fecha) en la tabla `bloqueos`.
+5. Si intentas bloquear el mismo horario otra vez, lo rechaza (ya está en
+   mantenimiento). Sin iniciar sesión no se puede llegar al formulario.
 
-Esto corresponde al flujo principal y las ramas E1/E2 de
-`docs/sesion-07-modelos.md` (RES-CU-02). La validación de rol
-(Administrador) se hace tanto al iniciar sesión como otra vez dentro de
-`block_room_schedule_for_maintenance()` en `services.py`, para que la
-regla de negocio no dependa únicamente de la pantalla de login.
+Esto corresponde al flujo principal y a las ramas E1/E2 de
+`docs/sesion-07-modelos.md`. La validación del rol Administrador se hace al
+iniciar sesión **y otra vez** dentro de `block_room_schedule_for_maintenance()`
+(`reservas/services.py`), para que la regla de negocio no dependa solo de la
+pantalla de login.
 
----
+## 6. Ver el contenido de la base de datos (opcional)
 
-## 6. Ejecutar las pruebas de las reglas de negocio (Sesión 04–06)
+PyCharm puede abrir `db.sqlite3` directamente (doble clic sobre el archivo,
+o pestaña **Database** → **+** → **Data Source** → **SQLite**). También
+sirve la extensión *SQLite Viewer* de VS Code, o la app gratuita
+*DB Browser for SQLite*.
 
-Estas pruebas son independientes de Django/MongoDB — prueban las
-funciones puras de `proyecto/reglas.py`:
+## 7. Pruebas de las reglas de negocio (Sesión 04–06)
 
+Independientes de Django y de la base de datos:
 ```bash
 python -m pytest -q
 ```
 
 ---
 
-## 7. Estructura del proyecto
+## 8. Problemas frecuentes
+
+| Mensaje | Causa y solución |
+|---|---|
+| `no such table: usuarios` (o la pantalla "No se pudo usar la base de datos") | Faltan las tablas. Ejecuta `makemigrations reservas` y `migrate` (paso 3). |
+| `No module named 'django'` | Falta instalar dependencias, o el venv no está activado. Paso 2. |
+| En el login: "Correo o contraseña incorrectos" | No corriste `seed_data`, o el correo no es exactamente `admin@salamandra.upb.edu`. |
+| Quiero empezar de cero | Borra el archivo `db.sqlite3` y repite los pasos 3 y 4. |
+
+## 9. Estructura del proyecto
 
 ```
-manage.py                      Punto de entrada de Django
-salamandra_project/            Configuración del proyecto Django
-    settings.py                 DATABASES vacío a propósito (se usa MongoDB, no el ORM)
+manage.py
+salamandra_project/            Configuración de Django (settings.py: SQLite)
+reservas/                      App web (Sesión 07)
+    models.py                    Tablas del equipo (ORM de Django)
+    services.py                  Caso de uso RES-CU-02 (bloqueo por mantenimiento)
+    views.py                     Login, dashboard, bloqueo
     urls.py
-reservas/                      App de Django: la interfaz web (Sesión 07)
-    mongo.py                     Conexión a MongoDB (pymongo)
-    services.py                  Lógica del caso de uso RES-CU-02 (bloqueo por mantenimiento)
-    views.py                     Login de Administrador, dashboard, bloqueo
-    urls.py
-    templates/reservas/          HTML (login, dashboard, error de conexión)
-    management/commands/
-        seed_data.py              Carga datos de ejemplo en MongoDB
-proyecto/                       Reglas de negocio puras (Sesión 04-06, sin DB ni UI)
-tests/                          Pruebas pytest de esas reglas
-docs/                            Registro de requisitos, modelos y planes por sesión
+    migrations/                  Migraciones (se genera 0001_initial.py)
+    templates/reservas/          HTML
+    management/commands/seed_data.py   Datos de ejemplo
+proyecto/                      Reglas de negocio puras (Sesión 04-06)
+tests/                         Pruebas pytest de esas reglas
+docs/                          Requisitos, modelos y planes por sesión
+db.sqlite3                     Se crea al ejecutar migrate (no se sube a git)
 ```
 
-## 8. Limitaciones actuales (a propósito, quedan para después)
+## 10. Limitaciones actuales (a propósito)
 
-- No hay pruebas automatizadas todavía para el flujo de bloqueo por
-  mantenimiento (eso es parte del plan de las Sesiones 08–09, que se
-  dejó pendiente intencionalmente).
-- Las colecciones `tipo_sancion` y `sanciones` están en el modelo de
-  datos (y `tipo_sancion` se carga con el catálogo de `seed_data`), pero
-  la lógica de RES-RF-02 (penalizar cancelaciones tardías) **no está
-  implementada todavía** — esta iteración solo cubre RES-RF-03
-  (bloqueo por mantenimiento).
-- Solo existe un usuario Administrador fijo (creado por `seed_data`); no
-  hay una pantalla para crear más administradores ni roles adicionales.
-- No se envían notificaciones a los estudiantes cuando su reserva pasa a
-  `POR_MANTENIMIENTO` (pregunta pendiente con Sergio, ver
-  `docs/sesion-07-modelos.md`, sección 6).
-- No hay una forma de "desbloquear" un horario desde la interfaz todavía.
+- No hay pruebas automatizadas del flujo de bloqueo (plan de Sesiones 08–09).
+- `tipo_sancion` y `sanciones` existen como tablas, pero la lógica de
+  RES-RF-02 (penalizar cancelaciones tardías) no está implementada.
+- Solo hay un Administrador (creado por `seed_data`); no hay pantalla para
+  crear más usuarios o roles.
+- No se notifica a los estudiantes cuando su reserva pasa a
+  `POR_MANTENIMIENTO` (pregunta pendiente con Sergio).
+- No hay forma de "desbloquear" un horario desde la interfaz todavía.

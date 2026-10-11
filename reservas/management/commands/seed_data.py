@@ -1,213 +1,135 @@
 """
 Comando: python manage.py seed_data
 
-Crea en MongoDB los datos mínimos para probar el caso de uso RES-CU-02,
-siguiendo el modelo de datos del equipo (usuarios, roles, usuarios_roles,
-tipo_sancion, salas, horarios, sala_horario, reservas, bloqueos).
+Carga en la base de datos los datos mínimos para probar el caso de uso RES-CU-02:
 
-`tipo_sancion` se carga como catálogo (coincide con la escala de
-RES-RF-02 de docs/sesion-06-requisitos.md), pero `sanciones` se deja
-vacía: la lógica para aplicar sanciones todavía no está implementada,
-queda para una iteración futura.
+    - roles: Administrador y Estudiante
+    - usuarios: un Administrador (con login) y una estudiante (sin login)
+    - tipo_sancion: catálogo de RES-RF-02 (sin lógica implementada todavía)
+    - salas, horarios y sus combinaciones (sala_horario)
+    - 2 reservas CONFIRMADA de ejemplo
 
-Es seguro ejecutarlo varias veces: si ya existen datos, no los duplica.
-Usa --reset para borrar todo y empezar de cero.
+Es seguro ejecutarlo varias veces: no duplica lo que ya existe.
+Usa --reset para borrar TODOS los datos de estas tablas y empezar de cero.
 """
 
-from datetime import datetime, timezone
+from datetime import time, timedelta
 
 from django.contrib.auth.hashers import make_password
 from django.core.management.base import BaseCommand
+from django.db import transaction
+from django.utils import timezone
 
-from reservas.mongo import get_db
+from reservas.models import (
+    Bloqueo,
+    Horario,
+    Reserva,
+    Rol,
+    Sala,
+    SalaHorario,
+    Sancion,
+    TipoSancion,
+    Usuario,
+    UsuarioRol,
+)
 
-COLECCIONES = [
-    "usuarios",
-    "roles",
-    "usuarios_roles",
-    "tipo_sancion",
-    "sanciones",
-    "horarios",
-    "salas",
-    "sala_horario",
-    "reservas",
-    "bloqueos",
-    "counters",
-]
+ADMIN_EMAIL = "admin@salamandra.upb.edu"
+ADMIN_PASSWORD = "admin123"
 
 
 class Command(BaseCommand):
-    help = "Carga datos de ejemplo en MongoDB según el modelo de datos del equipo."
+    help = "Carga datos de ejemplo en la base de datos (salas, horarios, reservas y el Administrador)."
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--reset",
             action="store_true",
-            help="Borra las colecciones de SalaMandra antes de volver a cargarlas.",
+            help="Borra todos los datos de las tablas de SalaMandra antes de cargar.",
         )
 
+    @transaction.atomic
     def handle(self, *args, **options):
-        db = get_db()
-
         if options["reset"]:
-            for nombre in COLECCIONES:
-                db[nombre].delete_many({})
-            self.stdout.write(self.style.WARNING("Colecciones de SalaMandra limpiadas."))
+            # Orden: primero las tablas que dependen de otras.
+            for modelo in (
+                Bloqueo, Reserva, SalaHorario, Sancion, UsuarioRol,
+                Sala, Horario, TipoSancion, Usuario, Rol,
+            ):
+                modelo.objects.all().delete()
+            self.stdout.write(self.style.WARNING("Tablas de SalaMandra vaciadas."))
 
         # --- roles ---------------------------------------------------------
-        if db.roles.count_documents({}) == 0:
-            db.roles.insert_many(
-                [
-                    {"id_rol": 1, "nombre_rol": "Administrador"},
-                    {"id_rol": 2, "nombre_rol": "Estudiante"},
-                ]
-            )
-            self.stdout.write(self.style.SUCCESS("Roles creados: Administrador, Estudiante"))
-        else:
-            self.stdout.write("Ya existían roles, no se modificaron.")
+        rol_admin, _ = Rol.objects.get_or_create(nombre_rol="Administrador")
+        rol_estudiante, _ = Rol.objects.get_or_create(nombre_rol="Estudiante")
 
-        # --- usuarios --------------------------------------------------------
-        # NOTA: `password_hash` no está en el diagrama original del equipo;
-        # se agregó solo porque el login necesita guardar la contraseña de
-        # alguna forma. Es la única diferencia respecto al esquema enviado.
-        if db.usuarios.count_documents({}) == 0:
-            db.usuarios.insert_many(
-                [
-                    {
-                        "codigo_usuario": 1,
-                        "email": "admin@salamandra.upb.edu",
-                        "nombre": "Admin",
-                        "apellido": "SalaMandra",
-                        "estado_usuario": True,
-                        "fecha_creacion": datetime.now(timezone.utc),
-                        "password_hash": make_password("admin123"),
-                    },
-                    {
-                        "codigo_usuario": 2,
-                        "email": "luciana.perez@upb.edu",
-                        "nombre": "Luciana",
-                        "apellido": "Perez",
-                        "estado_usuario": True,
-                        "fecha_creacion": datetime.now(timezone.utc),
-                    },
-                ]
-            )
-            self.stdout.write(
-                self.style.SUCCESS(
-                    "Usuarios creados -> Administrador: "
-                    "admin@salamandra.upb.edu / admin123"
-                )
-            )
-        else:
-            self.stdout.write("Ya existían usuarios, no se modificaron.")
+        # --- usuarios ------------------------------------------------------
+        admin, creado = Usuario.objects.get_or_create(
+            email=ADMIN_EMAIL,
+            defaults={
+                "nombre": "Admin",
+                "apellido": "SalaMandra",
+                "estado_usuario": True,
+                "password_hash": make_password(ADMIN_PASSWORD),
+            },
+        )
+        if creado:
+            self.stdout.write(self.style.SUCCESS(
+                f"Administrador creado -> {ADMIN_EMAIL} / {ADMIN_PASSWORD}"
+            ))
 
-        # --- usuarios_roles ----------------------------------------------------
-        if db.usuarios_roles.count_documents({}) == 0:
-            db.usuarios_roles.insert_many(
-                [
-                    {"id_usuario_roles": 1, "id_rol": 1, "codigo_usuario": 1},
-                    {"id_usuario_roles": 2, "id_rol": 2, "codigo_usuario": 2},
-                ]
-            )
-            self.stdout.write(self.style.SUCCESS("Rol Administrador asignado al usuario admin."))
-        else:
-            self.stdout.write("Ya existían asignaciones de rol, no se modificaron.")
+        estudiante, _ = Usuario.objects.get_or_create(
+            email="luciana.perez@upb.edu",
+            defaults={"nombre": "Luciana", "apellido": "Perez", "estado_usuario": True},
+        )
 
-        # --- tipo_sancion (catálogo; RES-RF-02, sin lógica implementada aún) ----
-        if db.tipo_sancion.count_documents({}) == 0:
-            db.tipo_sancion.insert_many(
-                [
-                    {"id_tipo_sancion": 1, "nombre_sancion": "Cancelación tardía (1ra vez)", "duracion": 24},
-                    {"id_tipo_sancion": 2, "nombre_sancion": "Cancelación tardía (2da vez)", "duracion": 48},
-                    {"id_tipo_sancion": 3, "nombre_sancion": "Cancelación tardía (3ra vez)", "duracion": 168},
-                    {"id_tipo_sancion": 4, "nombre_sancion": "Cancelación tardía (4ta vez)", "duracion": 9999},
-                ]
-            )
-            self.stdout.write(
-                self.style.SUCCESS(
-                    "Catálogo tipo_sancion creado (sin lógica implementada todavía)."
-                )
-            )
-        else:
-            self.stdout.write("Ya existía el catálogo tipo_sancion, no se modificó.")
+        # --- usuarios_roles ------------------------------------------------
+        UsuarioRol.objects.get_or_create(usuario=admin, rol=rol_admin)
+        UsuarioRol.objects.get_or_create(usuario=estudiante, rol=rol_estudiante)
 
-        # --- salas -----------------------------------------------------------
-        if db.salas.count_documents({}) == 0:
-            db.salas.insert_many(
-                [
-                    {"id_salas": 1, "nombre_sala": "Sala de estudio A", "estado_sala": True},
-                    {"id_salas": 2, "nombre_sala": "Sala de estudio B", "estado_sala": True},
-                ]
+        # --- tipo_sancion (catálogo de RES-RF-02, sin lógica todavía) ---------
+        for nombre, horas in (
+            ("Cancelación tardía (1ra vez)", 24),
+            ("Cancelación tardía (2da vez)", 48),
+            ("Cancelación tardía (3ra vez)", 168),
+            ("Cancelación tardía (4ta vez, todo el semestre)", 9999),
+        ):
+            TipoSancion.objects.get_or_create(
+                nombre_sancion=nombre, defaults={"duracion": horas}
             )
-            self.stdout.write(self.style.SUCCESS("Salas creadas: Sala de estudio A, Sala de estudio B"))
-        else:
-            self.stdout.write("Ya existían salas, no se modificaron.")
 
-        # --- horarios ----------------------------------------------------------
-        if db.horarios.count_documents({}) == 0:
-            db.horarios.insert_many(
-                [
-                    {"id_horario": 1, "hora_inicio": "10:00", "hora_fin": "12:00"},
-                    {"id_horario": 2, "hora_inicio": "15:00", "hora_fin": "17:00"},
-                ]
-            )
-            self.stdout.write(self.style.SUCCESS("Horarios creados: 10:00-12:00, 15:00-17:00"))
-        else:
-            self.stdout.write("Ya existían horarios, no se modificaron.")
+        # --- salas ---------------------------------------------------------
+        sala_a, _ = Sala.objects.get_or_create(
+            nombre_sala="Sala de estudio A", defaults={"estado_sala": True}
+        )
+        sala_b, _ = Sala.objects.get_or_create(
+            nombre_sala="Sala de estudio B", defaults={"estado_sala": True}
+        )
 
-        # --- sala_horario ----------------------------------------------------
-        if db.sala_horario.count_documents({}) == 0:
-            db.sala_horario.insert_many(
-                [
-                    {
-                        "id_sala_horario": 1,
-                        "id_sala": 1,
-                        "id_horario": 1,
-                        "estado_sala_horario": "DISPONIBLE",
-                    },
-                    {
-                        "id_sala_horario": 2,
-                        "id_sala": 2,
-                        "id_horario": 2,
-                        "estado_sala_horario": "DISPONIBLE",
-                    },
-                ]
-            )
-            self.stdout.write(
-                self.style.SUCCESS(
-                    "Combinaciones sala+horario creadas: "
-                    "Sala A/10:00-12:00 (id 1), Sala B/15:00-17:00 (id 2)."
-                )
-            )
-        else:
-            self.stdout.write("Ya existían combinaciones sala_horario, no se modificaron.")
+        # --- horarios ------------------------------------------------------
+        h_manana, _ = Horario.objects.get_or_create(
+            hora_inicio=time(10, 0), hora_fin=time(12, 0)
+        )
+        h_tarde, _ = Horario.objects.get_or_create(
+            hora_inicio=time(15, 0), hora_fin=time(17, 0)
+        )
 
-        # --- reservas ----------------------------------------------------------
-        if db.reservas.count_documents({}) == 0:
-            db.reservas.insert_many(
-                [
-                    {
-                        "id_reserva": 1,
-                        "codigo_usuario": 2,
-                        "id_sala_horario": 1,
-                        "tipo_actividad": "Estudios",
-                        "fecha": "2026-10-08",
-                        "estado_reserva": "CONFIRMADA",
-                    },
-                    {
-                        "id_reserva": 2,
-                        "codigo_usuario": 2,
-                        "id_sala_horario": 2,
-                        "tipo_actividad": "Trabajo en grupo",
-                        "fecha": "2026-10-08",
-                        "estado_reserva": "CONFIRMADA",
-                    },
-                ]
-            )
-            self.stdout.write(
-                self.style.SUCCESS("Reservas de ejemplo creadas (estudiante Luciana Perez).")
-            )
-        else:
-            self.stdout.write("Ya existían reservas, no se modificaron.")
+        # --- sala_horario --------------------------------------------------
+        sh_a_manana, _ = SalaHorario.objects.get_or_create(sala=sala_a, horario=h_manana)
+        sh_b_tarde, _ = SalaHorario.objects.get_or_create(sala=sala_b, horario=h_tarde)
 
-        self.stdout.write(self.style.SUCCESS("Listo. Ahora ejecuten: python manage.py runserver"))
+        # --- reservas (solo si todavía no hay ninguna) ------------------------
+        if not Reserva.objects.exists():
+            manana = timezone.localdate() + timedelta(days=1)
+            Reserva.objects.create(
+                usuario=estudiante, sala_horario=sh_a_manana,
+                tipo_actividad="Estudios", fecha=manana,
+            )
+            Reserva.objects.create(
+                usuario=estudiante, sala_horario=sh_b_tarde,
+                tipo_actividad="Trabajo en grupo", fecha=manana,
+            )
+            self.stdout.write(self.style.SUCCESS("Reservas de ejemplo creadas."))
+
+        self.stdout.write(self.style.SUCCESS(
+            "Listo. Ahora ejecuten: python manage.py runserver"
+        ))

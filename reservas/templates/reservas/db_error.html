@@ -1,0 +1,16 @@
+{% extends "reservas/base.html" %}
+{% block title %}Problema con la base de datos — SalaMandra{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>No se pudo usar la base de datos</h2>
+    <p>Lo más probable es que todavía no existan las tablas. Ejecuta, en orden:</p>
+    <ol>
+        <li><code>python manage.py makemigrations reservas</code></li>
+        <li><code>python manage.py migrate</code></li>
+        <li><code>python manage.py seed_data</code></li>
+    </ol>
+    <p>Si dice <em>no such table</em>, es exactamente eso. Instrucciones completas en el <code>README.md</code>.</p>
+    <p class="hint">Detalle técnico: {{ error }}</p>
+</div>
+{% endblock %}
