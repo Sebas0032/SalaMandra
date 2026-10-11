@@ -7,7 +7,7 @@
     <h2>Bloquear un horario por mantenimiento</h2>
     <p class="hint" style="margin-top: -0.3rem; margin-bottom: 1rem;">
         Caso de uso RES-CU-02 (docs/sesion-07-modelos.md): si el horario
-        seleccionado tiene una reserva CONFIRMADA, pasará a
+        seleccionado tiene reservas CONFIRMADA, pasarán a
         <strong>POR_MANTENIMIENTO</strong> sin penalizar al estudiante.
     </p>
     <form class="form-bloqueo" method="post" action="{% url 'block_room' %}">
@@ -18,7 +18,7 @@
                 <option value="" disabled selected>Selecciona una sala y horario…</option>
                 {% for combo in sala_horarios %}
                 <option value="{{ combo.id_sala_horario }}">
-                    {{ combo.sala_nombre }} — {{ combo.hora_inicio }} a {{ combo.hora_fin }}
+                    {{ combo.sala.nombre_sala }} — {{ combo.horario.hora_inicio|time:"H:i" }} a {{ combo.horario.hora_fin|time:"H:i" }}
                     ({{ combo.estado_sala_horario }})
                 </option>
                 {% endfor %}
@@ -26,7 +26,7 @@
         </div>
         <div class="full">
             <label for="motivo">Motivo del bloqueo</label>
-            <textarea id="motivo" name="motivo" placeholder="Ej. Fuga de agua" required></textarea>
+            <textarea id="motivo" name="motivo" maxlength="200" placeholder="Ej. Fuga de agua" required></textarea>
         </div>
         <div class="full">
             <button type="submit">Bloquear horario por mantenimiento</button>
@@ -39,19 +39,14 @@
     {% if sala_horarios %}
     <table>
         <thead>
-            <tr>
-                <th>ID</th>
-                <th>Sala</th>
-                <th>Horario</th>
-                <th>Estado</th>
-            </tr>
+            <tr><th>ID</th><th>Sala</th><th>Horario</th><th>Estado</th></tr>
         </thead>
         <tbody>
             {% for combo in sala_horarios %}
             <tr>
                 <td>{{ combo.id_sala_horario }}</td>
-                <td>{{ combo.sala_nombre }}</td>
-                <td>{{ combo.hora_inicio }} – {{ combo.hora_fin }}</td>
+                <td>{{ combo.sala.nombre_sala }}</td>
+                <td>{{ combo.horario.hora_inicio|time:"H:i" }} – {{ combo.horario.hora_fin|time:"H:i" }}</td>
                 <td>
                     {% if combo.estado_sala_horario == "DISPONIBLE" %}
                     <span class="badge badge-confirmada">DISPONIBLE</span>
@@ -77,23 +72,18 @@
     <table>
         <thead>
             <tr>
-                <th>ID</th>
-                <th>Sala</th>
-                <th>Horario</th>
-                <th>Fecha</th>
-                <th>Estudiante</th>
-                <th>Actividad</th>
-                <th>Estado</th>
+                <th>ID</th><th>Sala</th><th>Horario</th><th>Fecha</th>
+                <th>Estudiante</th><th>Actividad</th><th>Estado</th>
             </tr>
         </thead>
         <tbody>
             {% for reserva in reservas %}
             <tr>
                 <td>{{ reserva.id_reserva }}</td>
-                <td>{{ reserva.sala_nombre }}</td>
-                <td>{{ reserva.hora_inicio }} – {{ reserva.hora_fin }}</td>
-                <td>{{ reserva.fecha }}</td>
-                <td>{{ reserva.usuario_nombre }}</td>
+                <td>{{ reserva.sala_horario.sala.nombre_sala }}</td>
+                <td>{{ reserva.sala_horario.horario.hora_inicio|time:"H:i" }} – {{ reserva.sala_horario.horario.hora_fin|time:"H:i" }}</td>
+                <td>{{ reserva.fecha|date:"d/m/Y" }}</td>
+                <td>{{ reserva.usuario }}</td>
                 <td>{{ reserva.tipo_actividad }}</td>
                 <td>
                     {% if reserva.estado_reserva == "CONFIRMADA" %}
@@ -118,22 +108,16 @@
     {% if bloqueos %}
     <table>
         <thead>
-            <tr>
-                <th>Sala</th>
-                <th>Horario</th>
-                <th>Motivo</th>
-                <th>Bloqueado por</th>
-                <th>Fecha de bloqueo</th>
-            </tr>
+            <tr><th>Sala</th><th>Horario</th><th>Motivo</th><th>Bloqueado por</th><th>Fecha de bloqueo</th></tr>
         </thead>
         <tbody>
             {% for bloqueo in bloqueos %}
             <tr>
-                <td>{{ bloqueo.sala_nombre }}</td>
-                <td>{{ bloqueo.hora_inicio }} – {{ bloqueo.hora_fin }}</td>
+                <td>{{ bloqueo.sala_horario.sala.nombre_sala }}</td>
+                <td>{{ bloqueo.sala_horario.horario.hora_inicio|time:"H:i" }} – {{ bloqueo.sala_horario.horario.hora_fin|time:"H:i" }}</td>
                 <td>{{ bloqueo.motivo }}</td>
-                <td>{{ bloqueo.admin_nombre }}</td>
-                <td>{{ bloqueo.fecha|date:"d/m/Y H:i" }} UTC</td>
+                <td>{{ bloqueo.usuario }}</td>
+                <td>{{ bloqueo.fecha|date:"d/m/Y H:i" }}</td>
             </tr>
             {% endfor %}
         </tbody>

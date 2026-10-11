@@ -11,3 +11,11 @@ __pycache__/
 .idea/
 .vscode/
 .DS_Store
+
+# Django
+db.sqlite3
+staticfiles/
+*.log
+
+# Variables de entorno locales (si configuran DJANGO_SECRET_KEY, etc.)
+.env
