@@ -3,7 +3,7 @@
 - Proyecto: SalaMandra — Reserva de Salas de Estudio
 - Integrantes: Luciana Soza (@luci-solar34), Sebastian Cruz (@Sebas0032), Sebastian Soto (@sebas-sst)
 - Fecha de planificación: 06 de octubre de 2026
-- Fuentes: [`docs/sesion-06-requisitos.md`](sesion-06-requisitos.md) (RES-RF-03), [`docs/sesion-07-modelos.md`](sesion-07-modelos.md) (RES-HU-02, RES-CU-02, RES-MOD-02)
+- Fuentes: [`sesion-06-requisitos.md`](sesion-06-requisitos.md) (RES-RF-03), [`docs/sesion-07-modelos.md`](sesion-07-modelos.md) (RES-HU-02, RES-CU-02, RES-MOD-02)
 - Flujo elegido: **Bloqueo de un horario específico de una sala por Mantenimiento y cambio automático de la reserva asociada**
 - IDs de requisitos: **RES-RF-03**
 

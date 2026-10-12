@@ -1,7 +1,7 @@
 # Sesión 7 — Historias, casos de uso y modelos
 
 - Proyecto: SalaMandra — Reserva de Salas de Estudio
-- Integrantes: Luciana Soza (@luci-solar34), Sebastian Cruz (@Sebas0032), Sebastian Toledo (@sebas-sst)
+- Integrantes: Luciana Soza (@luci-solar34), Sebastian Cruz (@Sebas0032), Sebastian Soto (@sebas-sst)
 - Fecha: 02 de octubre de 2026
 - Requisitos de origen: [Sesión 6](sesion-06-requisitos.md)
 - Flujo seleccionado: Bloqueo de horario de una sala por Mantenimiento y cancelación automática de reservas
@@ -79,14 +79,14 @@ Como Adminitrador, quiero bloquear un horario específico de una sala cuando hay
 ```mermaid
 flowchart TD
 A[Administrador sala y horario] --> B[Valida que la sala exista]
-B --> C{¿Usuario es Administrador?}
+B --> C{Usuario es Administrador?}
 C -->|No| D[Rechaza: sin permisos]
 D --> E[No cambia nada]
-C -->|Sí| F{¿Sala existe en el sistema?}
+C -->|Sí| F{Sala existe en el sistema?}
 F -->|No| G[Sistema rechaza: no existe]
 G --> E
 F -->|Sí| H[Sistema verifica el horario seleccionado]
-H --> I{¿Existe reserva ese horario?}
+H --> I{Existe reserva ese horario?}
 I -->|Sí| J[Cambia el estado de reserva]
 J --> K[Sistema no penaliza]
 I -->|No| L[No existe reserva]
@@ -119,6 +119,8 @@ E --> P
 | RES-RF-03 | RES-HU-02, RES-CU-02 | Rama principal (pasos 4–8) | **Normal:** Usuario Administrador bloquea el horario B de la sala B-102. El sistema cambia el horario a `MANTENIMIENTO` y la reserva asociada a `POR_MANTENIMIENTO`, sin penalización. Los demás horarios de la sala no se modifican. |
 | RES-RF-03 | RES-CU-02 | E1 (paso 2, validación de permisos) | **Rechazo 1:** Usuario sin rol Administrador intenta bloquear. Sistema rechaza. Resultado: Horario y reservas sin cambios. |
 | RES-RF-03 | RES-CU-02 | E2 (paso 2, validación de existencia) | **Rechazo 2:** Usuario intenta bloquear un horario de una sala que no existe. Sistema rechaza. Resultado: No hay cambios en el sistema. |
+| RES-RF-13 | RES-CU-02 | Validación de permisos | **Permisos:** Se permite realizar el bloqueo al usuario con rol Administrador y se rechaza la operación si la realiza un usuario sin los permisos necesarios. |
+| RES-RF-17 | RES-CU-02 | Rama principal | **Gestión de Horario y Reservas:** Al registrar el bloqueo, el sistema impide nuevas reservas en ese intervalo y gestiona las reservas existentes afectadas, actualizando su estado y enviando la notificación correspondiente. |
 
 ---
 
