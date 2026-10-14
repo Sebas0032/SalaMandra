@@ -243,12 +243,12 @@ python -m pytest tests/sesion12 -q --junitxml=evidencias/sesion12-junit.xml
 - **Trabajo ejecutado:** `verificar-flujo`.
 - **Rama de la ejecución:** `main`.
 - **Ejecución de GitHub Actions:** [Ver ejecución aprobada](https://github.com/Sebas0032/SalaMandra/actions/runs/38484863987).
-- **Commit probado:** completar con el SHA mostrado en esa ejecución.
+- **Commit probado:** `2577cbd`.
 - **Estado real:** aprobado.
 - **Resultado:** 3 pruebas aprobadas, 0 fallos, 0 errores y 0 omitidas.
 - **Reporte de pruebas:** `resultados-sesion12-38484863987-1`, disponible en la sección *Artifacts* de la ejecución.
 - **Candidato de código fuente:** `candidato-sesion12-5196c3e1e8a8e6a30b5bc9e9abdb3cecc1cd8d3d`, generado y conservado como artefacto en la ejecución de `main`.
-- **Commit del MD:** pendiente de registrar después de incorporar y subir la documentación.
+- **Commit del MD:** `2577cbd`.
 - **Estado del Pull Request:** PR #42, `Add Session 12 maintenance flow tests and CI`, integrado en `main`.
 - **Pendientes para la entrega:** incorporar la documentación arquitectónica mediante el segundo Pull Request y completar su SHA cuando se integre.
 
@@ -304,8 +304,8 @@ Se utilizó ChatGPT como apoyo para estructurar el workflow, organizar las prueb
 
 ## 9. Enlaces de entrega
 
-- **Documento en GitHub:** Pendiente de publicación.
-- **Pull Request de documentación:** Pendiente de creación.
+- **Documento en GitHub:** https://github.com/Sebas0032/SalaMandra/blob/main/docs/sesion-12-arquitectura.md
+- **Pull Request de documentación:** https://github.com/Sebas0032/SalaMandra/pull/43 
 - **Pull Request de pruebas y CI:** https://github.com/Sebas0032/SalaMandra/pull/42
 - **Ejecución de GitHub Actions:** https://github.com/Sebas0032/SalaMandra/actions/runs/38484863987
 - **Reporte de pruebas:** artefacto `resultados-sesion12-38484863987-1`, disponible en la ejecución de GitHub Actions.
