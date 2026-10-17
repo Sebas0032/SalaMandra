@@ -35,8 +35,9 @@ def hasher_rapido(settings):
 def manana():
     return timezone.localdate() + timedelta(days=1)
 
-def _crear_usuario(email, nombre, rol):
+def _crear_usuario(codigo_usuario, email, nombre, rol):
     usuario = Usuario.objects.create(
+        codigo_usuario=codigo_usuario,
         email=email, nombre=nombre, apellido="Test",
         estado_usuario=True, password_hash=make_password(PASSWORD)
     )
@@ -46,12 +47,12 @@ def _crear_usuario(email, nombre, rol):
 @pytest.fixture
 def admin():
     rol = Rol.objects.create(nombre_rol=services.ROL_ADMINISTRADOR)
-    return _crear_usuario("admin@test.edu", "Admin", rol)
+    return _crear_usuario(900001, "admin@test.edu", "Admin", rol)
 
 @pytest.fixture
 def estudiante():
     rol = Rol.objects.create(nombre_rol="Estudiante")
-    return _crear_usuario("estudiante@test.edu", "Luciana", rol)
+    return _crear_usuario(900002, "estudiante@test.edu", "Luciana", rol)
 
 @pytest.fixture
 def sh_a_manana():

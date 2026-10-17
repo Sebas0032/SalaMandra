@@ -11,7 +11,7 @@ Notas:
 - En el DDL original algunas FOREIGN KEY de `sala_horario`, `reservas` y
   `bloqueos` apuntaban a la columna equivocada. Aquí se implementó la
   relación lógica correcta:
-      sala_horario.id_sala        -> salas.id_salas
+      sala_hogrario.id_sala        -> salas.id_salas
       sala_horario.id_horario     -> horarios.id_horario
       reservas.id_sala_horario    -> sala_horario.id_sala_horario
       bloqueos.id_sala_horario    -> sala_horario.id_sala_horario
@@ -35,7 +35,7 @@ class Rol(models.Model):
 
 
 class Usuario(models.Model):
-    codigo_usuario = models.AutoField(primary_key=True)
+    codigo_usuario = models.BigIntegerField(primary_key=True)
     email = models.CharField(max_length=255, unique=True)
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100)

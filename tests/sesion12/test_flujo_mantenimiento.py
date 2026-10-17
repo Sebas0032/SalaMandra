@@ -34,9 +34,9 @@ def manana():
     return timezone.localdate() + timedelta(days=1)
 
 
-def crear_usuario(email, nombre, rol):
+def crear_usuario(codigo_usuario, email, nombre, rol):
     """Crea un usuario de prueba y le asigna un rol."""
-    usuario = Usuario.objects.create(email=email, nombre=nombre, apellido="Test", estado_usuario=True, password_hash=make_password(PASSWORD),)
+    usuario = Usuario.objects.create(codigo_usuario=codigo_usuario, email=email, nombre=nombre, apellido="Test", estado_usuario=True, password_hash=make_password(PASSWORD),)
     UsuarioRol.objects.create(usuario=usuario, rol=rol)
     return usuario
 
@@ -45,7 +45,7 @@ def crear_usuario(email, nombre, rol):
 def admin():
     """Crea un administrador para las pruebas."""
     rol = Rol.objects.create(nombre_rol=services.ROL_ADMINISTRADOR)
-    return crear_usuario("admin@test.edu", "Admin", rol)
+    return crear_usuario(900001, "admin@test.edu", "Admin", rol)
 
 
 @pytest.fixture
@@ -53,7 +53,7 @@ def estudiante():
     """Crea un estudiante para las pruebas."""
     rol = Rol.objects.create(nombre_rol="Estudiante")
 
-    return crear_usuario("estudiante@test.edu","Luciana", rol,)
+    return crear_usuario(900002, "estudiante@test.edu", "Luciana", rol,)
 
 
 @pytest.fixture
