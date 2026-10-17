@@ -35,6 +35,8 @@ from reservas.models import (
 
 ADMIN_EMAIL = "admin@salamandra.upb.edu"
 ADMIN_PASSWORD = "admin123"
+ADMIN_CODIGO_USUARIO = 900001
+ESTUDIANTE_CODIGO_USUARIO = 900002
 
 
 class Command(BaseCommand):
@@ -66,6 +68,7 @@ class Command(BaseCommand):
         admin, creado = Usuario.objects.get_or_create(
             email=ADMIN_EMAIL,
             defaults={
+                "codigo_usuario": ADMIN_CODIGO_USUARIO,
                 "nombre": "Admin",
                 "apellido": "SalaMandra",
                 "estado_usuario": True,
@@ -79,7 +82,12 @@ class Command(BaseCommand):
 
         estudiante, _ = Usuario.objects.get_or_create(
             email="luciana.perez@upb.edu",
-            defaults={"nombre": "Luciana", "apellido": "Perez", "estado_usuario": True},
+            defaults={
+                "codigo_usuario": ESTUDIANTE_CODIGO_USUARIO,
+                "nombre": "Luciana",
+                "apellido": "Perez",
+                "estado_usuario": True,
+            },
         )
 
         # --- usuarios_roles ------------------------------------------------
