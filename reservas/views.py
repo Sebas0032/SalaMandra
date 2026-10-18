@@ -1,20 +1,14 @@
-"""
-Vistas de SalaMandra.
-
-Un único caso de uso en esta etapa (Sesión 07, RES-CU-02): un Administrador
-inicia sesión, ve las salas/horarios/reservas/bloqueos y puede bloquear un
-horario de una sala por mantenimiento.
-
-El login se implementó a mano (no usa django.contrib.auth) para respetar
-las tablas del equipo (`usuarios`, `roles`, `usuarios_roles`). La sesión se
-guarda en una cookie firmada (ver SESSION_ENGINE en settings.py).
-"""
+"""Vistas del panel y del bloqueo de horarios por mantenimiento."""
 
 from functools import wraps
 
 from django.contrib import messages
-from django.db import OperationalError, ProgrammingError
+from django.db import IntegrityError, OperationalError, ProgrammingError
 from django.shortcuts import redirect, render
+from django.utils import timezone
+
+from cuentas.permisos import admin_login_required, login_required
+from cuentas.services import usuario_tiene_rol
 
 from . import services
 
@@ -37,59 +31,71 @@ def handle_db_errors(view_func):
     return wrapper
 
 
-def admin_login_required(view_func):
-    @wraps(view_func)
-    def wrapper(request, *args, **kwargs):
-        if not request.session.get("codigo_usuario"):
-            messages.error(
-                request, "Debes iniciar sesión como Administrador para continuar."
-            )
-            return redirect("login")
-        return view_func(request, *args, **kwargs)
-
-    return wrapper
-
-
 # --- Vistas ------------------------------------------------------------------
 
 @handle_db_errors
-def login_view(request):
-    if request.session.get("codigo_usuario"):
-        return redirect("dashboard")
-
+@login_required
+def student_panel_view(request):
     if request.method == "POST":
-        email = request.POST.get("email", "").strip().lower()
-        password = request.POST.get("password", "")
+        try:
+            id_sala_horario = int(request.POST.get("id_sala_horario", ""))
+            if not 0 < id_sala_horario <= 9223372036854775807:
+                raise ValueError
+            reserva = services.create_student_reservation(
+                request.usuario.pk, id_sala_horario, request.POST.get("actividad", "")
+            )
+        except ValueError:
+            messages.error(request, "Selecciona una sala y un horario.")
+        except services.ReservationError as exc:
+            messages.error(request, str(exc))
+        except IntegrityError:
+            messages.error(request, "El bloque ya fue reservado por otro usuario. Elige otro horario disponible.")
+        except OperationalError as exc:
+            if "locked" not in str(exc).lower():
+                raise
+            messages.error(request, "El sistema está atendiendo otra solicitud. Vuelve a intentarlo.")
+        else:
+            messages.success(request, f"Reserva #{reserva.pk} confirmada.")
+        return redirect("student_panel")
+    return render(request, "reservas/panel_solicitante.html", {
+        **services.get_student_panel(), "usuario": request.usuario,
+        "es_admin": usuario_tiene_rol(request.usuario.pk, "Administrador"),
+    })
 
-        usuario = services.authenticate_admin(email, password)
-
-        if usuario:
-            request.session["codigo_usuario"] = usuario.codigo_usuario
-            request.session["nombre_completo"] = str(usuario)
-            messages.success(request, f"Bienvenido/a, {usuario.nombre}.")
-            return redirect("dashboard")
-
-        messages.error(
-            request,
-            "Correo o contraseña incorrectos, o el usuario no tiene rol de "
-            "Administrador.",
-        )
-
-    return render(request, "reservas/login.html")
-
-
-def logout_view(request):
-    request.session.flush()
-    messages.success(request, "Sesión cerrada correctamente.")
-    return redirect("login")
-
-
-@admin_login_required
+@login_required
 @handle_db_errors
 def dashboard_view(request):
+    if not usuario_tiene_rol(request.usuario.pk, "Administrador"):
+        return redirect("student_panel")
+    combinaciones = list(services.get_sala_horarios())
+    horarios = sorted({sh.horario_id: sh.horario for sh in combinaciones}.values(), key=lambda h: h.hora_inicio)
+    ocupados = set(services.get_reservas().filter(
+        fecha=timezone.localdate(), estado_reserva__in=services.ESTADOS_ACTIVOS
+    ).values_list("sala_horario_id", flat=True))
+    salas = {}
+    for sh in combinaciones:
+        salas.setdefault(sh.sala_id, {"sala": sh.sala, "horarios": {}})["horarios"][sh.horario_id] = sh
+    filas = []
+    for fila in salas.values():
+        celdas = []
+        for horario in horarios:
+            sh = fila["horarios"].get(horario.pk)
+            estado = "Sin horario"
+            if sh:
+                if sh.estado_sala_horario == "MANTENIMIENTO":
+                    estado = "Mantenimiento"
+                elif sh.pk in ocupados:
+                    estado = "Reservado"
+                elif sh.estado_sala_horario == "DISPONIBLE" and sh.sala.estado_sala:
+                    estado = "Disponible"
+                else:
+                    estado = "No disponible"
+            celdas.append(estado)
+        filas.append({"sala": fila["sala"], "estados": celdas})
     context = {
+        "horarios": horarios, "filas": filas, "hoy": timezone.localdate(),
         "nombre_completo": request.session.get("nombre_completo"),
-        "sala_horarios": services.get_sala_horarios(),
+        "sala_horarios": combinaciones,
         "reservas": services.get_reservas(),
         "bloqueos": services.get_bloqueos(),
     }
@@ -100,7 +106,7 @@ def dashboard_view(request):
 @handle_db_errors
 def block_room_view(request):
     if request.method != "POST":
-        return redirect("dashboard")
+        return dashboard_view(request)
 
     motivo = request.POST.get("motivo", "").strip()
     id_raw = request.POST.get("id_sala_horario", "").strip()

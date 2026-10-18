@@ -1,130 +1,81 @@
-{% extends "reservas/base.html" %}
-{% block title %}Panel — SalaMandra{% endblock %}
-
-{% block content %}
-
-<div class="card">
-    <h2>Bloquear un horario por mantenimiento</h2>
-    <p class="hint" style="margin-top: -0.3rem; margin-bottom: 1rem;">
-        Caso de uso RES-CU-02 (docs/sesion-07-modelos.md): si el horario
-        seleccionado tiene reservas CONFIRMADA, pasarán a
-        <strong>POR_MANTENIMIENTO</strong> sin penalizar al estudiante.
-    </p>
-    <form class="form-bloqueo" method="post" action="{% url 'block_room' %}">
-        {% csrf_token %}
-        <div class="full">
-            <label for="id_sala_horario">Sala y horario</label>
-            <select id="id_sala_horario" name="id_sala_horario" required>
-                <option value="" disabled selected>Selecciona una sala y horario…</option>
-                {% for combo in sala_horarios %}
-                <option value="{{ combo.id_sala_horario }}">
-                    {{ combo.sala.nombre_sala }} — {{ combo.horario.hora_inicio|time:"H:i" }} a {{ combo.horario.hora_fin|time:"H:i" }}
-                    ({{ combo.estado_sala_horario }})
-                </option>
-                {% endfor %}
-            </select>
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mantenimiento — SalaMandra</title>
+    <link rel="stylesheet" href="{% static 'reservas/css/panel_solicitante.css' %}">
+    <link rel="stylesheet" href="{% static 'reservas/css/mantenimiento.css' %}">
+    <script src="{% static 'reservas/js/mantenimiento.js' %}" defer></script>
+</head>
+<body>
+<header class="cabecera">
+    <a class="marca" href="{% url 'dashboard' %}"><span class="emblema" aria-hidden="true">S</span><span>Sala<strong>Mandra</strong></span></a>
+    <span class="administracion">| Administración</span>
+    <nav aria-label="Cuenta"><span>{{ nombre_completo }}</span><a href="{% url 'logout' %}">Salir ↗</a></nav>
+</header>
+<div class="estructura-admin">
+    <aside class="menu-admin"><nav aria-label="Administración">
+        <a href="{% url 'student_panel' %}">Salas y horarios</a>
+        <a href="{% url 'block_room' %}" aria-current="page">Mantenimiento</a>
+    </nav></aside>
+    <main class="contenido-admin">
+        <h1>Mantenimiento</h1>
+        <p class="descripcion">Bloquea los horarios de una sala cuando no pueda usarse.</p>
+        {% if messages %}<div aria-live="polite">{% for message in messages %}<p class="aviso {{ message.tags }}">{{ message }}</p>{% endfor %}</div>{% endif %}
+        <div class="paneles-admin">
+            <div class="resumen">
+                <section class="tarjeta">
+                    <h2>Estado de hoy <small>{{ hoy|date:"d/m/Y" }}</small></h2>
+                    <div class="tabla-scroll"><table>
+                        <thead><tr><th>Sala</th>{% for horario in horarios %}<th>{{ horario.hora_inicio|time:"H:i" }} – {{ horario.hora_fin|time:"H:i" }}</th>{% endfor %}</tr></thead>
+                        <tbody>{% for fila in filas %}<tr><th scope="row">{{ fila.sala.nombre_sala }}</th>{% for estado in fila.estados %}<td><span class="estado {{ estado|slugify }}">{{ estado }}</span></td>{% endfor %}</tr>{% empty %}<tr><td>No hay salas con horarios registrados.</td></tr>{% endfor %}</tbody>
+                    </table></div>
+                </section>
+                <section class="tarjeta">
+                    <h2>Bloqueos activos</h2>
+                    <div class="tabla-scroll"><table>
+                        <thead><tr><th>Sala</th><th>Horario</th><th>Motivo</th><th>Registrado</th></tr></thead>
+                        <tbody>{% for bloqueo in bloqueos %}<tr>
+                            <th scope="row">{{ bloqueo.sala_horario.sala.nombre_sala }}</th>
+                            <td>{{ bloqueo.sala_horario.horario.hora_inicio|time:"H:i" }} – {{ bloqueo.sala_horario.horario.hora_fin|time:"H:i" }}</td>
+                            <td class="motivo">{{ bloqueo.motivo }}</td>
+                            <td>{{ bloqueo.fecha|date:"d/m/Y H:i" }}<br><small>{{ bloqueo.usuario }} · Código {{ bloqueo.usuario_id }}</small></td>
+                        </tr>{% empty %}<tr><td colspan="4">Todavía no hay bloqueos registrados.</td></tr>{% endfor %}</tbody>
+                    </table></div>
+                </section>
+                <details class="tarjeta historial"><summary>Reservas registradas</summary>
+                    <div class="tabla-scroll"><table>
+                        <thead><tr><th>Sala</th><th>Horario y fecha</th><th>Estudiante</th><th>Actividad</th><th>Estado</th></tr></thead>
+                        <tbody>{% for reserva in reservas %}<tr><td>{{ reserva.sala_horario.sala }}</td><td>{{ reserva.sala_horario.horario }}<br>{{ reserva.fecha|date:"d/m/Y" }}</td><td>{{ reserva.usuario }}</td><td>{{ reserva.tipo_actividad }}</td><td>{{ reserva.estado_reserva }}</td></tr>{% empty %}<tr><td colspan="5">No hay reservas registradas.</td></tr>{% endfor %}</tbody>
+                    </table></div>
+                </details>
+            </div>
+            <section class="tarjeta nuevo-bloqueo">
+                <h2>Nuevo bloqueo</h2>
+                <form method="post" action="{% url 'block_room' %}">
+                    {% csrf_token %}
+                    <label class="etiqueta" for="sala">Sala</label>
+                    <select id="sala" name="sala" required>
+                        {% for fila in filas %}<option value="{{ fila.sala.pk }}">{{ fila.sala.nombre_sala }}</option>{% empty %}<option value="">No hay salas registradas</option>{% endfor %}
+                    </select>
+                    <fieldset><legend>Horario a bloquear</legend><div class="horarios-bloqueo">
+                        {% for combo in sala_horarios %}
+                        <label class="seleccion-horario" data-sala="{{ combo.sala_id }}">
+                            <input type="radio" name="id_sala_horario" value="{{ combo.pk }}" required {% if combo.estado_sala_horario == "MANTENIMIENTO" %}disabled{% endif %}>
+                            <span>{{ combo.horario.hora_inicio|time:"H:i" }} – {{ combo.horario.hora_fin|time:"H:i" }}{% if combo.estado_sala_horario == "MANTENIMIENTO" %}<small>Ya bloqueado</small>{% endif %}</span>
+                        </label>
+                        {% endfor %}
+                    </div><p id="sin-horarios" class="vacio" hidden>No hay horarios disponibles para bloquear en esta sala.</p></fieldset>
+                    <label class="etiqueta" for="motivo">Motivo</label>
+                    <textarea id="motivo" name="motivo" maxlength="200" rows="3" placeholder="Ej. Falla eléctrica" required></textarea>
+                    <p class="nota">El horario pasará a mantenimiento. Las reservas confirmadas asociadas se cancelarán sin sanción, en todas sus fechas. El bloqueo es permanente.</p>
+                    <button class="boton-bloqueo" type="submit" {% if not filas %}disabled{% endif %}>Bloquear horario</button>
+                </form>
+            </section>
         </div>
-        <div class="full">
-            <label for="motivo">Motivo del bloqueo</label>
-            <textarea id="motivo" name="motivo" maxlength="200" placeholder="Ej. Fuga de agua" required></textarea>
-        </div>
-        <div class="full">
-            <button type="submit">Bloquear horario por mantenimiento</button>
-        </div>
-    </form>
+    </main>
 </div>
-
-<div class="card">
-    <h2>Salas y sus horarios (sala_horario)</h2>
-    {% if sala_horarios %}
-    <table>
-        <thead>
-            <tr><th>ID</th><th>Sala</th><th>Horario</th><th>Estado</th></tr>
-        </thead>
-        <tbody>
-            {% for combo in sala_horarios %}
-            <tr>
-                <td>{{ combo.id_sala_horario }}</td>
-                <td>{{ combo.sala.nombre_sala }}</td>
-                <td>{{ combo.horario.hora_inicio|time:"H:i" }} – {{ combo.horario.hora_fin|time:"H:i" }}</td>
-                <td>
-                    {% if combo.estado_sala_horario == "DISPONIBLE" %}
-                    <span class="badge badge-confirmada">DISPONIBLE</span>
-                    {% else %}
-                    <span class="badge badge-mantenimiento">{{ combo.estado_sala_horario }}</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p class="empty">
-        No hay combinaciones sala+horario todavía. Ejecuta
-        <code>python manage.py seed_data</code> para crear datos de ejemplo.
-    </p>
-    {% endif %}
-</div>
-
-<div class="card">
-    <h2>Reservas</h2>
-    {% if reservas %}
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th><th>Sala</th><th>Horario</th><th>Fecha</th>
-                <th>Estudiante</th><th>Actividad</th><th>Estado</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for reserva in reservas %}
-            <tr>
-                <td>{{ reserva.id_reserva }}</td>
-                <td>{{ reserva.sala_horario.sala.nombre_sala }}</td>
-                <td>{{ reserva.sala_horario.horario.hora_inicio|time:"H:i" }} – {{ reserva.sala_horario.horario.hora_fin|time:"H:i" }}</td>
-                <td>{{ reserva.fecha|date:"d/m/Y" }}</td>
-                <td>{{ reserva.usuario }}</td>
-                <td>{{ reserva.tipo_actividad }}</td>
-                <td>
-                    {% if reserva.estado_reserva == "CONFIRMADA" %}
-                    <span class="badge badge-confirmada">CONFIRMADA</span>
-                    {% elif reserva.estado_reserva == "POR_MANTENIMIENTO" %}
-                    <span class="badge badge-mantenimiento">POR_MANTENIMIENTO</span>
-                    {% else %}
-                    <span class="badge badge-otro">{{ reserva.estado_reserva }}</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p class="empty">No hay reservas registradas.</p>
-    {% endif %}
-</div>
-
-<div class="card">
-    <h2>Horarios bloqueados por mantenimiento</h2>
-    {% if bloqueos %}
-    <table>
-        <thead>
-            <tr><th>Sala</th><th>Horario</th><th>Motivo</th><th>Bloqueado por</th><th>Fecha de bloqueo</th></tr>
-        </thead>
-        <tbody>
-            {% for bloqueo in bloqueos %}
-            <tr>
-                <td>{{ bloqueo.sala_horario.sala.nombre_sala }}</td>
-                <td>{{ bloqueo.sala_horario.horario.hora_inicio|time:"H:i" }} – {{ bloqueo.sala_horario.horario.hora_fin|time:"H:i" }}</td>
-                <td>{{ bloqueo.motivo }}</td>
-                <td>{{ bloqueo.usuario }}</td>
-                <td>{{ bloqueo.fecha|date:"d/m/Y H:i" }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p class="empty">Todavía no se bloqueó ningún horario por mantenimiento.</p>
-    {% endif %}
-</div>
-
-{% endblock %}
+</body>
+</html>

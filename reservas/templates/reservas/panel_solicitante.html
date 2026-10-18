@@ -1,0 +1,85 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Reservar una sala — SalaMandra</title>
+    <link rel="stylesheet" href="{% static 'reservas/css/panel_solicitante.css' %}">
+    {% if dia_habilitado %}<script src="{% static 'reservas/js/panel_solicitante.js' %}" defer></script>{% endif %}
+</head>
+<body>
+<header class="cabecera">
+    <a class="marca" href="{% url 'student_panel' %}"><span class="emblema" aria-hidden="true">S</span><span>Sala<strong>Mandra</strong></span></a>
+    <nav aria-label="Cuenta">
+        <span>Hola {{ usuario.nombre }}</span>
+        {% if es_admin %}<a href="{% url 'dashboard' %}">Mantenimiento</a>{% endif %}
+        <a href="{% url 'logout' %}">Salir ↗</a>
+    </nav>
+</header>
+<main>
+    {% if messages %}<div class="avisos" aria-live="polite">{% for message in messages %}<p class="aviso {{ message.tags }}">{{ message }}</p>{% endfor %}</div>{% endif %}
+    {% if not dia_habilitado %}
+    <section class="calendario">
+        <h1>{{ hoy|date:"l · j \d\e F"|capfirst }}</h1>
+        <p class="aviso">Hoy no se muestran salas ni se permiten reservas: es sábado, domingo o feriado. Vuelve en un día habilitado.</p>
+    </section>
+    {% else %}
+    <div class="distribucion">
+        <section class="calendario" aria-labelledby="fecha">
+            <h1 id="fecha">{{ hoy|date:"l · j \d\e F"|capfirst }}</h1>
+            <div class="columnas">
+                {% for columna in columnas %}
+                <section class="sala">
+                    <h2>{{ columna.sala.nombre_sala }}</h2>
+                    {% for bloque in columna.bloques %}
+                        {% if bloque.disponible %}
+                        <button type="button" data-expira="{{ bloque.expira }}" class="bloque libre" data-sala="{{ columna.sala.pk }}" data-bloque="{{ bloque.id }}" {% if not dia_habilitado %}disabled{% endif %}>
+                            <strong>{{ bloque.horario.hora_inicio|time:"H:i" }} – {{ bloque.horario.hora_fin|time:"H:i" }}</strong>
+                            <span>Disponible</span>
+                        </button>
+                        {% else %}
+                        <div data-expira="{{ bloque.expira }}" class="bloque {% if bloque.reserva %}color-{{ bloque.color }}{% else %}mantenimiento{% endif %}">
+                            <strong>{{ bloque.horario.hora_inicio|time:"H:i" }} – {{ bloque.horario.hora_fin|time:"H:i" }}</strong>
+                            {% if bloque.mantenimiento %}<span>Mantenimiento</span>
+                            {% elif bloque.reserva %}<span>{{ bloque.reserva.usuario }}</span>{% else %}<span>No disponible</span>{% endif %}
+                        </div>
+                        {% endif %}
+                    {% empty %}<p class="vacio">No quedan horarios para hoy.</p>{% endfor %}
+                </section>
+                {% empty %}<p class="vacio">Todavía no hay salas con horarios registrados.</p>{% endfor %}
+            </div>
+        </section>
+        <aside class="formulario" aria-labelledby="reservar">
+            <h2 id="reservar">Reservar para hoy</h2>
+            <p class="etiqueta">Reservas como</p>
+            <p class="identidad">{{ usuario }}</p>
+            <p class="codigo">Código {{ usuario.pk }}</p>
+            <form method="post">
+                {% csrf_token %}
+                <fieldset><legend>Sala</legend><div class="opciones salas">
+                    {% for columna in columnas %}
+                    <label class="opcion"><input type="radio" name="sala" value="{{ columna.sala.pk }}" {% if forloop.first %}checked{% endif %}><span>{{ columna.sala.nombre_sala }}</span></label>
+                    {% endfor %}
+                </div></fieldset>
+                <fieldset><legend>Horario</legend><div class="opciones horarios">
+                    {% for columna in columnas %}{% for bloque in columna.bloques %}
+                    <label class="opcion horario" data-expira="{{ bloque.expira }}" data-sala="{{ columna.sala.pk }}">
+                        <input type="radio" name="id_sala_horario" value="{{ bloque.id }}" required {% if not bloque.disponible or not dia_habilitado %}disabled{% endif %}>
+                        <span>{{ bloque.horario.hora_inicio|time:"H:i" }} – {{ bloque.horario.hora_fin|time:"H:i" }}{% if bloque.mantenimiento %}<small>Mantenimiento</small>{% elif bloque.reserva %}<small>Reservado</small>{% endif %}</span>
+                    </label>
+                    {% endfor %}{% endfor %}
+                </div><p id="sin-horarios" class="vacio" hidden>No quedan horarios para esta sala.</p></fieldset>
+                <label class="etiqueta" for="actividad">Tipo de actividad</label>
+                <select id="actividad" name="actividad" required>
+                    <option value="">Selecciona una actividad</option>
+                    {% for actividad in actividades %}<option>{{ actividad }}</option>{% endfor %}
+                </select>
+                <button class="confirmar" type="submit" {% if not dia_habilitado or not columnas %}disabled{% endif %}>Confirmar reserva</button>
+            </form>
+        </aside>
+    </div>
+    {% endif %}
+</main>
+</body>
+</html>

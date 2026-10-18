@@ -4,13 +4,13 @@
 {% block content %}
 <div class="login-wrapper">
     <h1>SalaMandra</h1>
-    <p class="subtitle">Bloqueo de salas por mantenimiento — acceso de Administrador</p>
+    <p class="subtitle">Ingresa a tu cuenta de SalaMandra</p>
 
     <div class="card">
         <form method="post">
             {% csrf_token %}
-            <label for="email">Correo electrónico</label>
-            <input type="text" id="email" name="email" autofocus required>
+            <label for="identificador">Código universitario</label>
+            <input type="text" id="identificador" name="identificador" autocomplete="username" autofocus required>
 
             <label for="password" style="margin-top: 0.8rem;">Contraseña</label>
             <input type="password" id="password" name="password" required>
@@ -19,7 +19,10 @@
         </form>
         <p class="hint">
             Usuario Administrador creado por <code>seed_data</code>:<br>
-            <code>admin@salamandra.upb.edu</code> / <code>admin123</code>
+            <code>900001</code> / <code>admin123</code>
+        </p>
+        <p class="hint">
+            ¿Eres estudiante? <a href="{% url 'registro' %}">Crear una cuenta</a>
         </p>
     </div>
 </div>
