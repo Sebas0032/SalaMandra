@@ -9,7 +9,7 @@ django.contrib.admin / auth / contenttypes / sessions, para que la base de
 datos contenga ÚNICAMENTE las tablas del equipo (más django_migrations, que
 Django usa para llevar el control de las migraciones). El login de
 Administrador se implementó a mano sobre las tablas `usuarios` y `roles`
-(ver reservas/services.py y reservas/views.py), y la sesión se guarda en
+(ver cuentas/services.py y cuentas/views.py), y la sesión se guarda en
 una cookie firmada (ver SESSION_ENGINE más abajo).
 """
 
@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.messages",
     "reservas",
+    "cuentas",
 ]
 
 MIDDLEWARE = [
@@ -92,3 +93,7 @@ USE_TZ = True
 STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
+
+# Fechas del calendario universitario, en formato YYYY-MM-DD.
+# Completar con los feriados confirmados por la universidad.
+RESERVAS_FERIADOS = []
