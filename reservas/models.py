@@ -154,6 +154,13 @@ class Reserva(models.Model):
 
     class Meta:
         db_table = "reservas"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["sala_horario", "fecha"],
+                condition=models.Q(estado_reserva__in=["CONFIRMADA", "EN_USO"]),
+                name="uq_reserva_activa_horario_fecha",
+            ),
+        ]
 
 
 class Bloqueo(models.Model):

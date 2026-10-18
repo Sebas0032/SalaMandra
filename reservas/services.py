@@ -20,12 +20,100 @@ se hace ninguno (por ejemplo, si algo falla en el paso 7, la sala no queda
 en MANTENIMIENTO con reservas a medio cancelar).
 """
 
-from django.contrib.auth.hashers import check_password
+from datetime import datetime, timedelta
+from django.conf import settings
 from django.db import transaction
+from django.db.models import F
+from django.utils import timezone
 
-from .models import Bloqueo, Reserva, SalaHorario, Usuario, UsuarioRol
+from cuentas.services import ROL_ADMINISTRADOR, usuario_tiene_rol
 
-ROL_ADMINISTRADOR = "Administrador"
+from .models import Bloqueo, Reserva, SalaHorario, Horario, Sancion, Usuario
+
+ACTIVIDADES = ("Tutoría", "Examen", "Tarea", "Proyecto")
+ESTADOS_ACTIVOS = ("CONFIRMADA", "EN_USO")
+
+
+class ReservationError(Exception):
+    """Rechazo de una solicitud de reserva sin modificar datos."""
+
+
+@transaction.atomic
+def create_student_reservation(codigo_usuario, id_sala_horario, actividad):
+    # SQLite serializa las escrituras. Tomar el bloqueo antes de consultar evita
+    # que dos solicitudes validen simultáneamente los mismos datos antiguos.
+    if not SalaHorario.objects.filter(pk=id_sala_horario).update(
+        estado_sala_horario=F("estado_sala_horario")
+    ):
+        raise ReservationError("La sala y el horario seleccionados no existen.")
+    usuario = Usuario.objects.filter(pk=codigo_usuario, estado_usuario=True).first()
+    if usuario is None or not usuario.password_hash or not usuario.usuariorol_set.filter(
+        rol__nombre_rol__in=["Solicitante", "Estudiante", "Administrador", "Operador"]
+    ).exists():
+        raise ReservationError("La cuenta no está habilitada para reservar.")
+    ahora = timezone.localtime()
+    hoy = ahora.date()
+    if hoy.weekday() >= 5 or hoy.isoformat() in settings.RESERVAS_FERIADOS:
+        raise ReservationError("Hoy no se realizan reservas: es fin de semana o feriado.")
+    sancion = Sancion.objects.filter(
+        usuario=usuario, fecha_inicio__lte=ahora, fecha_fin__gt=ahora
+    ).order_by("-fecha_fin").first()
+    if sancion:
+        minutos = int((sancion.fecha_fin - ahora).total_seconds() / 60) + 1
+        raise ReservationError(f"Sanción activa: {sancion.motivo}. Restan {minutos} minutos.")
+    if actividad not in ACTIVIDADES:
+        raise ReservationError("Selecciona una actividad de la lista.")
+    sh = SalaHorario.objects.select_related("sala", "horario").get(pk=id_sala_horario)
+    if not sh.sala.estado_sala or sh.estado_sala_horario != SalaHorario.ESTADO_DISPONIBLE:
+        raise ReservationError("Este horario no está disponible o está en mantenimiento.")
+    if sh.horario.hora_fin <= ahora.time():
+        raise ReservationError("El bloque ya terminó. Elige otro horario.")
+    activas = Reserva.objects.filter(fecha=hoy, estado_reserva__in=ESTADOS_ACTIVOS)
+    if activas.filter(sala_horario=sh).exists():
+        raise ReservationError("El bloque ya fue reservado por otro usuario. Elige otro horario disponible.")
+    bloques = list(Horario.objects.order_by("hora_inicio", "hora_fin", "pk").values_list("pk", flat=True))
+    indice = bloques.index(sh.horario_id)
+    vecinos = bloques[max(0, indice - 1):indice + 2]
+    if activas.filter(usuario=usuario, sala_horario__horario_id__in=vecinos).exists():
+        raise ReservationError("Ya tienes una reserva en el mismo bloque o en uno consecutivo.")
+    inicio = datetime.combine(hoy, sh.horario.hora_inicio)
+    fin = datetime.combine(hoy, sh.horario.hora_fin)
+    for reserva in activas.filter(sala_horario__sala=sh.sala).select_related("sala_horario__horario"):
+        horario = reserva.sala_horario.horario
+        otro_inicio = datetime.combine(hoy, horario.hora_inicio)
+        otro_fin = datetime.combine(hoy, horario.hora_fin)
+        if inicio < otro_fin + timedelta(minutes=15) and fin + timedelta(minutes=15) > otro_inicio:
+            raise ReservationError("La sala necesita 15 minutos entre reservas para desalojo y limpieza.")
+    return Reserva.objects.create(usuario=usuario, sala_horario=sh, fecha=hoy, tipo_actividad=actividad)
+
+
+def get_student_panel():
+    ahora = timezone.localtime()
+    reservas = {
+        r.sala_horario_id: r for r in Reserva.objects.filter(
+            fecha=ahora.date(), estado_reserva__in=ESTADOS_ACTIVOS
+        ).select_related("usuario")
+    }
+    columnas = {}
+    for sh in SalaHorario.objects.filter(sala__estado_sala=True).select_related("sala", "horario").order_by(
+        "sala__nombre_sala", "horario__hora_inicio"
+    ):
+        columna = columnas.setdefault(sh.sala_id, {"sala": sh.sala, "bloques": []})
+        if sh.horario.hora_fin <= ahora.time():
+            continue
+        reserva = reservas.get(sh.pk)
+        columna["bloques"].append({
+            "horario": sh.horario, "id": sh.pk, "reserva": reserva,
+            "expira": timezone.make_aware(datetime.combine(ahora.date(), sh.horario.hora_fin)).isoformat(),
+            "disponible": not reserva and sh.estado_sala_horario == SalaHorario.ESTADO_DISPONIBLE,
+            "mantenimiento": sh.estado_sala_horario == SalaHorario.ESTADO_MANTENIMIENTO,
+            "color": reserva.usuario_id % 4 if reserva else 0,
+        })
+    return {
+        "columnas": list(columnas.values()), "hoy": ahora.date(),
+        "actividades": ACTIVIDADES,
+        "dia_habilitado": ahora.weekday() < 5 and ahora.date().isoformat() not in settings.RESERVAS_FERIADOS,
+    }
 
 
 class ScheduleNotFoundError(Exception):
@@ -38,29 +126,6 @@ class NotAuthorizedError(Exception):
 
 class ScheduleAlreadyBlockedError(Exception):
     """Ese sala_horario ya está en estado MANTENIMIENTO."""
-
-
-# --- Autenticación -----------------------------------------------------
-
-def usuario_tiene_rol(codigo_usuario, nombre_rol):
-    return UsuarioRol.objects.filter(
-        usuario_id=codigo_usuario, rol__nombre_rol=nombre_rol
-    ).exists()
-
-
-def authenticate_admin(email, password):
-    """Devuelve el Usuario si el correo/contraseña son correctos, la cuenta
-    está activa (estado_usuario) y tiene el rol Administrador. Si no, None."""
-    usuario = Usuario.objects.filter(email=email).first()
-    if usuario is None or not usuario.estado_usuario:
-        return None
-    if not usuario.password_hash or not check_password(
-        password, usuario.password_hash
-    ):
-        return None
-    if not usuario_tiene_rol(usuario.codigo_usuario, ROL_ADMINISTRADOR):
-        return None
-    return usuario
 
 
 # --- Lecturas para mostrar el estado del sistema ----------------------------

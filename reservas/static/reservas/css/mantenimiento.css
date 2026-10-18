@@ -1,0 +1,45 @@
+.cabecera { min-height: 98px; padding: 8px 26px; gap: 12px; }
+.cabecera .emblema { width: 72px; height: 72px; }
+.cabecera .marca { font-size: 34px; gap: 15px; }
+.administracion { font-weight: 700; font-size: 17px; }
+.cabecera nav { margin-left: auto; font-size: 14px; }
+.estructura-admin { display: grid; grid-template-columns: 174px minmax(0, 1fr); min-height: calc(100vh - 98px); }
+.menu-admin { background: white; padding-top: 24px; }
+.menu-admin nav { display: flex; flex-direction: column; gap: 7px; align-items: stretch; }
+.menu-admin a { color: var(--azul); padding: 12px 22px; font-size: 14px; }
+.menu-admin a[aria-current] { background: #cfdfed; }
+.contenido-admin { padding: 20px 24px; width: 100%; max-width: 1600px; }
+.contenido-admin h1 { text-align: left; font-size: 27px; margin: 0 0 4px; }
+.descripcion { margin: 0 0 18px; font-size: 14px; font-weight: 600; }
+.paneles-admin { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 22px; align-items: start; }
+.resumen { display: grid; gap: 16px; min-width: 0; }
+.tarjeta { border-radius: 22px; background: white; padding: 15px 0; overflow: hidden; min-width: 0; }
+.tarjeta h2 { margin: 0; padding: 0 16px 12px; font-size: 20px; }
+.tarjeta h2 small { font-size: 12px; color: #67798c; font-weight: 400; margin-left: 10px; }
+.tabla-scroll { overflow: auto; max-height: 340px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 10px; border-bottom: 1px solid #e0eaf4; text-align: left; }
+thead th { background: #eff6fc; color: #65788c; text-transform: uppercase; font-size: 11px; white-space: nowrap; position: sticky; top: 0; z-index: 1; }
+tbody th { min-width: 110px; }
+td { font-weight: 500; }
+.estado { display: inline-block; font-size: 11px; padding: 4px 9px; border-radius: 14px; white-space: nowrap; background: #edf0f2; color: #596776; border: 1px solid #c7d0d6; }
+.estado.reservado { background: #dfedff; color: var(--azul); border-color: #6f9ad0; }
+.estado.mantenimiento { background: var(--azul); color: var(--amarillo); border-color: var(--azul); }
+.motivo { min-width: 120px; overflow-wrap: anywhere; }
+.historial summary { cursor: pointer; font-weight: 650; padding: 0 16px; }
+.historial[open] summary { padding-bottom: 12px; }
+.nuevo-bloqueo { padding: 22px; }
+.nuevo-bloqueo h2 { text-align: center; font-size: 25px; padding-bottom: 22px; }
+.nuevo-bloqueo fieldset { margin: 20px 0 16px; }
+.horarios-bloqueo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.seleccion-horario { display: flex; gap: 5px; align-items: center; border: 1px solid #b8bdc2; padding: 8px 5px; border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.seleccion-horario:has(input:checked) { background: #dfedff; border-color: var(--azul); }
+.seleccion-horario:has(input:disabled) { opacity: .55; cursor: not-allowed; }
+.seleccion-horario input { accent-color: var(--azul); margin: 0; }
+.seleccion-horario small { display: block; font-size: 10px; }
+textarea { width: 100%; padding: 10px; border: 1px solid #b8bdc2; border-radius: 9px; font: inherit; resize: vertical; }
+.nota { background: #fff5dc; border: 1px solid #ffdf81; border-radius: 9px; padding: 10px; font-size: 12px; line-height: 1.5; text-align: center; }
+.boton-bloqueo { width: 100%; padding: 12px; background: var(--azul); color: white; border: none; border-radius: 9px; font: inherit; font-weight: 700; cursor: pointer; }
+@media (max-width: 1100px) { .paneles-admin { grid-template-columns: minmax(0, 1fr) 310px; gap: 14px; } .contenido-admin { padding: 18px; } .cabecera nav span { display: none; } }
+@media (max-width: 900px) { .paneles-admin { grid-template-columns: 1fr; } .nuevo-bloqueo { max-width: none; } }
+@media (max-width: 600px) { .estructura-admin { grid-template-columns: 1fr; } .menu-admin { padding: 0; } .menu-admin nav { flex-direction: row; } .cabecera .marca { font-size: 25px; } .cabecera .emblema { width: 48px; height: 48px; font-size: 35px; } .administracion { font-size: 13px; } .cabecera { padding: 12px; } }
