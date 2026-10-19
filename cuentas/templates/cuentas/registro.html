@@ -8,13 +8,13 @@
         body { margin: 0; padding: 2rem 1rem; font-family: "Segoe UI", Arial, sans-serif; background: #f4f6f5; color: #22292a; }
         main { max-width: 420px; margin: 3rem auto; }
         section { background: white; border: 1px solid #dde2e0; border-radius: 10px; padding: 1.5rem; }
-        h1 { margin-top: 0; color: #15542f; }
+        h1 { margin-top: 0; color: #1a435c; }
         p { line-height: 1.45; }
         label { display: block; margin-top: 1rem; font-weight: 600; }
         input { box-sizing: border-box; width: 100%; margin-top: .35rem; padding: .65rem; border: 1px solid #bac4bf; border-radius: 6px; font: inherit; }
-        button { width: 100%; margin-top: 1.3rem; padding: .7rem; border: 0; border-radius: 6px; background: #1f7a4d; color: white; font: inherit; font-weight: 600; cursor: pointer; }
+        button { width: 100%; margin-top: 1.3rem; padding: .7rem; border: 0; border-radius: 6px; background: #1f627a; color: white; font: inherit; font-weight: 600; cursor: pointer; }
         .error { padding: .7rem; border-radius: 6px; background: #fdecea; color: #b3261e; }
-        a { color: #15542f; }
+        a { color: #152754; }
         .hint { color: #667; font-size: .9rem; }
     </style>
 </head>
@@ -22,7 +22,7 @@
 <main>
     <section>
         <h1>Crear cuenta</h1>
-        <p>Usa el código y el correo que ya están asociados en la lista local de estudiantes.</p>
+        <p>En este caso la base de datos debe tener el codigo y el gmail de upb de los usuarios, asi que deberian ingresar esos datos para poder crearse una cuenta.</p>
 
         {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 
@@ -31,7 +31,7 @@
             <label for="codigo_usuario">Código de estudiante</label>
             <input type="number" id="codigo_usuario" name="codigo_usuario" min="1" step="1" value="{{ codigo_usuario }}" required>
 
-            <label for="email">Correo asociado al código</label>
+            <label for="email">Correo proporcionado por la UPB</label>
             <input type="email" id="email" name="email" maxlength="255" value="{{ email }}" required>
 
             <label for="password">Contraseña de SalaMandra</label>
