@@ -7,33 +7,40 @@ from reservas.models import Rol, Usuario, UsuarioRol
 
 
 ROL_ADMINISTRADOR = "Administrador"
+MAX_CODIGO_USUARIO = 9223372036854775807
 
+def parse_codigo_usuario(valor):
+    if not isinstance(valor, str):
+        return None
+    if not valor.isascii() or not valor.isdigit() or len(valor) > 19:
+        return None
+    codigo = int(valor)
+    if not 0 < codigo <= MAX_CODIGO_USUARIO:
+        return None
+    return codigo
 
 def usuario_tiene_rol(codigo_usuario, nombre_rol):
     return UsuarioRol.objects.filter(
         usuario_id=codigo_usuario, rol__nombre_rol=nombre_rol
     ).exists()
 
-
 def authenticate_user(identificador, password):
-    """Autentica una cuenta activa únicamente por código y contraseña."""
-    if not (identificador.isascii() and identificador.isdigit() and len(identificador) <= 19):
-        return None
-    codigo = int(identificador)
-    if not 0 < codigo <= 9223372036854775807:
-        return None
-    usuario = Usuario.objects.filter(pk=codigo).first()
-    if usuario is None or not usuario.estado_usuario:
-        return None
-    if not usuario.password_hash or not check_password(
-        password, usuario.password_hash
-    ):
-        return None
-    if not UsuarioRol.objects.filter(
-        usuario=usuario, rol__nombre_rol__in=["Administrador", "Solicitante", "Estudiante", "Operador"]
-    ).exists():
-        return None
-    return usuario
+   """Autentica una cuenta activa únicamente por código y contraseña."""
+   if not (identificador.isascii() and identificador.isdigit() and len(identificador) <= 19):
+       return None
+   codigo = int(identificador)
+   if not 0 < codigo <= 9223372036854775807:
+       return None
+   usuario = Usuario.objects.filter(pk=codigo).first()
+   if usuario is None or not usuario.estado_usuario:
+       return None
+   if not usuario.password_hash or not check_password(password, usuario.password_hash):
+       return None
+   if not UsuarioRol.objects.filter(
+       usuario=usuario, rol__nombre_rol__in=["Administrador", "Solicitante", "Estudiante", "Operador"]).exists():
+       return None
+   return usuario
+
 
 
 class RegistrationError(Exception):

@@ -4,7 +4,7 @@ from django.core.validators import EmailValidator
 from django.db import OperationalError, ProgrammingError
 from django.shortcuts import redirect, render
 
-from .services import RegistrationError, authenticate_user, register_student_account
+from .services import RegistrationError, authenticate_user, register_student_account, parse_codigo_usuario
 
 # ----------------------------------------------------------------------------------------
 # Para el registro de cuentas de Nuevos Usuarios (Solicitantes)
@@ -19,23 +19,26 @@ def register_view(request):
         valores = {"codigo_usuario": codigo_usuario, "email": email}
 
         try:
-            if not codigo_usuario.isdecimal() or int(codigo_usuario) <= 0:
+            codigo = parse_codigo_usuario(codigo_usuario)
+            if codigo is None:
                 raise RegistrationError("Ingresa un código de estudiante válido.")
-            if int(codigo_usuario) > 9223372036854775807:
-                raise RegistrationError("El código de estudiante no es válido.")
+
             if not email or len(email) > 255:
                 raise RegistrationError("Ingresa un correo válido.")
             try:
                 EmailValidator()(email)
             except ValidationError as exc:
                 raise RegistrationError("Ingresa un correo válido.") from exc
-            if not password:
+            if not password.strip():
                 raise RegistrationError("La contraseña no puede estar vacía.")
+            # tomando en cuenta esto mas adelante para nosotros hacer nuestra contra 1234
+            # if len(password) <= 8:
+            #     raise RegistrationError("La contraseña debe tener al menos 8 caracteres.")
             if len(password) > 128:
                 raise RegistrationError("La contraseña no puede superar 128 caracteres.")
 
             usuario = register_student_account(
-                codigo_usuario=int(codigo_usuario),
+                codigo_usuario=codigo,
                 email=email,
                 password=password,
             )
@@ -43,9 +46,7 @@ def register_view(request):
             error = str(exc)
         else:
             messages.success(
-                request,
-                f"Cuenta de Solicitante creada correctamente para {usuario.nombre}.",
-            )
+                request,f"Cuenta de Solicitante creada correctamente para {usuario.nombre}.",)
             return redirect("login")
 
     return render(
