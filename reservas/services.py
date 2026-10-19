@@ -40,79 +40,183 @@ class ReservationError(Exception):
 
 @transaction.atomic
 def create_student_reservation(codigo_usuario, id_sala_horario, actividad):
+    """Valida las reglas y crea una reserva para hoy en una transacción."""
+    _bloquear_sala_horario(id_sala_horario)
+    usuario = _obtener_usuario_reservante(codigo_usuario)
+    ahora = timezone.localtime()
+    hoy = ahora.date()
+
+    _validar_dia_habil(hoy)
+    _validar_sin_sancion(usuario, ahora)
+    _validar_actividad(actividad)
+    sala_horario = _obtener_sala_horario(id_sala_horario)
+    _validar_bloque_disponible(sala_horario, ahora)
+
+    reservas_activas = _obtener_reservas_activas(hoy)
+    _validar_bloque_no_reservado(sala_horario, reservas_activas)
+    _validar_sin_bloques_consecutivos(usuario, sala_horario, reservas_activas)
+    _validar_intervalo_limpieza(sala_horario, hoy, reservas_activas)
+
+    return Reserva.objects.create(
+        usuario=usuario, sala_horario=sala_horario, fecha=hoy,
+        tipo_actividad=actividad,
+    )
+
+
+def _bloquear_sala_horario(id_sala_horario):
     # SQLite serializa las escrituras. Tomar el bloqueo antes de consultar evita
     # que dos solicitudes validen simultáneamente los mismos datos antiguos.
     if not SalaHorario.objects.filter(pk=id_sala_horario).update(
         estado_sala_horario=F("estado_sala_horario")
     ):
         raise ReservationError("La sala y el horario seleccionados no existen.")
+
+
+def _obtener_usuario_reservante(codigo_usuario):
     usuario = Usuario.objects.filter(pk=codigo_usuario, estado_usuario=True).first()
     if usuario is None or not usuario.password_hash or not usuario.usuariorol_set.filter(
         rol__nombre_rol__in=["Solicitante", "Estudiante", "Administrador", "Operador"]
     ).exists():
         raise ReservationError("La cuenta no está habilitada para reservar.")
-    ahora = timezone.localtime()
-    hoy = ahora.date()
-    if hoy.weekday() >= 5 or hoy.isoformat() in settings.RESERVAS_FERIADOS:
+    return usuario
+
+
+def _validar_dia_habil(fecha):
+    if not _es_dia_habilitado(fecha):
         raise ReservationError("Hoy no se realizan reservas: es fin de semana o feriado.")
+
+
+def _es_dia_habilitado(fecha):
+    return fecha.weekday() < 5 and fecha.isoformat() not in settings.RESERVAS_FERIADOS
+
+
+def _validar_sin_sancion(usuario, ahora):
     sancion = Sancion.objects.filter(
         usuario=usuario, fecha_inicio__lte=ahora, fecha_fin__gt=ahora
     ).order_by("-fecha_fin").first()
     if sancion:
         minutos = int((sancion.fecha_fin - ahora).total_seconds() / 60) + 1
         raise ReservationError(f"Sanción activa: {sancion.motivo}. Restan {minutos} minutos.")
+
+
+def _validar_actividad(actividad):
     if actividad not in ACTIVIDADES:
         raise ReservationError("Selecciona una actividad de la lista.")
-    sh = SalaHorario.objects.select_related("sala", "horario").get(pk=id_sala_horario)
-    if not sh.sala.estado_sala or sh.estado_sala_horario != SalaHorario.ESTADO_DISPONIBLE:
+
+
+def _obtener_sala_horario(id_sala_horario):
+    return SalaHorario.objects.select_related("sala", "horario").get(pk=id_sala_horario)
+
+
+def _validar_bloque_disponible(sala_horario, ahora):
+    if (
+        not sala_horario.sala.estado_sala
+        or sala_horario.estado_sala_horario != SalaHorario.ESTADO_DISPONIBLE
+    ):
         raise ReservationError("Este horario no está disponible o está en mantenimiento.")
-    if sh.horario.hora_fin <= ahora.time():
+    if sala_horario.horario.hora_fin <= ahora.time():
         raise ReservationError("El bloque ya terminó. Elige otro horario.")
-    activas = Reserva.objects.filter(fecha=hoy, estado_reserva__in=ESTADOS_ACTIVOS)
-    if activas.filter(sala_horario=sh).exists():
+
+
+def _obtener_reservas_activas(fecha):
+    return Reserva.objects.filter(fecha=fecha, estado_reserva__in=ESTADOS_ACTIVOS)
+
+
+def _validar_bloque_no_reservado(sala_horario, reservas_activas):
+    if reservas_activas.filter(sala_horario=sala_horario).exists():
         raise ReservationError("El bloque ya fue reservado por otro usuario. Elige otro horario disponible.")
-    bloques = list(Horario.objects.order_by("hora_inicio", "hora_fin", "pk").values_list("pk", flat=True))
-    indice = bloques.index(sh.horario_id)
+
+
+def _validar_sin_bloques_consecutivos(usuario, sala_horario, reservas_activas):
+    bloques = list(
+        Horario.objects.order_by("hora_inicio", "hora_fin", "pk")
+        .values_list("pk", flat=True)
+    )
+    indice = bloques.index(sala_horario.horario_id)
     vecinos = bloques[max(0, indice - 1):indice + 2]
-    if activas.filter(usuario=usuario, sala_horario__horario_id__in=vecinos).exists():
+    if reservas_activas.filter(usuario=usuario, sala_horario__horario_id__in=vecinos).exists():
         raise ReservationError("Ya tienes una reserva en el mismo bloque o en uno consecutivo.")
-    inicio = datetime.combine(hoy, sh.horario.hora_inicio)
-    fin = datetime.combine(hoy, sh.horario.hora_fin)
-    for reserva in activas.filter(sala_horario__sala=sh.sala).select_related("sala_horario__horario"):
+
+
+def _validar_intervalo_limpieza(sala_horario, fecha, reservas_activas):
+    inicio = datetime.combine(fecha, sala_horario.horario.hora_inicio)
+    fin = datetime.combine(fecha, sala_horario.horario.hora_fin)
+    reservas_de_sala = reservas_activas.filter(
+        sala_horario__sala=sala_horario.sala
+    ).select_related("sala_horario__horario")
+    for reserva in reservas_de_sala:
         horario = reserva.sala_horario.horario
-        otro_inicio = datetime.combine(hoy, horario.hora_inicio)
-        otro_fin = datetime.combine(hoy, horario.hora_fin)
+        otro_inicio = datetime.combine(fecha, horario.hora_inicio)
+        otro_fin = datetime.combine(fecha, horario.hora_fin)
         if inicio < otro_fin + timedelta(minutes=15) and fin + timedelta(minutes=15) > otro_inicio:
             raise ReservationError("La sala necesita 15 minutos entre reservas para desalojo y limpieza.")
-    return Reserva.objects.create(usuario=usuario, sala_horario=sh, fecha=hoy, tipo_actividad=actividad)
 
 
 def get_student_panel():
+    """Prepara las salas, bloques y datos que necesita el panel del solicitante."""
     ahora = timezone.localtime()
-    reservas = {
-        r.sala_horario_id: r for r in Reserva.objects.filter(
-            fecha=ahora.date(), estado_reserva__in=ESTADOS_ACTIVOS
-        ).select_related("usuario")
-    }
-    columnas = {}
-    for sh in SalaHorario.objects.filter(sala__estado_sala=True).select_related("sala", "horario").order_by(
-        "sala__nombre_sala", "horario__hora_inicio"
-    ):
-        columna = columnas.setdefault(sh.sala_id, {"sala": sh.sala, "bloques": []})
-        if sh.horario.hora_fin <= ahora.time():
-            continue
-        reserva = reservas.get(sh.pk)
-        columna["bloques"].append({
-            "horario": sh.horario, "id": sh.pk, "reserva": reserva,
-            "expira": timezone.make_aware(datetime.combine(ahora.date(), sh.horario.hora_fin)).isoformat(),
-            "disponible": not reserva and sh.estado_sala_horario == SalaHorario.ESTADO_DISPONIBLE,
-            "mantenimiento": sh.estado_sala_horario == SalaHorario.ESTADO_MANTENIMIENTO,
-            "color": reserva.usuario_id % 4 if reserva else 0,
-        })
+    fecha = ahora.date()
+    reservas_hoy = _obtener_reservas_de_hoy(fecha)
+    columnas = _construir_columnas_salas(ahora, reservas_hoy)
+
     return {
-        "columnas": list(columnas.values()), "hoy": ahora.date(),
+        "columnas": columnas,
+        "hoy": fecha,
         "actividades": ACTIVIDADES,
-        "dia_habilitado": ahora.weekday() < 5 and ahora.date().isoformat() not in settings.RESERVAS_FERIADOS,
+        "dia_habilitado": _es_dia_habilitado(fecha),
+    }
+
+
+def _obtener_reservas_de_hoy(fecha):
+    reservas = Reserva.objects.filter(
+        fecha=fecha, estado_reserva__in=ESTADOS_ACTIVOS
+    ).select_related("usuario")
+    return {reserva.sala_horario_id: reserva for reserva in reservas}
+
+
+def _construir_columnas_salas(ahora, reservas_hoy):
+    columnas = {}
+    sala_horarios = SalaHorario.objects.filter(sala__estado_sala=True).select_related(
+        "sala", "horario"
+    ).order_by(
+        "sala__nombre_sala", "horario__hora_inicio"
+    )
+
+    for sala_horario in sala_horarios:
+        columna = columnas.setdefault(
+            sala_horario.sala_id,
+            {"sala": sala_horario.sala, "bloques": []},
+        )
+        if sala_horario.horario.hora_fin <= ahora.time():
+            continue
+        reserva = reservas_hoy.get(sala_horario.pk)
+        columna["bloques"].append(
+            _construir_bloque_panel(sala_horario, reserva, ahora.date())
+        )
+
+    return list(columnas.values())
+
+
+def _construir_bloque_panel(sala_horario, reserva, fecha):
+    mantenimiento = (
+        sala_horario.estado_sala_horario == SalaHorario.ESTADO_MANTENIMIENTO
+    )
+    disponible = (
+        reserva is None
+        and sala_horario.estado_sala_horario == SalaHorario.ESTADO_DISPONIBLE
+    )
+    expira = timezone.make_aware(
+        datetime.combine(fecha, sala_horario.horario.hora_fin)
+    ).isoformat()
+
+    return {
+        "horario": sala_horario.horario,
+        "id": sala_horario.pk,
+        "reserva": reserva,
+        "expira": expira,
+        "disponible": disponible,
+        "mantenimiento": mantenimiento,
+        "color": reserva.usuario_id % 4 if reserva else 0,
     }
 
 
