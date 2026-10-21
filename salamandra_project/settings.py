@@ -83,6 +83,20 @@ SESSION_COOKIE_AGE = 60 * 60 * 4  # 4 horas
 
 LOGIN_URL = "login"
 
+# --- Validación de contraseñas -----------------------------------------------
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": 8},
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+    },
+]
+
 # --- Internacionalización ---------------------------------------------------
 LANGUAGE_CODE = "es"
 TIME_ZONE = "America/La_Paz"

@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.validators import EmailValidator
 from django.db import OperationalError, ProgrammingError
@@ -29,10 +30,12 @@ def register_view(request):
                 EmailValidator()(email)
             except ValidationError as exc:
                 raise RegistrationError("Ingresa un correo válido.") from exc
-            if not password:
-                raise RegistrationError("La contraseña no puede estar vacía.")
             if len(password) > 128:
                 raise RegistrationError("La contraseña no puede superar 128 caracteres.")
+            try:
+                validate_password(password)
+            except ValidationError as exc:
+                raise RegistrationError(" ".join(exc.messages)) from exc
 
             usuario = register_student_account(
                 codigo_usuario=int(codigo_usuario),
