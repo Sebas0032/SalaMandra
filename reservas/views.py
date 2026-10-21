@@ -36,31 +36,56 @@ def handle_db_errors(view_func):
 @handle_db_errors
 @login_required
 def student_panel_view(request):
+    """Muestra el panel y procesa las solicitudes de reserva del estudiante."""
     if request.method == "POST":
-        try:
-            id_sala_horario = int(request.POST.get("id_sala_horario", ""))
-            if not 0 < id_sala_horario <= 9223372036854775807:
-                raise ValueError
-            reserva = services.create_student_reservation(
-                request.usuario.pk, id_sala_horario, request.POST.get("actividad", "")
-            )
-        except ValueError:
-            messages.error(request, "Selecciona una sala y un horario.")
-        except services.ReservationError as exc:
-            messages.error(request, str(exc))
-        except IntegrityError:
-            messages.error(request, "El bloque ya fue reservado por otro usuario. Elige otro horario disponible.")
-        except OperationalError as exc:
-            if "locked" not in str(exc).lower():
-                raise
-            messages.error(request, "El sistema está atendiendo otra solicitud. Vuelve a intentarlo.")
-        else:
+        reserva = _intentar_crear_reserva(request)
+        if reserva is not None:
             messages.success(request, f"Reserva #{reserva.pk} confirmada.")
         return redirect("student_panel")
-    return render(request, "reservas/panel_solicitante.html", {
-        **services.get_student_panel(), "usuario": request.usuario,
+
+    return render(
+        request,
+        "reservas/panel_solicitante.html",
+        _construir_contexto_panel_solicitante(request),
+    )
+
+
+def _intentar_crear_reserva(request):
+    """Procesa el formulario y traduce rechazos a mensajes para la interfaz."""
+    try:
+        id_sala_horario = int(request.POST.get("id_sala_horario", ""))
+        if not 0 < id_sala_horario <= 9223372036854775807:
+            raise ValueError
+        return services.create_student_reservation(
+            request.usuario.pk,
+            id_sala_horario,
+            request.POST.get("actividad", ""),
+        )
+    except ValueError:
+        messages.error(request, "Selecciona una sala y un horario.")
+    except services.ReservationError as exc:
+        messages.error(request, str(exc))
+    except IntegrityError:
+        messages.error(
+            request,
+            "El bloque ya fue reservado por otro usuario. Elige otro horario disponible.",
+        )
+    except OperationalError as exc:
+        if "locked" not in str(exc).lower():
+            raise
+        messages.error(
+            request,
+            "El sistema está atendiendo otra solicitud. Vuelve a intentarlo.",
+        )
+    return None
+
+
+def _construir_contexto_panel_solicitante(request):
+    return {
+        **services.get_student_panel(),
+        "usuario": request.usuario,
         "es_admin": usuario_tiene_rol(request.usuario.pk, "Administrador"),
-    })
+    }
 
 @login_required
 @handle_db_errors

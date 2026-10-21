@@ -1,0 +1,68 @@
+-- SalaMandra: completar salas y horarios tras ejecutar:
+--     python manage.py seed_data --reset
+--
+-- Usar en DB Browser for SQLite > Execute SQL y luego pulsar Write Changes.
+-- No incluir BEGIN TRANSACTION ni COMMIT: DB Browser gestiona el guardado.
+-- Se puede volver a ejecutar: comprueba que no existan las filas antes de insertarlas.
+-- No cambia ni elimina las dos reservas de ejemplo que crea seed_data.
+
+-- seed_data ya crea Sala A y B. Agregar la Sala C.
+INSERT INTO salas (nombre_sala, estado_sala)
+SELECT 'Sala de estudio C', 1
+WHERE NOT EXISTS (
+    SELECT 1 FROM salas WHERE nombre_sala = 'Sala de estudio C'
+);
+
+-- seed_data ya crea 10:00-12:00 y 15:00-17:00.
+-- Agregar los otros tres bloques para llegar a cinco horarios.
+INSERT INTO horarios (hora_inicio, hora_fin)
+SELECT '07:45:00', '09:45:00'
+WHERE NOT EXISTS (
+    SELECT 1 FROM horarios
+    WHERE hora_inicio = '07:45:00' AND hora_fin = '09:45:00'
+);
+
+INSERT INTO horarios (hora_inicio, hora_fin)
+SELECT '12:15:00', '14:15:00'
+WHERE NOT EXISTS (
+    SELECT 1 FROM horarios
+    WHERE hora_inicio = '12:15:00' AND hora_fin = '14:15:00'
+);
+
+INSERT INTO horarios (hora_inicio, hora_fin)
+SELECT '17:15:00', '19:15:00'
+WHERE NOT EXISTS (
+    SELECT 1 FROM horarios
+    WHERE hora_inicio = '17:15:00' AND hora_fin = '19:15:00'
+);
+
+-- Asociar los cinco horarios con cada una de las tres salas.
+-- Las combinaciones iniciales de seed_data se conservan.
+INSERT INTO sala_horario (estado_sala_horario, id_horario, id_sala)
+SELECT 'DISPONIBLE', h.id_horario, s.id_salas
+FROM salas AS s
+CROSS JOIN horarios AS h
+WHERE s.nombre_sala IN (
+    'Sala de estudio A',
+    'Sala de estudio B',
+    'Sala de estudio C'
+)
+AND (
+    (h.hora_inicio = '07:45:00' AND h.hora_fin = '09:45:00')
+    OR (h.hora_inicio = '10:00:00' AND h.hora_fin = '12:00:00')
+    OR (h.hora_inicio = '12:15:00' AND h.hora_fin = '14:15:00')
+    OR (h.hora_inicio = '15:00:00' AND h.hora_fin = '17:00:00')
+    OR (h.hora_inicio = '17:15:00' AND h.hora_fin = '19:15:00')
+)
+AND NOT EXISTS (
+    SELECT 1 FROM sala_horario AS sh
+    WHERE sh.id_sala = s.id_salas
+      AND sh.id_horario = h.id_horario
+);
+
+-- Verificacion: deben aparecer 15 filas (3 salas x 5 horarios).
+SELECT s.nombre_sala, h.hora_inicio, h.hora_fin, sh.estado_sala_horario
+FROM sala_horario AS sh
+JOIN salas AS s ON s.id_salas = sh.id_sala
+JOIN horarios AS h ON h.id_horario = sh.id_horario
+ORDER BY s.nombre_sala, h.hora_inicio;
