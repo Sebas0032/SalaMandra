@@ -40,6 +40,16 @@ fieldset { padding: 0; border: 0; margin: 0 0 14px; min-width: 0; }
 .opcion small { font-size: 10px; margin-top: 3px; }
 select { width: 100%; border: 1px solid #b8bdc2; border-radius: 9px; padding: 10px; font: inherit; background: white; color: var(--marino); }
 .confirmar { background: var(--amarillo); color: var(--azul); width: 100%; border: 0; border-radius: 9px; padding: 13px; margin-top: 16px; font: inherit; font-weight: 750; cursor: pointer; }
+.mis-reservas { margin-top: 24px; padding-top: 18px; border-top: 1px solid #d8dee3; }
+.mis-reservas h3 { margin: 0 0 12px; font-size: 17px; }
+.reserva-propia { display: grid; gap: 4px; margin-bottom: 10px; padding: 11px; border-radius: 9px; background: #f2f6fc; }
+.reserva-propia a { justify-self: start; margin-top: 4px; color: var(--azul); font-weight: 700; }
+.reserva-propia small { color: #6f7984; }
+.pagina-modificacion { max-width: 620px; }
+.formulario-modificacion { margin-top: 20px; }
+.reserva-actual { display: grid; gap: 5px; margin-bottom: 16px; padding: 15px; border-radius: 10px; background: #f2f6fc; }
+.reserva-actual > span:first-child { color: #6f7984; font-size: 13px; font-weight: 700; text-transform: uppercase; }
+.cancelar { display: block; margin-top: 14px; color: var(--azul); text-align: center; font-weight: 650; }
 button:disabled { cursor: not-allowed; opacity: .65; }
 .aviso { background: white; border-left: 5px solid var(--azul); border-radius: 8px; padding: 13px 16px; margin: 0 0 16px; }
 .aviso.error { border-color: #b3261e; }

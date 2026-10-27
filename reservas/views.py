@@ -51,12 +51,42 @@ def student_panel_view(request):
     )
 
 
+@handle_db_errors
+@login_required
+def modify_reservation_view(request, id_reserva):
+    """Muestra y procesa el cambio de sala y horario de una reserva propia."""
+    if request.method == "POST":
+        reserva = _intentar_modificar_reserva(request, id_reserva)
+        if reserva is not None:
+            messages.success(
+                request, f"Reserva #{reserva.pk} modificada correctamente."
+            )
+            return redirect("student_panel")
+        return redirect("modify_reservation", id_reserva=id_reserva)
+
+    try:
+        contexto = services.get_reservation_modification_panel(
+            request.usuario.pk, id_reserva
+        )
+    except services.ReservationError as exc:
+        messages.error(request, str(exc))
+        return redirect("student_panel")
+
+    contexto.update(
+        {
+            "usuario": request.usuario,
+            "es_admin": usuario_tiene_rol(
+                request.usuario.pk, "Administrador"
+            ),
+        }
+    )
+    return render(request, "reservas/modificar_reserva.html", contexto)
+
+
 def _intentar_crear_reserva(request):
     """Procesa el formulario y traduce rechazos a mensajes para la interfaz."""
     try:
-        id_sala_horario = int(request.POST.get("id_sala_horario", ""))
-        if not 0 < id_sala_horario <= 9223372036854775807:
-            raise ValueError
+        id_sala_horario = _leer_id_sala_horario(request)
         return services.create_student_reservation(
             request.usuario.pk,
             id_sala_horario,
@@ -81,9 +111,44 @@ def _intentar_crear_reserva(request):
     return None
 
 
+def _intentar_modificar_reserva(request, id_reserva):
+    """Solicita el cambio y comunica cualquier rechazo sin perder la original."""
+    try:
+        return services.modify_student_reservation(
+            request.usuario.pk,
+            id_reserva,
+            _leer_id_sala_horario(request),
+        )
+    except ValueError:
+        messages.error(request, "Selecciona una sala y un horario.")
+    except services.ReservationError as exc:
+        messages.error(request, str(exc))
+    except IntegrityError:
+        messages.error(
+            request,
+            "El bloque ya fue reservado por otro usuario. "
+            "La reserva original se conserva sin cambios.",
+        )
+    except OperationalError as exc:
+        if "locked" not in str(exc).lower():
+            raise
+        messages.error(
+            request,
+            "El sistema está atendiendo otra solicitud. Vuelve a intentarlo.",
+        )
+    return None
+
+
+def _leer_id_sala_horario(request):
+    id_sala_horario = int(request.POST.get("id_sala_horario", ""))
+    if not 0 < id_sala_horario <= 9223372036854775807:
+        raise ValueError
+    return id_sala_horario
+
+
 def _construir_contexto_panel_solicitante(request):
     return {
-        **services.get_student_panel(),
+        **services.get_student_panel(request.usuario.pk),
         "usuario": request.usuario,
         "es_admin": usuario_tiene_rol(request.usuario.pk, "Administrador"),
     }
