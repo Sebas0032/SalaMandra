@@ -20,6 +20,7 @@ Notas:
 """
 
 from django.db import models
+from django.db.models.functions import Lower, Trim
 from django.utils import timezone
 
 
@@ -97,6 +98,7 @@ class Horario(models.Model):
 
     class Meta:
         db_table = "horarios"
+        constraints = [models.UniqueConstraint(fields=["hora_inicio", "hora_fin"], name="uq_horario_intervalo"),]
 
     def __str__(self):
         return f"{self.hora_inicio:%H:%M}-{self.hora_fin:%H:%M}"
@@ -109,6 +111,7 @@ class Sala(models.Model):
 
     class Meta:
         db_table = "salas"
+        constraints = [models.UniqueConstraint(Lower(Trim("nombre_sala")), name="uq_sala_nombre_normalizado"),]
 
     def __str__(self):
         return self.nombre_sala
