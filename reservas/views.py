@@ -10,7 +10,8 @@ from django.utils import timezone
 from cuentas.permisos import admin_login_required, login_required
 from cuentas.services import usuario_tiene_rol
 
-from . import services
+from . import services, gestion_salas
+from .models import Sala, SalaHorario
 
 
 # --- Decoradores de ayuda ----------------------------------------------------
@@ -180,3 +181,52 @@ def block_room_view(request):
         messages.success(request, f"{base} No había reservas asociadas.")
 
     return redirect("dashboard")
+
+# En esta parte se encuentra para poder CREAR tanto SALAS y HORARIOS por el admin
+@handle_db_errors
+@admin_login_required
+def gestion_salas_view(request):
+    """Página exclusiva del Administrador para dar de alta salas y horarios."""
+    if request.method == "POST":
+        _procesar_alta_sala_o_horario(request)
+        return redirect("gestion_salas")
+
+    return render(request, "reservas/gestion_salas.html", _contexto_gestion_salas(request))
+
+
+def _procesar_alta_sala_o_horario(request):
+    """Recibe el formulario; la lógica y sus validaciones viven en gestion_salas.py."""
+    accion = request.POST.get("accion", "")
+    try:
+        if accion == "crear_sala":
+            sala = gestion_salas.create_room(
+                request.usuario.pk, request.POST.get("nombre_sala", "")
+            )
+            messages.success(request, f"Se creó la sala {sala.nombre_sala}.")
+        elif accion == "crear_horario":
+            asignacion = gestion_salas.create_room_schedule(
+                request.usuario.pk,
+                request.POST.get("id_sala", ""),
+                request.POST.get("hora_inicio", ""),
+                request.POST.get("hora_fin", ""),
+            )
+            messages.success(
+                request, f"Horario {asignacion.horario} asignado a {asignacion.sala}."
+            )
+        else:
+            messages.error(request, "Acción no reconocida.")
+    except gestion_salas.GestionSalasError as exc:
+        messages.error(request, str(exc))
+    except IntegrityError:
+        messages.error(request, "La sala o el horario ya existen. Actualiza la página.")
+
+
+def _contexto_gestion_salas(request):
+    return {
+        "nombre_completo": request.session.get("nombre_completo"),
+        "salas": Sala.objects.all().order_by("nombre_sala"),
+        "salas_activas": Sala.objects.filter(estado_sala=True).order_by("nombre_sala"),
+        "asignaciones": SalaHorario.objects.select_related("sala", "horario").order_by(
+            "sala__nombre_sala", "horario__hora_inicio"
+        ),
+    }

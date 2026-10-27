@@ -1,0 +1,17 @@
+/* Solo la pantalla nueva: no modifica los estilos de Mantenimiento. */
+.menu-admin a { line-height: 1.45; }
+.formularios-gestion, .tablas-gestion { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; margin-bottom: 20px; }
+.formulario-gestion { padding: 22px; }
+.formulario-gestion h2 { padding: 0 0 18px; }
+.formulario-gestion form { display: grid; gap: 12px; }
+.formulario-gestion .etiqueta { margin: 0; display: block; }
+.formulario-gestion input, .formulario-gestion select { width: 100%; min-width: 0; padding: 12px; border: 1px solid #b8bdc2; border-radius: 9px; background: #fff; color: var(--azul); font: inherit; }
+.horas-gestion { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.horas-gestion > div { display: grid; gap: 10px; }
+.reglas-gestion { margin: 0; color: #566b80; font-size: 12px; line-height: 1.5; }
+.boton-gestion { padding: 12px 15px; border: 0; border-radius: 9px; color: #fff; background: var(--azul); font: inherit; font-weight: 700; cursor: pointer; }
+.boton-gestion:disabled { opacity: .5; cursor: not-allowed; }
+.tablas-gestion .tarjeta h2 { padding-bottom: 15px; }
+.avisos-gestion { margin-bottom: 15px; }
+@media (max-width: 980px) { .formularios-gestion, .tablas-gestion { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .menu-admin nav { flex-wrap: wrap; } .menu-admin a { padding: 10px 12px; } .horas-gestion { grid-template-columns: 1fr; } }
