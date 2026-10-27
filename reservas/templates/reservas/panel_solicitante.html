@@ -77,6 +77,22 @@
                 </select>
                 <button class="confirmar" type="submit" {% if not dia_habilitado or not columnas %}disabled{% endif %}>Confirmar reserva</button>
             </form>
+            <section class="mis-reservas" aria-labelledby="mis-reservas">
+                <h3 id="mis-reservas">Mis reservas de hoy</h3>
+                {% for item in mis_reservas %}
+                <article class="reserva-propia">
+                    <strong>{{ item.reserva.sala_horario.sala.nombre_sala }}</strong>
+                    <span>{{ item.reserva.sala_horario.horario.hora_inicio|time:"H:i" }} – {{ item.reserva.sala_horario.horario.hora_fin|time:"H:i" }}</span>
+                    {% if item.puede_modificar %}
+                    <a href="{% url 'modify_reservation' item.reserva.pk %}">Modificar</a>
+                    {% else %}
+                    <small>El plazo para modificar terminó.</small>
+                    {% endif %}
+                </article>
+                {% empty %}
+                <p class="vacio">Todavía no tienes reservas para hoy.</p>
+                {% endfor %}
+            </section>
         </aside>
     </div>
     {% endif %}

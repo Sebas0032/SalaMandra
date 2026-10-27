@@ -32,6 +32,7 @@ from .models import Bloqueo, Reserva, SalaHorario, Horario, Sancion, Usuario
 
 ACTIVIDADES = ("Tutoría", "Examen", "Tarea", "Proyecto")
 ESTADOS_ACTIVOS = ("CONFIRMADA", "EN_USO")
+ANTICIPACION_MINIMA_MODIFICACION = timedelta(hours=1)
 
 
 class ReservationError(Exception):
@@ -45,22 +46,62 @@ def create_student_reservation(codigo_usuario, id_sala_horario, actividad):
     usuario = _obtener_usuario_reservante(codigo_usuario)
     ahora = timezone.localtime()
     hoy = ahora.date()
-
-    _validar_dia_habil(hoy)
-    _validar_sin_sancion(usuario, ahora)
-    _validar_actividad(actividad)
     sala_horario = _obtener_sala_horario(id_sala_horario)
-    _validar_bloque_disponible(sala_horario, ahora)
-
-    reservas_activas = _obtener_reservas_activas(hoy)
-    _validar_bloque_no_reservado(sala_horario, reservas_activas)
-    _validar_sin_bloques_consecutivos(usuario, sala_horario, reservas_activas)
-    _validar_intervalo_limpieza(sala_horario, hoy, reservas_activas)
+    _validar_reglas_reserva(usuario, sala_horario, actividad, hoy, ahora)
 
     return Reserva.objects.create(
         usuario=usuario, sala_horario=sala_horario, fecha=hoy,
         tipo_actividad=actividad,
     )
+
+
+@transaction.atomic
+def modify_student_reservation(codigo_usuario, id_reserva, id_sala_horario):
+    """Cambia la sala y el horario sin liberar antes la reserva original."""
+    usuario = _obtener_usuario_reservante(codigo_usuario)
+    reserva = _obtener_reserva_confirmada_del_usuario(
+        usuario, id_reserva, bloquear=True
+    )
+    ahora = timezone.localtime()
+    _validar_plazo_modificacion(reserva, ahora)
+
+    _bloquear_sala_horario(id_sala_horario)
+    nuevo_sala_horario = _obtener_sala_horario(id_sala_horario)
+    _validar_reglas_reserva(
+        usuario,
+        nuevo_sala_horario,
+        reserva.tipo_actividad,
+        reserva.fecha,
+        ahora,
+        reserva_excluida_id=reserva.pk,
+    )
+
+    # El cambio se guarda únicamente después de superar todas las validaciones.
+    reserva.sala_horario = nuevo_sala_horario
+    reserva.save(update_fields=["sala_horario"])
+    return reserva
+
+
+def _validar_reglas_reserva(
+    usuario,
+    sala_horario,
+    actividad,
+    fecha,
+    ahora,
+    reserva_excluida_id=None,
+):
+    """Aplica las reglas compartidas por la creación y la modificación."""
+    _validar_dia_habil(fecha)
+    _validar_sin_sancion(usuario, ahora)
+    _validar_actividad(actividad)
+    _validar_bloque_disponible(sala_horario, ahora, fecha)
+
+    reservas_activas = _obtener_reservas_activas(fecha)
+    if reserva_excluida_id is not None:
+        reservas_activas = reservas_activas.exclude(pk=reserva_excluida_id)
+    _validar_bloque_no_reservado(sala_horario, reservas_activas)
+    _validar_sin_bloques_consecutivos(usuario, sala_horario, reservas_activas)
+    _validar_intervalo_limpieza(sala_horario, fecha, reservas_activas)
 
 
 def _bloquear_sala_horario(id_sala_horario):
@@ -79,6 +120,48 @@ def _obtener_usuario_reservante(codigo_usuario):
     ).exists():
         raise ReservationError("La cuenta no está habilitada para reservar.")
     return usuario
+
+
+def _obtener_reserva_confirmada_del_usuario(usuario, id_reserva, bloquear=False):
+    consulta = Reserva.objects.select_related(
+        "sala_horario__sala", "sala_horario__horario"
+    )
+    if bloquear:
+        consulta = consulta.select_for_update()
+    try:
+        return consulta.get(
+            pk=id_reserva,
+            usuario=usuario,
+            estado_reserva=Reserva.ESTADO_CONFIRMADA,
+        )
+    except Reserva.DoesNotExist as exc:
+        raise ReservationError(
+            "La reserva no existe, no te pertenece o ya no está confirmada."
+        ) from exc
+
+
+def _inicio_de_reserva(reserva):
+    return timezone.make_aware(
+        datetime.combine(
+            reserva.fecha, reserva.sala_horario.horario.hora_inicio
+        )
+    )
+
+
+def _validar_plazo_modificacion(reserva, ahora):
+    if ahora > _inicio_de_reserva(reserva) - ANTICIPACION_MINIMA_MODIFICACION:
+        raise ReservationError(
+            "La reserva solo se puede modificar con al menos 60 minutos "
+            "de anticipación. La reserva original se conserva sin cambios."
+        )
+
+
+def _puede_modificar_reserva(reserva, ahora):
+    return (
+        reserva.estado_reserva == Reserva.ESTADO_CONFIRMADA
+        and ahora
+        <= _inicio_de_reserva(reserva) - ANTICIPACION_MINIMA_MODIFICACION
+    )
 
 
 def _validar_dia_habil(fecha):
@@ -108,13 +191,15 @@ def _obtener_sala_horario(id_sala_horario):
     return SalaHorario.objects.select_related("sala", "horario").get(pk=id_sala_horario)
 
 
-def _validar_bloque_disponible(sala_horario, ahora):
+def _validar_bloque_disponible(sala_horario, ahora, fecha):
     if (
         not sala_horario.sala.estado_sala
         or sala_horario.estado_sala_horario != SalaHorario.ESTADO_DISPONIBLE
     ):
         raise ReservationError("Este horario no está disponible o está en mantenimiento.")
-    if sala_horario.horario.hora_fin <= ahora.time():
+    if fecha < ahora.date() or (
+        fecha == ahora.date() and sala_horario.horario.hora_fin <= ahora.time()
+    ):
         raise ReservationError("El bloque ya terminó. Elige otro horario.")
 
 
@@ -152,7 +237,7 @@ def _validar_intervalo_limpieza(sala_horario, fecha, reservas_activas):
             raise ReservationError("La sala necesita 15 minutos entre reservas para desalojo y limpieza.")
 
 
-def get_student_panel():
+def get_student_panel(codigo_usuario=None):
     """Prepara las salas, bloques y datos que necesita el panel del solicitante."""
     ahora = timezone.localtime()
     fecha = ahora.date()
@@ -164,7 +249,29 @@ def get_student_panel():
         "hoy": fecha,
         "actividades": ACTIVIDADES,
         "dia_habilitado": _es_dia_habilitado(fecha),
+        "mis_reservas": _construir_mis_reservas(
+            codigo_usuario, fecha, ahora
+        ),
     }
+
+
+def _construir_mis_reservas(codigo_usuario, fecha, ahora):
+    if codigo_usuario is None:
+        return []
+    reservas = Reserva.objects.filter(
+        usuario_id=codigo_usuario,
+        fecha=fecha,
+        estado_reserva__in=ESTADOS_ACTIVOS,
+    ).select_related("sala_horario__sala", "sala_horario__horario").order_by(
+        "sala_horario__horario__hora_inicio"
+    )
+    return [
+        {
+            "reserva": reserva,
+            "puede_modificar": _puede_modificar_reserva(reserva, ahora),
+        }
+        for reserva in reservas
+    ]
 
 
 def _obtener_reservas_de_hoy(fecha):
@@ -217,6 +324,21 @@ def _construir_bloque_panel(sala_horario, reserva, fecha):
         "disponible": disponible,
         "mantenimiento": mantenimiento,
         "color": reserva.usuario_id % 4 if reserva else 0,
+    }
+
+
+def get_reservation_modification_panel(codigo_usuario, id_reserva):
+    """Prepara la reserva y los destinos disponibles para modificarla."""
+    usuario = _obtener_usuario_reservante(codigo_usuario)
+    reserva = _obtener_reserva_confirmada_del_usuario(usuario, id_reserva)
+    ahora = timezone.localtime()
+    _validar_plazo_modificacion(reserva, ahora)
+
+    reservas_fecha = _obtener_reservas_de_hoy(reserva.fecha)
+    reservas_fecha.pop(reserva.sala_horario_id, None)
+    return {
+        "reserva": reserva,
+        "columnas": _construir_columnas_salas(ahora, reservas_fecha),
     }
 
 

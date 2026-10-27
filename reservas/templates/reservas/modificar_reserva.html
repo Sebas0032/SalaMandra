@@ -1,0 +1,49 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Modificar reserva — SalaMandra</title>
+    <link rel="stylesheet" href="{% static 'reservas/css/panel_solicitante.css' %}">
+</head>
+<body>
+<header class="cabecera">
+    <a class="marca" href="{% url 'student_panel' %}"><span class="emblema" aria-hidden="true">S</span><span>Sala<strong>Mandra</strong></span></a>
+    <nav aria-label="Cuenta">
+        <span>Hola {{ usuario.nombre }}</span>
+        {% if es_admin %}<a href="{% url 'dashboard' %}">Mantenimiento</a>{% endif %}
+        <a href="{% url 'logout' %}">Salir ↗</a>
+    </nav>
+</header>
+<main class="pagina-modificacion">
+    {% if messages %}<div class="avisos" aria-live="polite">{% for message in messages %}<p class="aviso {{ message.tags }}">{{ message }}</p>{% endfor %}</div>{% endif %}
+    <section class="formulario formulario-modificacion">
+        <h1>Modificar reserva #{{ reserva.pk }}</h1>
+        <div class="reserva-actual">
+            <span>Reserva actual</span>
+            <strong>{{ reserva.sala_horario.sala.nombre_sala }}</strong>
+            <span>{{ reserva.sala_horario.horario.hora_inicio|time:"H:i" }} – {{ reserva.sala_horario.horario.hora_fin|time:"H:i" }}</span>
+        </div>
+        <p>Selecciona la nueva sala y horario. La reserva actual se conserva hasta que el cambio sea confirmado.</p>
+        <form method="post">
+            {% csrf_token %}
+            <label class="etiqueta" for="id_sala_horario">Nueva sala y horario</label>
+            <select id="id_sala_horario" name="id_sala_horario" required>
+                {% for columna in columnas %}
+                    {% for bloque in columna.bloques %}
+                        {% if bloque.disponible %}
+                        <option value="{{ bloque.id }}" {% if bloque.id == reserva.sala_horario_id %}selected{% endif %}>
+                            {{ columna.sala.nombre_sala }} — {{ bloque.horario.hora_inicio|time:"H:i" }} a {{ bloque.horario.hora_fin|time:"H:i" }}
+                        </option>
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+            </select>
+            <button class="confirmar" type="submit">Confirmar modificación</button>
+            <a class="cancelar" href="{% url 'student_panel' %}">Volver sin modificar</a>
+        </form>
+    </section>
+</main>
+</body>
+</html>

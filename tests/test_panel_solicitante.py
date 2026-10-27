@@ -140,3 +140,155 @@ def test_dia_no_habilitado_oculta_salas_y_formulario(client, escenario, settings
             "id_sala_horario": bloques[0].pk, "actividad": "Tarea",
         })
         assert not Reserva.objects.exists()
+
+
+def test_modificar_reserva_cambia_sala_y_conserva_la_misma_fila(client, escenario):
+    usuario, bloques, _ = escenario
+    reserva = services.create_student_reservation(
+        usuario.pk, bloques[1].pk, "Proyecto"
+    )
+    sala_b = Sala.objects.create(nombre_sala="Sala B")
+    destino = SalaHorario.objects.create(
+        sala=sala_b, horario=bloques[1].horario
+    )
+
+    response = client.get(
+        reverse("modify_reservation", args=[reserva.pk])
+    )
+    assert response.status_code == 200
+    assert b"Sala B" in response.content
+
+    response = client.post(
+        reverse("modify_reservation", args=[reserva.pk]),
+        {"id_sala_horario": destino.pk},
+    )
+    assert response.url == reverse("student_panel")
+    reserva.refresh_from_db()
+    assert Reserva.objects.count() == 1
+    assert reserva.sala_horario == destino
+    assert reserva.tipo_actividad == "Proyecto"
+
+
+def test_modificacion_exige_60_minutos_y_conserva_reserva_original(escenario):
+    usuario, bloques, ahora = escenario
+    horario_original = Horario.objects.create(
+        hora_inicio=time(14), hora_fin=time(16)
+    )
+    horario_destino = Horario.objects.create(
+        hora_inicio=time(16, 15), hora_fin=time(18, 15)
+    )
+    original = SalaHorario.objects.create(
+        sala=bloques[0].sala, horario=horario_original
+    )
+    destino = SalaHorario.objects.create(
+        sala=bloques[0].sala, horario=horario_destino
+    )
+    reserva = Reserva.objects.create(
+        usuario=usuario,
+        sala_horario=original,
+        fecha=ahora.date(),
+        tipo_actividad="Tarea",
+    )
+
+    a_las_1315 = ahora.replace(hour=13, minute=15)
+    with patch("reservas.services.timezone.localtime", return_value=a_las_1315):
+        with pytest.raises(services.ReservationError, match="60 minutos"):
+            services.modify_student_reservation(
+                usuario.pk, reserva.pk, destino.pk
+            )
+
+    reserva.refresh_from_db()
+    assert reserva.sala_horario == original
+    assert reserva.estado_reserva == Reserva.ESTADO_CONFIRMADA
+
+    exactamente_una_hora_antes = ahora.replace(hour=13, minute=0)
+    with patch(
+        "reservas.services.timezone.localtime",
+        return_value=exactamente_una_hora_antes,
+    ):
+        services.modify_student_reservation(
+            usuario.pk, reserva.pk, destino.pk
+        )
+    reserva.refresh_from_db()
+    assert reserva.sala_horario == destino
+
+
+def test_destino_ocupado_no_libera_la_reserva_original(escenario):
+    usuario, bloques, ahora = escenario
+    reserva = services.create_student_reservation(
+        usuario.pk, bloques[0].pk, "Tarea"
+    )
+    sala_b = Sala.objects.create(nombre_sala="Sala B")
+    destino = SalaHorario.objects.create(
+        sala=sala_b, horario=bloques[0].horario
+    )
+    otro = Usuario.objects.create(
+        pk=94186, email="otro@test.edu", nombre="Otro", apellido="Test"
+    )
+    Reserva.objects.create(
+        usuario=otro,
+        sala_horario=destino,
+        fecha=ahora.date(),
+        tipo_actividad="Examen",
+    )
+
+    with pytest.raises(services.ReservationError, match="otro usuario"):
+        services.modify_student_reservation(
+            usuario.pk, reserva.pk, destino.pk
+        )
+
+    reserva.refresh_from_db()
+    assert reserva.sala_horario == bloques[0]
+    assert reserva.estado_reserva == Reserva.ESTADO_CONFIRMADA
+
+
+def test_modificacion_respeta_bloques_consecutivos(escenario):
+    usuario, bloques, ahora = escenario
+    reserva = services.create_student_reservation(
+        usuario.pk, bloques[0].pk, "Tarea"
+    )
+    Reserva.objects.create(
+        usuario=usuario,
+        sala_horario=bloques[2],
+        fecha=ahora.date(),
+        tipo_actividad="Proyecto",
+    )
+
+    with pytest.raises(services.ReservationError, match="consecutivo"):
+        services.modify_student_reservation(
+            usuario.pk, reserva.pk, bloques[1].pk
+        )
+
+    reserva.refresh_from_db()
+    assert reserva.sala_horario == bloques[0]
+
+
+def test_no_se_puede_modificar_una_reserva_ajena(escenario):
+    usuario, bloques, ahora = escenario
+    reserva = services.create_student_reservation(
+        usuario.pk, bloques[0].pk, "Tarea"
+    )
+    otro = Usuario.objects.create(
+        pk=94186,
+        email="otro@test.edu",
+        nombre="Otro",
+        apellido="Test",
+        password_hash=make_password("clave-segura"),
+    )
+    UsuarioRol.objects.create(
+        usuario=otro,
+        rol=Rol.objects.get(nombre_rol="Solicitante"),
+    )
+    destino = SalaHorario.objects.create(
+        sala=Sala.objects.create(nombre_sala="Sala B"),
+        horario=bloques[0].horario,
+    )
+
+    with pytest.raises(services.ReservationError, match="no te pertenece"):
+        services.modify_student_reservation(
+            otro.pk, reserva.pk, destino.pk
+        )
+
+    reserva.refresh_from_db()
+    assert reserva.usuario == usuario
+    assert reserva.sala_horario == bloques[0]
