@@ -44,7 +44,7 @@
                             <td>{{ item.sala_horario.horario.hora_inicio|time:"H:i" }} – {{ item.sala_horario.horario.hora_fin|time:"H:i" }}</td>
                             <td class="motivo">{% if item.bloqueo %}{{ item.bloqueo.motivo }}{% else %}—{% endif %}</td>
                             <td>{% if item.bloqueo %}{{ item.bloqueo.fecha|date:"d/m/Y H:i" }}<br><small>{{ item.bloqueo.usuario }} · Código {{ item.bloqueo.usuario_id }}</small>{% else %}—{% endif %}</td>
-                            <td><form method="post" action="{% url 'unblock_room' item.sala_horario.pk %}">{% csrf_token %}<button class="boton-habilitar" type="submit">Sacar de mantenimiento</button></form></td>
+                            <td>{% if item.puede_desbloquear %}<form method="post" action="{% url 'unblock_room' item.sala_horario.pk %}">{% csrf_token %}<button class="boton-habilitar" type="submit">Sacar de mantenimiento</button></form>{% else %}<span>Mantenimiento iniciado</span>{% endif %}</td>
                         </tr>{% empty %}<tr><td colspan="5">No hay horarios en mantenimiento.</td></tr>{% endfor %}</tbody>
                     </table></div>
                 </section>
@@ -72,8 +72,8 @@
                     <fieldset><legend>Horario a bloquear</legend><div class="horarios-bloqueo">
                         {% for combo in sala_horarios %}
                         <label class="seleccion-horario" data-sala="{{ combo.sala_id }}">
-                            <input type="radio" name="id_sala_horario" value="{{ combo.pk }}" required {% if combo.estado_sala_horario == "MANTENIMIENTO" %}disabled{% endif %}>
-                            <span>{{ combo.horario.hora_inicio|time:"H:i" }} – {{ combo.horario.hora_fin|time:"H:i" }}{% if combo.estado_sala_horario == "MANTENIMIENTO" %}<small>Ya bloqueado</small>{% endif %}</span>
+                            <input type="radio" name="id_sala_horario" value="{{ combo.pk }}" required {% if combo.estado_sala_horario == "MANTENIMIENTO" or not combo.puede_bloquear %}disabled{% endif %}>
+                            <span>{{ combo.horario.hora_inicio|time:"H:i" }} – {{ combo.horario.hora_fin|time:"H:i" }}{% if combo.estado_sala_horario == "MANTENIMIENTO" %}<small>Ya bloqueado</small>{% elif not combo.puede_bloquear %}<small>Horario iniciado</small>{% endif %}</span>
                         </label>
                         {% endfor %}
                     </div><p id="sin-horarios" class="vacio" hidden>No hay horarios disponibles para bloquear en esta sala.</p></fieldset>

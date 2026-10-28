@@ -7,7 +7,10 @@ from django.urls import reverse
 from django.utils import timezone
 
 from reservas import services
-from reservas.models import Auditoria, Horario, Reserva, Rol, Sala, SalaHorario, Sancion, Usuario
+from reservas.models import (
+    Auditoria, Desbloqueo, Horario, Reserva, Rol, Sala, SalaHorario, Sancion,
+    Usuario,
+)
 
 
 pytestmark = pytest.mark.django_db
@@ -174,6 +177,7 @@ def test_operante_gestiona_mantenimiento_sin_sancionar(client, escenario_operant
     ).status_code == 302
     bloques[0].refresh_from_db()
     assert bloques[0].estado_sala_horario == SalaHorario.ESTADO_DISPONIBLE
+    assert Desbloqueo.objects.get().desbloqueado_por == operante
 
 
 def test_operante_no_accede_a_sanciones_ni_gestion_de_horarios(client, escenario_operante):
