@@ -88,6 +88,14 @@
                     {% else %}
                     <small>El plazo para modificar terminó.</small>
                     {% endif %}
+                    {% if item.puede_cancelar %}
+                    <form method="post" action="{% url 'cancel_reservation' item.reserva.pk %}">
+                        {% csrf_token %}
+                        <button class="cancelar-reserva" type="submit">Cancelar reserva</button>
+                    </form>
+                    {% else %}
+                    <small>La reserva ya comenzó y no se puede cancelar.</small>
+                    {% endif %}
                 </article>
                 {% empty %}
                 <p class="vacio">Todavía no tienes reservas para hoy.</p>
