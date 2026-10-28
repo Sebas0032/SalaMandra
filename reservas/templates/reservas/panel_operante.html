@@ -1,0 +1,153 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Panel del Operante — SalaMandra</title>
+    <link rel="stylesheet" href="{% static 'reservas/css/panel_solicitante.css' %}">
+    <link rel="stylesheet" href="{% static 'reservas/css/panel_operante.css' %}">
+    {% if accion == "mantenimiento" %}<script src="{% static 'reservas/js/mantenimiento.js' %}" defer></script>{% endif %}
+</head>
+<body>
+<header class="cabecera operante-cabecera">
+    <a class="marca" href="{% url 'operator_panel' %}"><span class="emblema" aria-hidden="true">S</span><span>Sala<strong>Mandra</strong></span></a>
+    <span class="rol-cabecera">| Operante</span>
+    <nav aria-label="Cuenta"><span>{{ nombre_completo }}</span><a href="{% url 'logout' %}">Salir</a></nav>
+</header>
+
+<div class="estructura-operante">
+    <aside class="menu-operante">
+        <nav aria-label="Funciones del operante">
+            <a href="{% url 'operator_panel' %}?accion=reservar" {% if accion == "reservar" %}aria-current="page"{% endif %}><b>1</b> Reservar</a>
+            <a href="{% url 'operator_panel' %}?accion=modificar" {% if accion == "modificar" %}aria-current="page"{% endif %}><b>2</b> Modificar</a>
+            <a href="{% url 'operator_panel' %}?accion=cancelar" {% if accion == "cancelar" %}aria-current="page"{% endif %}><b>3</b> Cancelar</a>
+            <a href="{% url 'operator_panel' %}?accion=mantenimiento" {% if accion == "mantenimiento" %}aria-current="page"{% endif %}><b>4</b> Mantenimiento</a>
+        </nav>
+    </aside>
+
+    <main class="contenido-operante">
+        {% if accion == "reservar" %}
+            <h1>Reservar para un solicitante</h1>
+            <p class="subtitulo">Ingresa su código y reserva una sala a su nombre.</p>
+        {% elif accion == "modificar" %}
+            <h1>Modificar una reserva</h1>
+            <p class="subtitulo">Busca al solicitante, elige su reserva y cambia la sala o el turno.</p>
+        {% elif accion == "cancelar" %}
+            <h1>Cancelar una reserva</h1>
+            <p class="subtitulo">Busca al solicitante y cancela una de sus reservas.</p>
+        {% else %}
+            <h1>Mantenimiento</h1>
+            <p class="subtitulo">Bloquea los horarios de una sala cuando no pueda usarse.</p>
+        {% endif %}
+
+        {% if messages %}<div class="mensajes" aria-live="polite">{% for message in messages %}<p class="aviso {{ message.tags }}">{{ message }}</p>{% endfor %}</div>{% endif %}
+
+        {% if accion != "mantenimiento" %}
+        <section class="tarjeta-operante buscador-operante">
+            <form method="get" action="{% url 'operator_panel' %}">
+                <input type="hidden" name="accion" value="{{ accion }}">
+                <label for="codigo">Código del solicitante</label>
+                <div class="fila-busqueda">
+                    <input id="codigo" name="codigo" value="{{ codigo_buscado }}" inputmode="numeric" required>
+                    <button type="submit">Buscar</button>
+                </div>
+            </form>
+            {% if solicitante %}
+            <div class="persona">
+                <span class="avatar">{{ solicitante.nombre|first }}{{ solicitante.apellido|first }}</span>
+                <span><strong>{{ solicitante }}</strong><small>{{ solicitante.email }}</small></span>
+                <span class="insignia">{% if sancion_activa %}Sanción activa{% else %}Sin sanciones activas{% endif %}</span>
+                <span class="insignia">Faltas {{ faltas }} de 4</span>
+            </div>
+            {% elif error_busqueda %}<p class="error-busqueda">{{ error_busqueda }}</p>{% endif %}
+        </section>
+
+        {% if solicitante %}
+        <div class="columnas-operante">
+            <section class="tarjeta-operante tabla-reservas">
+                <div class="titulo-tarjeta"><h2>Reservas de hoy del solicitante</h2><small>{{ reservas_solicitante|length }} reserva{{ reservas_solicitante|length|pluralize }}</small></div>
+                <div class="tabla-scroll"><table>
+                    <thead><tr><th>Horario</th><th>Sala</th><th>Actividad</th><th>Estado</th>{% if accion != "reservar" %}<th>Acción</th>{% endif %}</tr></thead>
+                    <tbody>
+                    {% for item in reservas_solicitante %}<tr>
+                        <td><strong>{{ item.reserva.sala_horario.horario }}</strong></td>
+                        <td>{{ item.reserva.sala_horario.sala }}</td>
+                        <td>{{ item.reserva.tipo_actividad }}</td>
+                        <td><span class="estado-reserva {{ item.reserva.estado_reserva|lower }}">{{ item.reserva.estado_reserva }}</span></td>
+                        {% if accion == "modificar" %}<td>{% if item.puede_modificar %}<a class="boton-tabla" href="{% url 'operator_panel' %}?accion=modificar&amp;codigo={{ solicitante.pk }}&amp;reserva={{ item.reserva.pk }}">Modificar</a>{% else %}<span class="no-disponible">No modificable</span>{% endif %}</td>
+                        {% elif accion == "cancelar" %}<td>{% if item.puede_cancelar %}<a class="boton-tabla secundario" href="{% url 'operator_panel' %}?accion=cancelar&amp;codigo={{ solicitante.pk }}&amp;reserva={{ item.reserva.pk }}">Cancelar</a>{% else %}—{% endif %}</td>{% endif %}
+                    </tr>{% empty %}<tr><td colspan="5">No tiene reservas para hoy.</td></tr>{% endfor %}
+                    </tbody>
+                </table></div>
+            </section>
+
+            {% if accion == "reservar" %}
+            <section class="tarjeta-operante formulario-operante">
+                <h2>Nueva reserva</h2>
+                <form method="post" action="{% url 'operator_panel' %}">{% csrf_token %}
+                    <input type="hidden" name="accion" value="reservar"><input type="hidden" name="codigo_solicitante" value="{{ solicitante.pk }}">
+                    <fieldset><legend>Sala y turno</legend><div class="opciones-bloques">
+                    {% for columna in columnas %}{% for bloque in columna.bloques %}
+                        <label class="opcion-bloque {% if not bloque.disponible %}deshabilitada{% endif %}">
+                            <input type="radio" name="id_sala_horario" value="{{ bloque.id }}" {% if not bloque.disponible %}disabled{% endif %} required>
+                            <span>{{ columna.sala.nombre_sala }}<small>{{ bloque.horario }}</small></span>
+                        </label>
+                    {% endfor %}{% endfor %}
+                    </div></fieldset>
+                    <label for="actividad">Detalle de la actividad</label>
+                    <select id="actividad" name="actividad" required><option value="">Selecciona una actividad</option>{% for actividad in actividades %}<option>{{ actividad }}</option>{% endfor %}</select>
+                    <p class="nota-operante">La reserva pertenecerá a {{ solicitante }} y la auditoría registrará al operante.</p>
+                    <button class="boton-principal" type="submit">Reservar para {{ solicitante.nombre }}</button>
+                </form>
+            </section>
+            {% elif accion == "modificar" %}
+            <section class="tarjeta-operante formulario-operante">
+                <h2>Modificar reserva</h2>
+                {% if reserva_seleccionada %}
+                <p class="reserva-elegida"><small>Reserva seleccionada</small><strong>{{ reserva_seleccionada.sala_horario.sala }} · {{ reserva_seleccionada.sala_horario.horario }}</strong></p>
+                <form method="post" action="{% url 'operator_panel' %}">{% csrf_token %}
+                    <input type="hidden" name="accion" value="modificar"><input type="hidden" name="codigo_solicitante" value="{{ solicitante.pk }}"><input type="hidden" name="id_reserva" value="{{ reserva_seleccionada.pk }}">
+                    <fieldset><legend>Nueva sala y turno</legend><div class="opciones-bloques">
+                    {% for columna in columnas %}{% for bloque in columna.bloques %}
+                        <label class="opcion-bloque {% if not bloque.disponible %}deshabilitada{% endif %}"><input type="radio" name="id_sala_horario" value="{{ bloque.id }}" {% if not bloque.disponible %}disabled{% endif %} required><span>{{ columna.sala.nombre_sala }}<small>{{ bloque.horario }}</small></span></label>
+                    {% endfor %}{% endfor %}
+                    </div></fieldset>
+                    <button class="boton-principal" type="submit">Guardar cambios</button>
+                </form>
+                {% else %}<p class="vacio-panel">Selecciona una reserva modificable en la tabla.</p>{% endif %}
+            </section>
+            {% else %}
+            <section class="tarjeta-operante formulario-operante">
+                <h2>Cancelar reserva</h2>
+                {% if reserva_seleccionada %}
+                <p class="reserva-elegida"><small>Reserva seleccionada</small><strong>{{ reserva_seleccionada.sala_horario.sala }} · {{ reserva_seleccionada.sala_horario.horario }}</strong><span>{{ reserva_seleccionada.tipo_actividad }} · {{ solicitante }}</span></p>
+                <p class="nota-operante">Si faltan menos de 60 minutos, el sistema aplicará automáticamente la sanción al solicitante. El operante quedará registrado como actor de la cancelación.</p>
+                <form method="post" action="{% url 'operator_panel' %}">{% csrf_token %}<input type="hidden" name="accion" value="cancelar"><input type="hidden" name="codigo_solicitante" value="{{ solicitante.pk }}"><input type="hidden" name="id_reserva" value="{{ reserva_seleccionada.pk }}"><button class="boton-principal" type="submit">Cancelar reserva</button></form>
+                {% else %}<p class="vacio-panel">Selecciona una reserva cancelable en la tabla.</p>{% endif %}
+            </section>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="columnas-operante mantenimiento-operante">
+            <div class="resumen-mantenimiento">
+                <section class="tarjeta-operante"><div class="titulo-tarjeta"><h2>Estado de hoy</h2><small>{{ hoy|date:"d/m/Y" }}</small></div><div class="tabla-scroll"><table><thead><tr><th>Sala</th>{% for horario in horarios %}<th>{{ horario }}</th>{% endfor %}</tr></thead><tbody>{% for fila in filas %}<tr><th>{{ fila.sala.nombre_sala }}</th>{% for estado in fila.estados %}<td><span class="estado-reserva {{ estado|slugify }}">{{ estado }}</span></td>{% endfor %}</tr>{% endfor %}</tbody></table></div></section>
+                <section class="tarjeta-operante"><div class="titulo-tarjeta"><h2>Bloqueos activos</h2><small>{{ bloqueos_activos|length }} turno{{ bloqueos_activos|length|pluralize }}</small></div><div class="tabla-scroll"><table><thead><tr><th>Sala</th><th>Horario</th><th>Motivo</th><th>Registrado</th><th></th></tr></thead><tbody>{% for item in bloqueos_activos %}<tr><th>{{ item.sala_horario.sala }}</th><td>{{ item.sala_horario.horario }}</td><td>{{ item.bloqueo.motivo|default:"—" }}</td><td>{{ item.bloqueo.fecha|date:"d/m/Y H:i" }}<br><small>Código {{ item.bloqueo.usuario_id }}</small></td><td><form method="post" action="{% url 'operator_unblock_room' item.sala_horario.pk %}">{% csrf_token %}<button class="enlace-accion" type="submit">Quitar</button></form></td></tr>{% empty %}<tr><td colspan="5">No hay bloqueos activos.</td></tr>{% endfor %}</tbody></table></div></section>
+            </div>
+            <section class="tarjeta-operante formulario-operante">
+                <h2>Nuevo bloqueo</h2>
+                <form method="post" action="{% url 'operator_panel' %}">{% csrf_token %}<input type="hidden" name="accion" value="mantenimiento">
+                    <label for="sala">Sala</label><select id="sala" name="sala" required>{% for fila in filas %}<option value="{{ fila.sala.pk }}">{{ fila.sala.nombre_sala }}</option>{% endfor %}</select>
+                    <fieldset><legend>Horario a bloquear</legend><div class="opciones-bloques horarios-bloqueo">{% for combo in sala_horarios %}<label class="opcion-bloque seleccion-horario" data-sala="{{ combo.sala_id }}"><input type="radio" name="id_sala_horario" value="{{ combo.pk }}" {% if combo.estado_sala_horario == "MANTENIMIENTO" %}disabled{% endif %} required><span>{{ combo.horario }}</span></label>{% endfor %}</div><p id="sin-horarios" hidden>No hay horarios disponibles.</p></fieldset>
+                    <label for="motivo">Motivo</label><textarea id="motivo" name="motivo" maxlength="200" rows="3" required placeholder="Ej. revisión eléctrica"></textarea>
+                    <p class="nota-operante">Las reservas afectadas pasarán a mantenimiento sin sanción.</p><button class="boton-principal" type="submit">Bloquear horario</button>
+                </form>
+            </section>
+        </div>
+        {% endif %}
+    </main>
+</div>
+</body>
+</html>

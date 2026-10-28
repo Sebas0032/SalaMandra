@@ -1,18 +1,20 @@
 """Vistas del panel y del bloqueo de horarios por mantenimiento."""
 
 from functools import wraps
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.db import IntegrityError, OperationalError, ProgrammingError
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from cuentas.permisos import admin_login_required, login_required
+from cuentas.permisos import admin_login_required, login_required, operante_login_required
 from cuentas.services import usuario_tiene_rol
 
 from . import services, gestion_salas, gestion_sanciones
-from .models import Sala, SalaHorario
+from .models import Reserva, Rol, Sala, SalaHorario
 
 
 # --- Decoradores de ayuda ----------------------------------------------------
@@ -185,8 +187,15 @@ def _construir_contexto_panel_solicitante(request):
 @login_required
 @handle_db_errors
 def dashboard_view(request):
+    if usuario_tiene_rol(request.usuario.pk, Rol.Nombre.OPERANTE):
+        return redirect("operator_panel")
     if not usuario_tiene_rol(request.usuario.pk, "Administrador"):
         return redirect("student_panel")
+    context = _construir_contexto_mantenimiento(request)
+    return render(request, "reservas/dashboard.html", context)
+
+
+def _construir_contexto_mantenimiento(request):
     combinaciones = list(services.get_sala_horarios())
     horarios = sorted({sh.horario_id: sh.horario for sh in combinaciones}.values(), key=lambda h: h.hora_inicio)
     ocupados = set(services.get_reservas().filter(
@@ -212,7 +221,7 @@ def dashboard_view(request):
                     estado = "No disponible"
             celdas.append(estado)
         filas.append({"sala": fila["sala"], "estados": celdas})
-    context = {
+    return {
         "horarios": horarios, "filas": filas, "hoy": timezone.localdate(),
         "nombre_completo": request.session.get("nombre_completo"),
         "sala_horarios": combinaciones,
@@ -220,7 +229,6 @@ def dashboard_view(request):
         "bloqueos": services.get_bloqueos(),
         "bloqueos_activos": services.get_active_maintenance_blocks(),
     }
-    return render(request, "reservas/dashboard.html", context)
 
 
 @admin_login_required
@@ -229,28 +237,29 @@ def block_room_view(request):
     if request.method != "POST":
         return dashboard_view(request)
 
+    _procesar_bloqueo_mantenimiento(request)
+    return redirect("dashboard")
+
+
+def _procesar_bloqueo_mantenimiento(request):
     motivo = request.POST.get("motivo", "").strip()
     id_raw = request.POST.get("id_sala_horario", "").strip()
-
     if not id_raw or not motivo:
         messages.error(
             request, "Selecciona una sala/horario y escribe un motivo para el bloqueo."
         )
-        return redirect("dashboard")
-
+        return None
     if len(motivo) > 200:
         messages.error(request, "El motivo no puede superar los 200 caracteres.")
-        return redirect("dashboard")
-
+        return None
     try:
         id_sala_horario = int(id_raw)
     except ValueError:
         messages.error(request, "La sala/horario seleccionado no es válido.")
-        return redirect("dashboard")
-
+        return None
     try:
         resultado = services.block_room_schedule_for_maintenance(
-            codigo_usuario_admin=request.session["codigo_usuario"],
+            codigo_usuario_admin=request.usuario.pk,
             id_sala_horario=id_sala_horario,
             motivo=motivo,
         )
@@ -260,22 +269,16 @@ def block_room_view(request):
         services.NotAuthorizedError,
     ) as exc:
         messages.error(request, str(exc))
-        return redirect("dashboard")
-
+        return None
     sh = resultado["sala_horario"]
     canceladas = resultado["reservas_canceladas"]
     base = f"Horario {sh.horario} de {sh.sala} bloqueado por mantenimiento."
-
-    if canceladas:
-        messages.success(
-            request,
-            f"{base} {len(canceladas)} reserva(s) pasaron a POR_MANTENIMIENTO "
-            "(sin penalización).",
-        )
-    else:
-        messages.success(request, f"{base} No había reservas asociadas.")
-
-    return redirect("dashboard")
+    extra = (
+        f" {len(canceladas)} reserva(s) pasaron a POR_MANTENIMIENTO (sin penalización)."
+        if canceladas else " No había reservas asociadas."
+    )
+    messages.success(request, base + extra)
+    return resultado
 
 
 @admin_login_required
@@ -303,6 +306,156 @@ def unblock_room_view(request, id_sala_horario):
         )
 
     return redirect("dashboard")
+
+
+# --- Panel del Operante ------------------------------------------------------
+
+@handle_db_errors
+@operante_login_required
+def operator_panel_view(request):
+    accion = request.POST.get("accion") or request.GET.get("accion", "reservar")
+    if accion not in {"reservar", "modificar", "cancelar", "mantenimiento"}:
+        accion = "reservar"
+    if request.method == "POST":
+        return _procesar_accion_operante(request, accion)
+    return render(
+        request,
+        "reservas/panel_operante.html",
+        _construir_contexto_operante(request, accion),
+    )
+
+
+def _procesar_accion_operante(request, accion):
+    codigo = request.POST.get("codigo_solicitante", "").strip()
+    if accion == "mantenimiento":
+        _procesar_bloqueo_mantenimiento(request)
+        return redirect(_url_operante(accion))
+    try:
+        codigo_solicitante = _validar_codigo_operante(codigo)
+        if accion == "reservar":
+            reserva = services.create_reservation(
+                request.usuario.pk,
+                codigo_solicitante,
+                _leer_id_sala_horario(request),
+                request.POST.get("actividad", ""),
+            )
+            messages.success(
+                request,
+                f"Reserva #{reserva.pk} creada para {reserva.usuario}."
+            )
+        else:
+            id_reserva = _leer_id_reserva_operante(request, codigo_solicitante)
+            if accion == "modificar":
+                reserva = services.modify_reservation(
+                    request.usuario.pk,
+                    id_reserva,
+                    _leer_id_sala_horario(request),
+                )
+                messages.success(
+                    request, f"Reserva #{reserva.pk} modificada correctamente."
+                )
+            else:
+                resultado = services.cancel_reservation(request.usuario.pk, id_reserva)
+                _mostrar_resultado_cancelacion(request, resultado)
+    except (ValueError, services.ReservationError) as exc:
+        mensaje = str(exc) or "Selecciona una reserva, sala y horario válidos."
+        messages.error(request, mensaje)
+    except IntegrityError:
+        messages.error(
+            request,
+            "El horario ya fue reservado. Selecciona otro bloque disponible.",
+        )
+    return redirect(_url_operante(accion, codigo))
+
+
+def _construir_contexto_operante(request, accion):
+    contexto = {
+        "accion": accion,
+        "usuario": request.usuario,
+        "nombre_completo": request.session.get("nombre_completo"),
+    }
+    if accion == "mantenimiento":
+        contexto.update(_construir_contexto_mantenimiento(request))
+        return contexto
+
+    codigo = request.GET.get("codigo", "").strip()
+    contexto["codigo_buscado"] = codigo
+    if not codigo:
+        return contexto
+    try:
+        codigo_solicitante = _validar_codigo_operante(codigo)
+        contexto.update(services.get_operator_student_summary(codigo_solicitante))
+        contexto.update(services.get_operator_availability(codigo_solicitante))
+        id_reserva = request.GET.get("reserva", "").strip()
+        if id_reserva:
+            reserva_id = int(id_reserva)
+            if not Reserva.objects.filter(
+                pk=reserva_id, usuario_id=codigo_solicitante
+            ).exists():
+                raise services.ReservationError(
+                    "La reserva seleccionada no pertenece al solicitante."
+                )
+            contexto["reserva_seleccionada"] = Reserva.objects.select_related(
+                "sala_horario__sala", "sala_horario__horario"
+            ).get(pk=reserva_id)
+            if accion == "modificar":
+                contexto.update(
+                    services.get_reservation_modification_panel_for_actor(
+                        request.usuario.pk, reserva_id
+                    )
+                )
+    except (ValueError, services.ReservationError) as exc:
+        contexto["error_busqueda"] = str(exc) or "Ingresa un código válido."
+    return contexto
+
+
+def _validar_codigo_operante(codigo):
+    if not codigo.isascii() or not codigo.isdecimal():
+        raise services.ReservationError("Ingresa un código de solicitante válido.")
+    valor = int(codigo)
+    if not 0 < valor <= 9223372036854775807:
+        raise services.ReservationError("Ingresa un código de solicitante válido.")
+    services.get_operator_student(valor)
+    return valor
+
+
+def _leer_id_reserva_operante(request, codigo_solicitante):
+    id_reserva = int(request.POST.get("id_reserva", ""))
+    if not Reserva.objects.filter(
+        pk=id_reserva, usuario_id=codigo_solicitante
+    ).exists():
+        raise services.ReservationError(
+            "La reserva seleccionada no pertenece al solicitante."
+        )
+    return id_reserva
+
+
+def _url_operante(accion, codigo="", reserva=""):
+    parametros = {"accion": accion}
+    if codigo:
+        parametros["codigo"] = codigo
+    if reserva:
+        parametros["reserva"] = reserva
+    return f"{reverse('operator_panel')}?{urlencode(parametros)}"
+
+
+@handle_db_errors
+@operante_login_required
+@require_POST
+def operator_unblock_room_view(request, id_sala_horario):
+    try:
+        services.unblock_room_schedule_from_maintenance(
+            request.usuario.pk, id_sala_horario
+        )
+    except (
+        services.ScheduleNotFoundError,
+        services.ScheduleNotBlockedError,
+        services.NotAuthorizedError,
+    ) as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, "El horario volvió a estar disponible.")
+    return redirect(_url_operante("mantenimiento"))
 
 # En esta parte se encuentra para poder CREAR tanto SALAS y HORARIOS por el admin
 @handle_db_errors

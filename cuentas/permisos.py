@@ -31,3 +31,13 @@ def admin_login_required(view_func):
             return HttpResponseForbidden("Solo un Administrador puede realizar esta operación.")
         return view_func(request, *args, **kwargs)
     return wrapper
+
+
+def operante_login_required(view_func):
+    @wraps(view_func)
+    @login_required
+    def wrapper(request, *args, **kwargs):
+        if not usuario_tiene_rol(request.usuario.pk, Rol.Nombre.OPERANTE):
+            return HttpResponseForbidden("Solo un Operante puede realizar esta operación.")
+        return view_func(request, *args, **kwargs)
+    return wrapper

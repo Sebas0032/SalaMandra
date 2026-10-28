@@ -7,6 +7,7 @@ from reservas.models import Rol, Usuario
 
 
 ROL_ADMINISTRADOR = "Administrador"
+ROL_OPERANTE = "Operante"
 
 
 def usuario_tiene_rol(codigo_usuario, nombre_rol):

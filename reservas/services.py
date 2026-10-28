@@ -26,7 +26,7 @@ from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
-from cuentas.services import ROL_ADMINISTRADOR, usuario_tiene_rol
+from cuentas.services import ROL_ADMINISTRADOR, ROL_OPERANTE
 
 from .models import (
     Auditoria,
@@ -58,20 +58,35 @@ class ReservationError(Exception):
 
 @transaction.atomic
 def create_student_reservation(codigo_usuario, id_sala_horario, actividad):
-    """Valida las reglas y crea una reserva para hoy en una transacción."""
+    """Crea una reserva propia y conserva la API del panel solicitante."""
+    return create_reservation(
+        codigo_actor=codigo_usuario,
+        codigo_solicitante=codigo_usuario,
+        id_sala_horario=id_sala_horario,
+        actividad=actividad,
+    )
+
+
+@transaction.atomic
+def create_reservation(
+    codigo_actor, codigo_solicitante, id_sala_horario, actividad
+):
+    """Crea una reserva para un solicitante y audita al usuario que la ejecuta."""
     _bloquear_sala_horario(id_sala_horario)
-    usuario = _obtener_usuario_reservante(codigo_usuario)
+    actor = _obtener_usuario_reservante(codigo_actor)
+    solicitante = _obtener_solicitante(codigo_solicitante)
+    _validar_actor_sobre_solicitante(actor, solicitante)
     ahora = timezone.localtime()
     hoy = ahora.date()
     sala_horario = _obtener_sala_horario(id_sala_horario)
-    _validar_reglas_reserva(usuario, sala_horario, actividad, hoy, ahora)
+    _validar_reglas_reserva(solicitante, sala_horario, actividad, hoy, ahora)
 
     reserva = Reserva.objects.create(
-        usuario=usuario, sala_horario=sala_horario, fecha=hoy,
+        usuario=solicitante, sala_horario=sala_horario, fecha=hoy,
         tipo_actividad=actividad,
     )
     Auditoria.objects.create(
-        reserva=reserva, actor=usuario, accion=Auditoria.Accion.CREAR,
+        reserva=reserva, actor=actor, accion=Auditoria.Accion.CREAR,
         fecha_accion=ahora,
     )
     return reserva
@@ -79,18 +94,24 @@ def create_student_reservation(codigo_usuario, id_sala_horario, actividad):
 
 @transaction.atomic
 def modify_student_reservation(codigo_usuario, id_reserva, id_sala_horario):
-    """Cambia la sala y el horario sin liberar antes la reserva original."""
-    usuario = _obtener_usuario_reservante(codigo_usuario)
-    reserva = _obtener_reserva_confirmada_del_usuario(
-        usuario, id_reserva, bloquear=True
-    )
+    """Modifica una reserva propia y conserva la API del panel solicitante."""
+    return modify_reservation(codigo_usuario, id_reserva, id_sala_horario)
+
+
+@transaction.atomic
+def modify_reservation(codigo_actor, id_reserva, id_sala_horario):
+    """Modifica una reserva autorizada y audita al actor, no al titular."""
+    actor = _obtener_usuario_reservante(codigo_actor)
+    reserva = _obtener_reserva_confirmada(id_reserva, bloquear=True)
+    _validar_acceso_reserva(actor, reserva)
+    solicitante = reserva.usuario
     ahora = timezone.localtime()
     _validar_plazo_modificacion(reserva, ahora)
 
     _bloquear_sala_horario(id_sala_horario)
     nuevo_sala_horario = _obtener_sala_horario(id_sala_horario)
     _validar_reglas_reserva(
-        usuario,
+        solicitante,
         nuevo_sala_horario,
         reserva.tipo_actividad,
         reserva.fecha,
@@ -102,7 +123,7 @@ def modify_student_reservation(codigo_usuario, id_reserva, id_sala_horario):
     reserva.sala_horario = nuevo_sala_horario
     reserva.save(update_fields=["sala_horario"])
     Auditoria.objects.create(
-        reserva=reserva, actor=usuario, accion=Auditoria.Accion.MODIFICAR,
+        reserva=reserva, actor=actor, accion=Auditoria.Accion.MODIFICAR,
         fecha_accion=ahora,
     )
     return reserva
@@ -170,22 +191,52 @@ def _obtener_usuario_reservante(codigo_usuario):
     return usuario
 
 
-def _obtener_reserva_confirmada_del_usuario(usuario, id_reserva, bloquear=False):
+def _obtener_solicitante(codigo_usuario):
+    solicitante = Usuario.objects.filter(
+        pk=codigo_usuario,
+        estado_usuario=True,
+        rol__nombre_rol=Rol.Nombre.SOLICITANTE,
+    ).first()
+    if solicitante is None:
+        raise ReservationError("No existe un solicitante activo con ese código.")
+    return solicitante
+
+
+def _validar_actor_sobre_solicitante(actor, solicitante):
+    if actor.pk == solicitante.pk:
+        return
+    if actor.rol.nombre_rol not in [Rol.Nombre.OPERANTE, Rol.Nombre.ADMINISTRADOR]:
+        raise ReservationError("No tienes permiso para reservar para otro solicitante.")
+
+
+def _obtener_reserva_confirmada(id_reserva, bloquear=False):
     consulta = Reserva.objects.select_related(
-        "sala_horario__sala", "sala_horario__horario"
+        "usuario__rol", "sala_horario__sala", "sala_horario__horario"
     )
     if bloquear:
         consulta = consulta.select_for_update()
     try:
         return consulta.get(
-            pk=id_reserva,
-            usuario=usuario,
-            estado_reserva=Reserva.ESTADO_CONFIRMADA,
+            pk=id_reserva, estado_reserva=Reserva.ESTADO_CONFIRMADA
         )
     except Reserva.DoesNotExist as exc:
         raise ReservationError(
-            "La reserva no existe, no te pertenece o ya no está confirmada."
+            "La reserva no existe o ya no está confirmada."
         ) from exc
+
+
+def _validar_acceso_reserva(actor, reserva):
+    if reserva.usuario_id == actor.pk:
+        return
+    if actor.rol.nombre_rol not in [Rol.Nombre.OPERANTE, Rol.Nombre.ADMINISTRADOR]:
+        raise ReservationError("La reserva no te pertenece.")
+
+
+def _obtener_reserva_confirmada_del_usuario(usuario, id_reserva, bloquear=False):
+    reserva = _obtener_reserva_confirmada(id_reserva, bloquear=bloquear)
+    if reserva.usuario_id != usuario.pk:
+        raise ReservationError("La reserva no te pertenece.")
+    return reserva
 
 
 def _obtener_reserva_para_cancelar(actor, id_reserva):
@@ -198,11 +249,7 @@ def _obtener_reserva_para_cancelar(actor, id_reserva):
             "La reserva no existe o ya no está confirmada."
         ) from exc
 
-    puede_cancelar_ajena = actor.rol.nombre_rol in [
-        Rol.Nombre.OPERANTE, Rol.Nombre.ADMINISTRADOR,
-    ]
-    if reserva.usuario_id != actor.pk and not puede_cancelar_ajena:
-        raise ReservationError("La reserva no te pertenece.")
+    _validar_acceso_reserva(actor, reserva)
     return reserva
 
 
@@ -352,6 +399,52 @@ def get_student_panel(codigo_usuario=None):
     }
 
 
+def get_operator_student(codigo_usuario):
+    """Obtiene el solicitante que el operante atenderá."""
+    return _obtener_solicitante(codigo_usuario)
+
+
+def get_operator_student_summary(codigo_usuario):
+    """Prepara reservas y situación disciplinaria del solicitante seleccionado."""
+    solicitante = _obtener_solicitante(codigo_usuario)
+    ahora = timezone.localtime()
+    reservas = Reserva.objects.filter(
+        usuario=solicitante,
+        fecha=ahora.date(),
+    ).select_related(
+        "sala_horario__sala", "sala_horario__horario"
+    ).order_by("sala_horario__horario__hora_inicio", "id_reserva")
+    sancion_activa = Sancion.objects.filter(
+        usuario=solicitante,
+        fecha_inicio__lte=ahora,
+        fecha_fin__gt=ahora,
+    ).order_by("-fecha_fin").first()
+    faltas = Sancion.objects.filter(
+        usuario=solicitante,
+        tipo_sancion__nombre_sancion__startswith="Cancelación tardía",
+    ).count()
+    return {
+        "solicitante": solicitante,
+        "reservas_solicitante": [
+            {
+                "reserva": reserva,
+                "puede_modificar": _puede_modificar_reserva(reserva, ahora),
+                "puede_cancelar": _puede_cancelar_reserva(reserva, ahora),
+            }
+            for reserva in reservas
+        ],
+        "sancion_activa": sancion_activa,
+        "faltas": min(faltas, len(ESCALA_SANCIONES_CANCELACION)),
+    }
+
+
+def get_operator_availability(codigo_usuario):
+    """Reutiliza el cálculo de disponibilidad para reservar a otro solicitante."""
+    contexto = get_student_panel(codigo_usuario)
+    contexto.pop("mis_reservas", None)
+    return contexto
+
+
 def _construir_mis_reservas(codigo_usuario, fecha, ahora):
     if codigo_usuario is None:
         return []
@@ -427,8 +520,14 @@ def _construir_bloque_panel(sala_horario, reserva, fecha):
 
 def get_reservation_modification_panel(codigo_usuario, id_reserva):
     """Prepara la reserva y los destinos disponibles para modificarla."""
-    usuario = _obtener_usuario_reservante(codigo_usuario)
-    reserva = _obtener_reserva_confirmada_del_usuario(usuario, id_reserva)
+    return get_reservation_modification_panel_for_actor(codigo_usuario, id_reserva)
+
+
+def get_reservation_modification_panel_for_actor(codigo_actor, id_reserva):
+    """Prepara destinos para una reserva que el actor tiene permiso de modificar."""
+    actor = _obtener_usuario_reservante(codigo_actor)
+    reserva = _obtener_reserva_confirmada(id_reserva)
+    _validar_acceso_reserva(actor, reserva)
     ahora = timezone.localtime()
     _validar_plazo_modificacion(reserva, ahora)
 
@@ -506,8 +605,8 @@ def block_room_schedule_for_maintenance(codigo_usuario_admin, id_sala_horario, m
     Lanza NotAuthorizedError (E1), ScheduleNotFoundError (E2) o
     ScheduleAlreadyBlockedError si el sistema debe rechazar la operación.
     """
-    # Paso 2 (parte 1) — E1: sin permisos de Administrador
-    if not usuario_tiene_rol(codigo_usuario_admin, ROL_ADMINISTRADOR):
+    # Administradores y operantes pueden gestionar mantenimiento.
+    if not _puede_gestionar_mantenimiento(codigo_usuario_admin):
         raise NotAuthorizedError(
             "No tienes permisos para bloquear salas. Contacta al administrador."
         )
@@ -570,7 +669,7 @@ def unblock_room_schedule_from_maintenance(
     codigo_usuario_admin, id_sala_horario
 ):
     """Vuelve a habilitar un horario en mantenimiento sin alterar su historial."""
-    if not usuario_tiene_rol(codigo_usuario_admin, ROL_ADMINISTRADOR):
+    if not _puede_gestionar_mantenimiento(codigo_usuario_admin):
         raise NotAuthorizedError(
             "No tienes permisos para habilitar salas. Contacta al administrador."
         )
@@ -593,3 +692,11 @@ def unblock_room_schedule_from_maintenance(
     sala_horario.estado_sala_horario = SalaHorario.ESTADO_DISPONIBLE
     sala_horario.save(update_fields=["estado_sala_horario"])
     return sala_horario
+
+
+def _puede_gestionar_mantenimiento(codigo_usuario):
+    return Usuario.objects.filter(
+        pk=codigo_usuario,
+        estado_usuario=True,
+        rol__nombre_rol__in=[ROL_ADMINISTRADOR, ROL_OPERANTE],
+    ).exists()
