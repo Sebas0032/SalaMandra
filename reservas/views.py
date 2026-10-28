@@ -197,6 +197,11 @@ def dashboard_view(request):
 
 def _construir_contexto_mantenimiento(request):
     combinaciones = list(services.get_sala_horarios())
+    ahora = timezone.localtime()
+    for combinacion in combinaciones:
+        combinacion.puede_bloquear = services.can_block_maintenance(
+            combinacion, ahora
+        )
     horarios = sorted({sh.horario_id: sh.horario for sh in combinaciones}.values(), key=lambda h: h.hora_inicio)
     ocupados = set(services.get_reservas().filter(
         fecha=timezone.localdate(), estado_reserva__in=services.ESTADOS_ACTIVOS
@@ -266,6 +271,7 @@ def _procesar_bloqueo_mantenimiento(request):
     except (
         services.ScheduleNotFoundError,
         services.ScheduleAlreadyBlockedError,
+        services.MaintenanceAlreadyStartedError,
         services.NotAuthorizedError,
     ) as exc:
         messages.error(request, str(exc))
@@ -294,6 +300,7 @@ def unblock_room_view(request, id_sala_horario):
     except (
         services.ScheduleNotFoundError,
         services.ScheduleNotBlockedError,
+        services.MaintenanceAlreadyStartedError,
         services.NotAuthorizedError,
     ) as exc:
         messages.error(request, str(exc))
@@ -450,6 +457,7 @@ def operator_unblock_room_view(request, id_sala_horario):
     except (
         services.ScheduleNotFoundError,
         services.ScheduleNotBlockedError,
+        services.MaintenanceAlreadyStartedError,
         services.NotAuthorizedError,
     ) as exc:
         messages.error(request, str(exc))

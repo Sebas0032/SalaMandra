@@ -14,7 +14,8 @@ function filtrarHorarios() {
         else disponibles++;
     });
     document.getElementById('sin-horarios').hidden = disponibles > 0;
-    document.querySelector('.boton-bloqueo').disabled = disponibles === 0;
+    const boton = document.querySelector('.boton-bloqueo, .boton-principal');
+    if (boton) boton.disabled = disponibles === 0;
 }
 sala.addEventListener('change', filtrarHorarios);
 filtrarHorarios();

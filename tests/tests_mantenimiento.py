@@ -5,14 +5,16 @@ Ejecución:
     python -m pytest tests/tests_mantenimiento.py -v
 """
 
-from datetime import time, timedelta
+from datetime import datetime, time, timedelta
+from unittest.mock import patch
 import pytest
 from django.contrib.auth.hashers import make_password
 from django.utils import timezone
 
 from reservas import services
 from reservas.models import (
-    Bloqueo, Horario, Reserva, Rol, Sala, SalaHorario, Sancion, Usuario
+    Bloqueo, Desbloqueo, Horario, Reserva, Rol, Sala, SalaHorario, Sancion,
+    Usuario,
 )
 
 # Todas las pruebas de este archivo usan la base de datos de prueba
@@ -34,6 +36,15 @@ def hasher_rapido(settings):
 @pytest.fixture
 def manana():
     return timezone.localdate() + timedelta(days=1)
+
+
+@pytest.fixture
+def antes_del_mantenimiento():
+    ahora = timezone.make_aware(
+        datetime.combine(timezone.localdate(), time(9, 0))
+    )
+    with patch("reservas.services.timezone.localtime", return_value=ahora):
+        yield ahora
 
 def _crear_usuario(codigo_usuario, email, nombre, rol):
     usuario = Usuario.objects.create(
@@ -72,6 +83,7 @@ def reserva(estudiante, sh_a_manana, manana):
 # Pruebas Principales de Backend (Servicios)
 # =============================================================================
 
+@pytest.mark.usefixtures("antes_del_mantenimiento")
 class TestBloqueoMantenimiento:
 
     def test_bloqueo_exitoso_y_cancelacion_sin_sancion(self, admin, estudiante, sh_a_manana, reserva):
@@ -84,6 +96,28 @@ class TestBloqueoMantenimiento:
         assert sh_a_manana.estado_sala_horario == SalaHorario.ESTADO_MANTENIMIENTO
         assert reserva.estado_reserva == Reserva.ESTADO_POR_MANTENIMIENTO
         assert Sancion.objects.filter(usuario=estudiante).exists() is False
+
+    def test_no_permite_bloquear_un_horario_que_ya_comenzo(
+        self, admin, sh_a_manana, reserva
+    ):
+        despues_del_inicio = timezone.make_aware(
+            datetime.combine(timezone.localdate(), time(10, 1))
+        )
+
+        with patch(
+            "reservas.services.timezone.localtime",
+            return_value=despues_del_inicio,
+        ):
+            with pytest.raises(services.MaintenanceAlreadyStartedError):
+                services.block_room_schedule_for_maintenance(
+                    admin.codigo_usuario, sh_a_manana.pk, MOTIVO
+                )
+
+        sh_a_manana.refresh_from_db()
+        reserva.refresh_from_db()
+        assert sh_a_manana.estado_sala_horario == SalaHorario.ESTADO_DISPONIBLE
+        assert reserva.estado_reserva == Reserva.ESTADO_CONFIRMADA
+        assert not Bloqueo.objects.exists()
 
     def test_registra_bitacora_de_bloqueo(self, admin, sh_a_manana):
         """Auditoría: Guarda el responsable, motivo y fecha exacta en la bitácora."""
@@ -155,6 +189,7 @@ class TestBloqueoMantenimiento:
         assert sh_a_manana.estado_sala_horario == "MANTENIMIENTO"
 
 
+@pytest.mark.usefixtures("antes_del_mantenimiento")
 class TestSalidaDeMantenimiento:
 
     def test_administrador_vuelve_a_habilitar_horario(
@@ -173,6 +208,32 @@ class TestSalidaDeMantenimiento:
         assert sh_a_manana.estado_sala_horario == SalaHorario.ESTADO_DISPONIBLE
         assert reserva.estado_reserva == Reserva.ESTADO_POR_MANTENIMIENTO
         assert Bloqueo.objects.count() == 1
+        desbloqueo = Desbloqueo.objects.get()
+        assert desbloqueo.bloqueo == Bloqueo.objects.get()
+        assert desbloqueo.desbloqueado_por == admin
+
+    def test_no_permite_desbloquear_si_el_mantenimiento_ya_empezo(
+        self, admin, sh_a_manana
+    ):
+        services.block_room_schedule_for_maintenance(
+            admin.codigo_usuario, sh_a_manana.pk, MOTIVO
+        )
+        despues_del_inicio = timezone.make_aware(
+            datetime.combine(timezone.localdate(), time(10, 1))
+        )
+
+        with patch(
+            "reservas.services.timezone.localtime",
+            return_value=despues_del_inicio,
+        ):
+            with pytest.raises(services.MaintenanceAlreadyStartedError):
+                services.unblock_room_schedule_from_maintenance(
+                    admin.codigo_usuario, sh_a_manana.pk
+                )
+
+        sh_a_manana.refresh_from_db()
+        assert sh_a_manana.estado_sala_horario == SalaHorario.ESTADO_MANTENIMIENTO
+        assert not Desbloqueo.objects.exists()
 
     def test_estudiante_no_puede_sacar_horario_de_mantenimiento(
         self, admin, estudiante, sh_a_manana

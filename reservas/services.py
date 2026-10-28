@@ -31,6 +31,7 @@ from cuentas.services import ROL_ADMINISTRADOR, ROL_OPERANTE
 from .models import (
     Auditoria,
     Bloqueo,
+    Desbloqueo,
     Horario,
     Reserva,
     Rol,
@@ -44,6 +45,8 @@ ACTIVIDADES = ("Tutoría", "Examen", "Tarea", "Proyecto")
 ESTADOS_ACTIVOS = ("CONFIRMADA", "EN_USO")
 ANTICIPACION_MINIMA_MODIFICACION = timedelta(hours=1)
 ANTICIPACION_CANCELACION_SIN_SANCION = timedelta(hours=1)
+RESTRINGIR_BLOQUEO_TRAS_INICIO = True
+RESTRINGIR_DESBLOQUEO_TRAS_INICIO = True
 ESCALA_SANCIONES_CANCELACION = (
     ("Cancelación tardía (1ra vez)", 24),
     ("Cancelación tardía (2da vez)", 48),
@@ -555,6 +558,10 @@ class ScheduleNotBlockedError(Exception):
     """Ese sala_horario no está en estado MANTENIMIENTO."""
 
 
+class MaintenanceAlreadyStartedError(Exception):
+    """La franja ya comenzó y su mantenimiento no puede modificarse."""
+
+
 # --- Lecturas para mostrar el estado del sistema ----------------------------
 
 def get_sala_horarios():
@@ -586,10 +593,20 @@ def get_active_maintenance_blocks():
 
     for sala_horario in sala_horarios:
         ultimo_bloqueo = Bloqueo.objects.filter(
-            sala_horario=sala_horario
-        ).select_related("usuario").order_by("-fecha").first()
+            sala_horario=sala_horario,
+            desbloqueo__isnull=True,
+        ).select_related("usuario", "sala_horario__horario").order_by(
+            "-fecha", "-id_bloqueo"
+        ).first()
         activos.append(
-            {"sala_horario": sala_horario, "bloqueo": ultimo_bloqueo}
+            {
+                "sala_horario": sala_horario,
+                "bloqueo": ultimo_bloqueo,
+                "puede_desbloquear": (
+                    ultimo_bloqueo is not None
+                    and can_unblock_maintenance(ultimo_bloqueo)
+                ),
+            }
         )
 
     return activos
@@ -619,6 +636,12 @@ def block_room_schedule_for_maintenance(codigo_usuario_admin, id_sala_horario, m
     except SalaHorario.DoesNotExist:
         raise ScheduleNotFoundError(
             f"No existe una combinación de sala y horario con id {id_sala_horario}."
+        )
+
+    ahora = timezone.localtime()
+    if not can_block_maintenance(sala_horario, ahora):
+        raise MaintenanceAlreadyStartedError(
+            "El horario ya comenzó y no puede bloquearse por mantenimiento."
         )
 
     # Paso 3 — ya está en mantenimiento
@@ -655,6 +678,7 @@ def block_room_schedule_for_maintenance(codigo_usuario_admin, id_sala_horario, m
         usuario_id=codigo_usuario_admin,
         sala_horario=sala_horario,
         motivo=motivo,
+        fecha=ahora,
     )
 
     # Paso 8 — confirmar el resultado
@@ -689,9 +713,51 @@ def unblock_room_schedule_from_maintenance(
             f"{sala_horario.sala} no está en mantenimiento."
         )
 
+    bloqueo = Bloqueo.objects.select_for_update().filter(
+        sala_horario=sala_horario,
+        desbloqueo__isnull=True,
+    ).order_by("-fecha", "-id_bloqueo").first()
+    if bloqueo is None:
+        raise ScheduleNotBlockedError(
+            "No existe un bloqueo activo que se pueda retirar."
+        )
+    if not can_unblock_maintenance(bloqueo):
+        raise MaintenanceAlreadyStartedError(
+            "El mantenimiento ya comenzó y no puede desbloquearse."
+        )
+
     sala_horario.estado_sala_horario = SalaHorario.ESTADO_DISPONIBLE
     sala_horario.save(update_fields=["estado_sala_horario"])
+    Desbloqueo.objects.create(
+        bloqueo=bloqueo,
+        desbloqueado_por_id=codigo_usuario_admin,
+        fecha_desbloqueo=timezone.localtime(),
+    )
     return sala_horario
+
+
+def _maintenance_start(sala_horario, fecha):
+    return timezone.make_aware(
+        datetime.combine(fecha, sala_horario.horario.hora_inicio),
+        timezone.get_current_timezone(),
+    )
+
+
+def can_block_maintenance(sala_horario, now=None):
+    """Impide crear mantenimiento para una franja de hoy que ya comenzó."""
+    if not RESTRINGIR_BLOQUEO_TRAS_INICIO:
+        return True
+    now = now or timezone.localtime()
+    return now < _maintenance_start(sala_horario, now.date())
+
+
+def can_unblock_maintenance(bloqueo, now=None):
+    """Indica si el bloqueo puede retirarse antes del inicio del mantenimiento."""
+    if not RESTRINGIR_DESBLOQUEO_TRAS_INICIO:
+        return True
+    now = now or timezone.localtime()
+    fecha_bloqueo = timezone.localtime(bloqueo.fecha).date()
+    return now < _maintenance_start(bloqueo.sala_horario, fecha_bloqueo)
 
 
 def _puede_gestionar_mantenimiento(codigo_usuario):

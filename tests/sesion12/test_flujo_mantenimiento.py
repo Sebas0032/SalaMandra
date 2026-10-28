@@ -7,7 +7,8 @@ Ejecución:
 python -m pytest tests/sesion12/test_mantenimiento_sesion12.py -v
 """
 
-from datetime import time, timedelta
+from datetime import datetime, time, timedelta
+from unittest.mock import patch
 
 import pytest
 from django.contrib.auth.hashers import make_password
@@ -26,6 +27,15 @@ MOTIVO = "Fuga de agua"
 def hasher_rapido(settings):
     """Utiliza un hash rápido durante las pruebas."""
     settings.PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+
+
+@pytest.fixture(autouse=True)
+def antes_del_inicio_del_horario():
+    ahora = timezone.make_aware(
+        datetime.combine(timezone.localdate(), time(9, 0))
+    )
+    with patch("reservas.services.timezone.localtime", return_value=ahora):
+        yield
 
 
 @pytest.fixture

@@ -235,3 +235,24 @@ class Bloqueo(models.Model):
 
     class Meta:
         db_table = "bloqueos"
+
+
+class Desbloqueo(models.Model):
+    id_desbloqueos = models.AutoField(primary_key=True)
+    bloqueo = models.OneToOneField(
+        Bloqueo,
+        on_delete=models.PROTECT,
+        db_column="id_bloqueo",
+        related_name="desbloqueo",
+    )
+    desbloqueado_por = models.ForeignKey(
+        Usuario,
+        on_delete=models.PROTECT,
+        db_column="desbloqueado_por",
+        related_name="desbloqueos_realizados",
+    )
+    fecha_desbloqueo = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "desbloqueos"
+        ordering = ["fecha_desbloqueo", "id_desbloqueos"]
