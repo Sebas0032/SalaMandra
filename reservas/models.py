@@ -2,8 +2,8 @@
 Modelos de SalaMandra: el diagrama entidad-relación del equipo, tal cual,
 como tablas de SQLite (mismos nombres de tabla y de columna).
 
-    roles, usuarios, usuarios_roles, tipo_sancion, sanciones,
-    horarios, salas, sala_horario, reservas, bloqueos
+    roles, usuarios, tipo_sancion, sanciones,
+    horarios, salas, sala_horario, reservas, auditoria, bloqueos
 
 Notas:
 - `usuarios.password_hash` NO está en el diagrama original del equipo. Se
@@ -19,17 +19,29 @@ Notas:
   `sanciones` mediante el ORM de Django.
 """
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.functions import Lower, Trim
 from django.utils import timezone
 
 
 class Rol(models.Model):
+    class Nombre(models.TextChoices):
+        ADMINISTRADOR = "Administrador", "Administrador"
+        OPERANTE = "Operante", "Operante"
+        SOLICITANTE = "Solicitante", "Solicitante"
+
     id_rol = models.AutoField(primary_key=True)
-    nombre_rol = models.CharField(max_length=100)
+    nombre_rol = models.CharField(max_length=100, choices=Nombre.choices, unique=True)
 
     class Meta:
         db_table = "roles"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(nombre_rol__in=["Administrador", "Operante", "Solicitante"]),
+                name="rol_nombre_permitido",
+            ),
+        ]
 
     def __str__(self):
         return self.nombre_rol
@@ -37,6 +49,7 @@ class Rol(models.Model):
 
 class Usuario(models.Model):
     codigo_usuario = models.BigIntegerField(primary_key=True)
+    rol = models.ForeignKey(Rol, on_delete=models.PROTECT, db_column="id_rol")
     email = models.CharField(max_length=255, unique=True)
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100)
@@ -52,17 +65,6 @@ class Usuario(models.Model):
         return f"{self.nombre} {self.apellido}"
 
 
-class UsuarioRol(models.Model):
-    id_usuario_roles = models.AutoField(primary_key=True)
-    rol = models.ForeignKey(Rol, on_delete=models.CASCADE, db_column="id_rol")
-    usuario = models.ForeignKey(
-        Usuario, on_delete=models.CASCADE, db_column="codigo_usuario"
-    )
-
-    class Meta:
-        db_table = "usuarios_roles"
-
-
 class TipoSancion(models.Model):
     id_tipo_sancion = models.AutoField(primary_key=True)
     nombre_sancion = models.CharField(max_length=200)
@@ -76,6 +78,10 @@ class TipoSancion(models.Model):
 
 
 class Sancion(models.Model):
+    class Origen(models.TextChoices):
+        AUTOMATICA = "AUTOMATICA", "Automática"
+        MANUAL = "MANUAL", "Manual"
+
     id_sancion = models.AutoField(primary_key=True)
     usuario = models.ForeignKey(
         Usuario, on_delete=models.PROTECT, db_column="codigo_usuario"
@@ -83,12 +89,32 @@ class Sancion(models.Model):
     tipo_sancion = models.ForeignKey(
         TipoSancion, on_delete=models.PROTECT, db_column="id_tipo_sancion"
     )
+    aplicada_por = models.ForeignKey(
+        Usuario, on_delete=models.PROTECT, db_column="aplicada_por",
+        related_name="sanciones_aplicadas", null=True, blank=True,
+    )
+    origen = models.CharField(max_length=100, choices=Origen.choices)
     motivo = models.CharField(max_length=255)
     fecha_inicio = models.DateTimeField()
     fecha_fin = models.DateTimeField()
 
     class Meta:
         db_table = "sanciones"
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(origen="AUTOMATICA", aplicada_por__isnull=True)
+                    | models.Q(origen="MANUAL", aplicada_por__isnull=False)
+                ),
+                name="sancion_origen_aplicador_coherente",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.origen == self.Origen.MANUAL and self.aplicada_por_id:
+            if self.aplicada_por.rol.nombre_rol != Rol.Nombre.ADMINISTRADOR:
+                raise ValidationError({"aplicada_por": "Debe ser un administrador."})
 
 
 class Horario(models.Model):
@@ -163,6 +189,35 @@ class Reserva(models.Model):
                 fields=["sala_horario", "fecha"],
                 condition=models.Q(estado_reserva__in=["CONFIRMADA", "EN_USO"]),
                 name="uq_reserva_activa_horario_fecha",
+            ),
+        ]
+
+
+class Auditoria(models.Model):
+    class Accion(models.TextChoices):
+        CREAR = "CREAR", "Crear"
+        CANCELAR = "CANCELAR", "Cancelar"
+        MODIFICAR = "MODIFICAR", "Modificar"
+
+    id_auditoria = models.AutoField(primary_key=True)
+    reserva = models.ForeignKey(
+        Reserva, on_delete=models.PROTECT, db_column="id_reserva",
+        related_name="auditorias",
+    )
+    actor = models.ForeignKey(
+        Usuario, on_delete=models.PROTECT, db_column="codigo_actor",
+        related_name="acciones_reserva",
+    )
+    accion = models.CharField(max_length=100, choices=Accion.choices)
+    fecha_accion = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "auditoria"
+        ordering = ["fecha_accion", "id_auditoria"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(accion__in=["CREAR", "CANCELAR", "MODIFICAR"]),
+                name="auditoria_accion_permitida",
             ),
         ]
 

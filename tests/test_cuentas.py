@@ -3,7 +3,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.urls import resolve, reverse
 
 from cuentas import views
-from reservas.models import Rol, Usuario, UsuarioRol
+from reservas.models import Rol, Usuario
 
 
 pytestmark = pytest.mark.django_db
@@ -11,11 +11,10 @@ pytestmark = pytest.mark.django_db
 
 def test_login_y_logout_del_administrador(client):
     admin = Usuario.objects.create(
+        rol=Rol.objects.get_or_create(nombre_rol="Administrador")[0],
         codigo_usuario=900001, email="admin@salamandra.test",
         nombre="Admin", apellido="Prueba", password_hash=make_password("admin123"),
     )
-    rol = Rol.objects.create(nombre_rol="Administrador")
-    UsuarioRol.objects.create(usuario=admin, rol=rol)
 
     assert reverse("login") == "/login/"
     assert resolve("/login/").func is views.login_view
@@ -36,11 +35,10 @@ def test_login_y_logout_del_administrador(client):
 
 def test_login_solicitante_y_acceso_restringido(client):
     usuario = Usuario.objects.create(
+        rol=Rol.objects.get_or_create(nombre_rol="Solicitante")[0],
         codigo_usuario=95429, email="95429@salamandra.test",
         nombre="Luciana", apellido="Soledad", password_hash=make_password("clave"),
     )
-    rol = Rol.objects.create(nombre_rol="Solicitante")
-    UsuarioRol.objects.create(usuario=usuario, rol=rol)
     for datos in (
         {"identificador": usuario.email, "password": "clave"},
         {"email": usuario.email, "password": "clave"},
@@ -59,6 +57,7 @@ def test_login_solicitante_y_acceso_restringido(client):
 
 def test_registro_conserva_validacion_y_no_reemplaza_contrasena(client):
     usuario = Usuario.objects.create(
+        rol=Rol.objects.get_or_create(nombre_rol="Solicitante")[0],
         codigo_usuario=95429, email="95429@salamandra.test",
         nombre="Luciana", apellido="Soledad",
     )
@@ -73,7 +72,7 @@ def test_registro_conserva_validacion_y_no_reemplaza_contrasena(client):
     assert client.post(reverse("registro"), datos).url == reverse("login")
     usuario.refresh_from_db()
     assert check_password("SalaMandra_2026!", usuario.password_hash)
-    assert UsuarioRol.objects.filter(usuario=usuario, rol__nombre_rol="Solicitante").exists()
+    assert usuario.rol.nombre_rol == "Solicitante"
 
     datos["password"] = "OtraClave_2026!"
     assert client.post(reverse("registro"), datos).status_code == 400

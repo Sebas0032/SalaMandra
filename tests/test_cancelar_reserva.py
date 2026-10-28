@@ -16,7 +16,6 @@ from reservas.models import (
     Sancion,
     TipoSancion,
     Usuario,
-    UsuarioRol,
 )
 
 
@@ -27,14 +26,13 @@ pytestmark = pytest.mark.django_db
 def escenario_cancelacion(client):
     ahora = timezone.make_aware(datetime(2026, 10, 19, 13))
     usuario = Usuario.objects.create(
+        rol=Rol.objects.get_or_create(nombre_rol="Solicitante")[0],
         pk=95429,
         email="95429@salamandra.test",
         nombre="Luciana",
         apellido="Soledad",
         password_hash=make_password("clave"),
     )
-    rol = Rol.objects.create(nombre_rol="Solicitante")
-    UsuarioRol.objects.create(usuario=usuario, rol=rol)
     horario = Horario.objects.create(hora_inicio=time(14), hora_fin=time(16))
     bloque = SalaHorario.objects.create(
         sala=Sala.objects.create(nombre_sala="Sala A"), horario=horario
@@ -82,6 +80,7 @@ def test_cancelacion_tardia_aplica_sancion_escalar(
         nombre, horas = services.ESCALA_SANCIONES_CANCELACION[indice]
         tipo = TipoSancion.objects.create(nombre_sancion=nombre, duracion=horas)
         Sancion.objects.create(
+        origen=Sancion.Origen.AUTOMATICA,
             usuario=usuario,
             tipo_sancion=tipo,
             motivo=nombre,
@@ -93,6 +92,8 @@ def test_cancelacion_tardia_aplica_sancion_escalar(
         resultado = services.cancel_reservation(usuario.pk, reserva.pk)
 
     sancion = resultado["sancion"]
+    assert sancion.origen == Sancion.Origen.AUTOMATICA
+    assert sancion.aplicada_por_id is None
     assert sancion.tipo_sancion.duracion == horas_esperadas
     assert sancion.fecha_fin == ahora + timedelta(hours=horas_esperadas)
     assert Sancion.objects.filter(usuario=usuario).count() == faltas_previas + 1
@@ -115,14 +116,12 @@ def test_no_cancela_una_reserva_que_ya_comenzo(escenario_cancelacion):
 def test_solicitante_no_puede_cancelar_reserva_ajena(escenario_cancelacion):
     _, _, reserva, ahora = escenario_cancelacion
     otro = Usuario.objects.create(
+        rol=Rol.objects.get(nombre_rol="Solicitante"),
         pk=94186,
         email="otro@salamandra.test",
         nombre="Otro",
         apellido="Usuario",
         password_hash=make_password("clave"),
-    )
-    UsuarioRol.objects.create(
-        usuario=otro, rol=Rol.objects.get(nombre_rol="Solicitante")
     )
 
     with patch("reservas.services.timezone.localtime", return_value=ahora):
@@ -138,14 +137,12 @@ def test_operador_cancela_y_la_sancion_recae_en_el_titular(
     usuario, _, reserva, ahora = escenario_cancelacion
     ahora = ahora.replace(hour=13, minute=30)
     operador = Usuario.objects.create(
+        rol=Rol.objects.get_or_create(nombre_rol="Operante")[0],
         pk=900002,
         email="operador@salamandra.test",
         nombre="Operador",
         apellido="Prueba",
         password_hash=make_password("clave"),
-    )
-    UsuarioRol.objects.create(
-        usuario=operador, rol=Rol.objects.create(nombre_rol="Operador")
     )
 
     with patch("reservas.services.timezone.localtime", return_value=ahora):

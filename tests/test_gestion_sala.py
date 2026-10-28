@@ -7,7 +7,7 @@ from reservas.gestion_salas import (
     create_room,
     create_room_schedule,
 )
-from reservas.models import (Bloqueo, Horario, Reserva, Rol, Sala, SalaHorario, Usuario, UsuarioRol,)
+from reservas.models import (Bloqueo, Horario, Reserva, Rol, Sala, SalaHorario, Usuario,)
 
 pytestmark = pytest.mark.django_db
 
@@ -16,11 +16,10 @@ pytestmark = pytest.mark.django_db
 def admin():
     """Administrador válido para las pruebas."""
     usuario = Usuario.objects.create(
+        rol=Rol.objects.get_or_create(nombre_rol="Administrador")[0],
         codigo_usuario=900100, email="admin-gestion@test.edu",
         nombre="Admin", apellido="Pruebas", password_hash="sesion-activa",
     )
-    rol = Rol.objects.create(nombre_rol="Administrador")
-    UsuarioRol.objects.create(usuario=usuario, rol=rol)
     return usuario
 
 
