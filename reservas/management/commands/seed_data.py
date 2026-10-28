@@ -36,6 +36,9 @@ from reservas.models import (
 ADMIN_EMAIL = "admin@salamandra.upb.edu"
 ADMIN_PASSWORD = "admin123"
 ADMIN_CODIGO_USUARIO = 900001
+OPERANTE_EMAIL = "operante@salamandra.upb.edu"
+OPERANTE_PASSWORD = "Operante_2026!"
+OPERANTE_CODIGO_USUARIO = 900003
 ESTUDIANTE_CODIGO_USUARIO = 900002
 
 
@@ -62,7 +65,7 @@ class Command(BaseCommand):
 
         # --- roles ---------------------------------------------------------
         rol_admin, _ = Rol.objects.get_or_create(nombre_rol="Administrador")
-        Rol.objects.get_or_create(nombre_rol="Operante")
+        rol_operante, _ = Rol.objects.get_or_create(nombre_rol="Operante")
         rol_estudiante, _ = Rol.objects.get_or_create(nombre_rol="Solicitante")
 
         # --- usuarios ------------------------------------------------------
@@ -80,6 +83,22 @@ class Command(BaseCommand):
         if creado:
             self.stdout.write(self.style.SUCCESS(
                 f"Administrador creado -> {ADMIN_EMAIL} / {ADMIN_PASSWORD}"
+            ))
+
+        operante, operante_creado = Usuario.objects.get_or_create(
+            codigo_usuario=OPERANTE_CODIGO_USUARIO,
+            defaults={
+                "rol": rol_operante,
+                "email": OPERANTE_EMAIL,
+                "nombre": "Operante",
+                "apellido": "SalaMandra",
+                "estado_usuario": True,
+                "password_hash": make_password(OPERANTE_PASSWORD),
+            },
+        )
+        if operante_creado:
+            self.stdout.write(self.style.SUCCESS(
+                f"Operante creado -> código {operante.pk} / {OPERANTE_PASSWORD}"
             ))
 
         estudiante, _ = Usuario.objects.get_or_create(
