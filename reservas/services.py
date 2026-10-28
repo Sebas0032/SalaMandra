@@ -436,6 +436,10 @@ class ScheduleAlreadyBlockedError(Exception):
     """Ese sala_horario ya está en estado MANTENIMIENTO."""
 
 
+class ScheduleNotBlockedError(Exception):
+    """Ese sala_horario no está en estado MANTENIMIENTO."""
+
+
 # --- Lecturas para mostrar el estado del sistema ----------------------------
 
 def get_sala_horarios():
@@ -454,6 +458,26 @@ def get_bloqueos():
     return Bloqueo.objects.select_related(
         "usuario", "sala_horario__sala", "sala_horario__horario"
     ).order_by("-fecha")
+
+
+def get_active_maintenance_blocks():
+    """Devuelve solo los horarios que actualmente siguen en mantenimiento."""
+    activos = []
+    sala_horarios = SalaHorario.objects.filter(
+        estado_sala_horario=SalaHorario.ESTADO_MANTENIMIENTO
+    ).select_related("sala", "horario").order_by(
+        "sala__nombre_sala", "horario__hora_inicio"
+    )
+
+    for sala_horario in sala_horarios:
+        ultimo_bloqueo = Bloqueo.objects.filter(
+            sala_horario=sala_horario
+        ).select_related("usuario").order_by("-fecha").first()
+        activos.append(
+            {"sala_horario": sala_horario, "bloqueo": ultimo_bloqueo}
+        )
+
+    return activos
 
 
 # --- Caso de uso RES-CU-02 --------------------------------------------------
@@ -516,3 +540,33 @@ def block_room_schedule_for_maintenance(codigo_usuario_admin, id_sala_horario, m
         "sala_horario": sala_horario,
         "reservas_canceladas": reservas_canceladas,
     }
+
+
+@transaction.atomic
+def unblock_room_schedule_from_maintenance(
+    codigo_usuario_admin, id_sala_horario
+):
+    """Vuelve a habilitar un horario en mantenimiento sin alterar su historial."""
+    if not usuario_tiene_rol(codigo_usuario_admin, ROL_ADMINISTRADOR):
+        raise NotAuthorizedError(
+            "No tienes permisos para habilitar salas. Contacta al administrador."
+        )
+
+    try:
+        sala_horario = SalaHorario.objects.select_for_update().select_related(
+            "sala", "horario"
+        ).get(pk=id_sala_horario)
+    except SalaHorario.DoesNotExist as exc:
+        raise ScheduleNotFoundError(
+            f"No existe una combinación de sala y horario con id {id_sala_horario}."
+        ) from exc
+
+    if sala_horario.estado_sala_horario != SalaHorario.ESTADO_MANTENIMIENTO:
+        raise ScheduleNotBlockedError(
+            f"El horario {sala_horario.horario} de la sala "
+            f"{sala_horario.sala} no está en mantenimiento."
+        )
+
+    sala_horario.estado_sala_horario = SalaHorario.ESTADO_DISPONIBLE
+    sala_horario.save(update_fields=["estado_sala_horario"])
+    return sala_horario

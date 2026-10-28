@@ -40,6 +40,8 @@ td { font-weight: 500; }
 textarea { width: 100%; padding: 10px; border: 1px solid #b8bdc2; border-radius: 9px; font: inherit; resize: vertical; }
 .nota { background: #fff5dc; border: 1px solid #ffdf81; border-radius: 9px; padding: 10px; font-size: 12px; line-height: 1.5; text-align: center; }
 .boton-bloqueo { width: 100%; padding: 12px; background: var(--azul); color: white; border: none; border-radius: 9px; font: inherit; font-weight: 700; cursor: pointer; }
+.boton-habilitar { padding: 7px 10px; background: white; color: var(--azul); border: 1px solid var(--azul); border-radius: 8px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.boton-habilitar:hover { background: #dfedff; }
 @media (max-width: 1100px) { .paneles-admin { grid-template-columns: minmax(0, 1fr) 310px; gap: 14px; } .contenido-admin { padding: 18px; } .cabecera nav span { display: none; } }
 @media (max-width: 900px) { .paneles-admin { grid-template-columns: 1fr; } .nuevo-bloqueo { max-width: none; } }
 @media (max-width: 600px) { .estructura-admin { grid-template-columns: 1fr; } .menu-admin { padding: 0; } .menu-admin nav { flex-direction: row; } .cabecera .marca { font-size: 25px; } .cabecera .emblema { width: 48px; height: 48px; font-size: 35px; } .administracion { font-size: 13px; } .cabecera { padding: 12px; } }

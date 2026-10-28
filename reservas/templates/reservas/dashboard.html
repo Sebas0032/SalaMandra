@@ -19,6 +19,7 @@
     <aside class="menu-admin"><nav aria-label="Administración">
         <a href="{% url 'student_panel' %}">Salas y horarios</a>
         <a href="{% url 'block_room' %}" aria-current="page">Mantenimiento</a>
+        <a href="{% url 'sanctions_admin' %}">Sanciones</a>
         <a href="{% url 'gestion_salas' %}">Gestión de salas y horarios</a>
     </nav></aside>
     <main class="contenido-admin">
@@ -37,15 +38,22 @@
                 <section class="tarjeta">
                     <h2>Bloqueos activos</h2>
                     <div class="tabla-scroll"><table>
-                        <thead><tr><th>Sala</th><th>Horario</th><th>Motivo</th><th>Registrado</th></tr></thead>
-                        <tbody>{% for bloqueo in bloqueos %}<tr>
-                            <th scope="row">{{ bloqueo.sala_horario.sala.nombre_sala }}</th>
-                            <td>{{ bloqueo.sala_horario.horario.hora_inicio|time:"H:i" }} – {{ bloqueo.sala_horario.horario.hora_fin|time:"H:i" }}</td>
-                            <td class="motivo">{{ bloqueo.motivo }}</td>
-                            <td>{{ bloqueo.fecha|date:"d/m/Y H:i" }}<br><small>{{ bloqueo.usuario }} · Código {{ bloqueo.usuario_id }}</small></td>
-                        </tr>{% empty %}<tr><td colspan="4">Todavía no hay bloqueos registrados.</td></tr>{% endfor %}</tbody>
+                        <thead><tr><th>Sala</th><th>Horario</th><th>Motivo</th><th>Registrado</th><th>Acción</th></tr></thead>
+                        <tbody>{% for item in bloqueos_activos %}<tr>
+                            <th scope="row">{{ item.sala_horario.sala.nombre_sala }}</th>
+                            <td>{{ item.sala_horario.horario.hora_inicio|time:"H:i" }} – {{ item.sala_horario.horario.hora_fin|time:"H:i" }}</td>
+                            <td class="motivo">{% if item.bloqueo %}{{ item.bloqueo.motivo }}{% else %}—{% endif %}</td>
+                            <td>{% if item.bloqueo %}{{ item.bloqueo.fecha|date:"d/m/Y H:i" }}<br><small>{{ item.bloqueo.usuario }} · Código {{ item.bloqueo.usuario_id }}</small>{% else %}—{% endif %}</td>
+                            <td><form method="post" action="{% url 'unblock_room' item.sala_horario.pk %}">{% csrf_token %}<button class="boton-habilitar" type="submit">Sacar de mantenimiento</button></form></td>
+                        </tr>{% empty %}<tr><td colspan="5">No hay horarios en mantenimiento.</td></tr>{% endfor %}</tbody>
                     </table></div>
                 </section>
+                <details class="tarjeta historial"><summary>Historial de bloqueos</summary>
+                    <div class="tabla-scroll"><table>
+                        <thead><tr><th>Sala</th><th>Horario</th><th>Motivo</th><th>Registrado</th></tr></thead>
+                        <tbody>{% for bloqueo in bloqueos %}<tr><th scope="row">{{ bloqueo.sala_horario.sala.nombre_sala }}</th><td>{{ bloqueo.sala_horario.horario.hora_inicio|time:"H:i" }} – {{ bloqueo.sala_horario.horario.hora_fin|time:"H:i" }}</td><td class="motivo">{{ bloqueo.motivo }}</td><td>{{ bloqueo.fecha|date:"d/m/Y H:i" }}<br><small>{{ bloqueo.usuario }} · Código {{ bloqueo.usuario_id }}</small></td></tr>{% empty %}<tr><td colspan="4">Todavía no hay bloqueos registrados.</td></tr>{% endfor %}</tbody>
+                    </table></div>
+                </details>
                 <details class="tarjeta historial"><summary>Reservas registradas</summary>
                     <div class="tabla-scroll"><table>
                         <thead><tr><th>Sala</th><th>Horario y fecha</th><th>Estudiante</th><th>Actividad</th><th>Estado</th></tr></thead>
@@ -71,7 +79,7 @@
                     </div><p id="sin-horarios" class="vacio" hidden>No hay horarios disponibles para bloquear en esta sala.</p></fieldset>
                     <label class="etiqueta" for="motivo">Motivo</label>
                     <textarea id="motivo" name="motivo" maxlength="200" rows="3" placeholder="Ej. Falla eléctrica" required></textarea>
-                    <p class="nota">El horario pasará a mantenimiento. Las reservas confirmadas asociadas se cancelarán sin sanción, en todas sus fechas. El bloqueo es permanente.</p>
+                    <p class="nota">El horario pasará a mantenimiento. Las reservas confirmadas asociadas se cancelarán sin sanción, en todas sus fechas. Después podrás volver a habilitarlo desde la lista de bloqueos activos.</p>
                     <button class="boton-bloqueo" type="submit" {% if not filas %}disabled{% endif %}>Bloquear horario</button>
                 </form>
             </section>

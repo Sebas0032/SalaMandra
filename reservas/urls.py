@@ -16,5 +16,30 @@ urlpatterns = [
     ),
     path("", views.dashboard_view, name="dashboard"),
     path("bloquear/", views.block_room_view, name="block_room"),
+    path(
+        "mantenimiento/<int:id_sala_horario>/habilitar/",
+        views.unblock_room_view,
+        name="unblock_room",
+    ),
     path("/gestion/salas/", views.gestion_salas_view, name="gestion_salas"),
+    path(
+        "administracion/sanciones/",
+        views.sanctions_admin_view,
+        name="sanctions_admin",
+    ),
+    path(
+        "administracion/sanciones/aplicar/",
+        views.apply_sanction_view,
+        name="apply_sanction",
+    ),
+    path(
+        "administracion/sanciones/reiniciar/",
+        views.clear_sanctions_view,
+        name="clear_sanctions",
+    ),
+    path(
+        "administracion/solicitantes/<int:codigo_usuario>/estado/",
+        views.change_student_status_view,
+        name="change_student_status",
+    ),
 ]

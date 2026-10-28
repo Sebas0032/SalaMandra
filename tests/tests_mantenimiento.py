@@ -153,3 +153,83 @@ class TestBloqueoMantenimiento:
 
         # 3. Validar que el estado del horario cambió a MANTENIMIENTO
         assert sh_a_manana.estado_sala_horario == "MANTENIMIENTO"
+
+
+class TestSalidaDeMantenimiento:
+
+    def test_administrador_vuelve_a_habilitar_horario(
+        self, admin, sh_a_manana, reserva
+    ):
+        services.block_room_schedule_for_maintenance(
+            admin.codigo_usuario, sh_a_manana.pk, MOTIVO
+        )
+
+        services.unblock_room_schedule_from_maintenance(
+            admin.codigo_usuario, sh_a_manana.pk
+        )
+
+        sh_a_manana.refresh_from_db()
+        reserva.refresh_from_db()
+        assert sh_a_manana.estado_sala_horario == SalaHorario.ESTADO_DISPONIBLE
+        assert reserva.estado_reserva == Reserva.ESTADO_POR_MANTENIMIENTO
+        assert Bloqueo.objects.count() == 1
+
+    def test_estudiante_no_puede_sacar_horario_de_mantenimiento(
+        self, admin, estudiante, sh_a_manana
+    ):
+        services.block_room_schedule_for_maintenance(
+            admin.codigo_usuario, sh_a_manana.pk, MOTIVO
+        )
+
+        with pytest.raises(services.NotAuthorizedError):
+            services.unblock_room_schedule_from_maintenance(
+                estudiante.codigo_usuario, sh_a_manana.pk
+            )
+
+        sh_a_manana.refresh_from_db()
+        assert sh_a_manana.estado_sala_horario == SalaHorario.ESTADO_MANTENIMIENTO
+
+    def test_rechaza_habilitar_horario_que_no_esta_en_mantenimiento(
+        self, admin, sh_a_manana
+    ):
+        with pytest.raises(services.ScheduleNotBlockedError):
+            services.unblock_room_schedule_from_maintenance(
+                admin.codigo_usuario, sh_a_manana.pk
+            )
+
+        sh_a_manana.refresh_from_db()
+        assert sh_a_manana.estado_sala_horario == SalaHorario.ESTADO_DISPONIBLE
+
+    def test_lista_activa_excluye_horario_despues_de_habilitarlo(
+        self, admin, sh_a_manana
+    ):
+        services.block_room_schedule_for_maintenance(
+            admin.codigo_usuario, sh_a_manana.pk, MOTIVO
+        )
+        assert len(services.get_active_maintenance_blocks()) == 1
+
+        services.unblock_room_schedule_from_maintenance(
+            admin.codigo_usuario, sh_a_manana.pk
+        )
+
+        assert services.get_active_maintenance_blocks() == []
+
+    def test_boton_de_interfaz_habilita_el_horario(
+        self, client, admin, sh_a_manana
+    ):
+        services.block_room_schedule_for_maintenance(
+            admin.codigo_usuario, sh_a_manana.pk, MOTIVO
+        )
+        client.post(
+            "/login/",
+            {"identificador": str(admin.pk), "password": PASSWORD},
+        )
+
+        response = client.post(
+            f"/mantenimiento/{sh_a_manana.pk}/habilitar/"
+        )
+
+        sh_a_manana.refresh_from_db()
+        assert response.status_code == 302
+        assert response.url == "/"
+        assert sh_a_manana.estado_sala_horario == SalaHorario.ESTADO_DISPONIBLE

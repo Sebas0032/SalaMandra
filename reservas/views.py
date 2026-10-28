@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 from cuentas.permisos import admin_login_required, login_required
 from cuentas.services import usuario_tiene_rol
 
-from . import services, gestion_salas
+from . import services, gestion_salas, gestion_sanciones
 from .models import Sala, SalaHorario
 
 
@@ -218,6 +218,7 @@ def dashboard_view(request):
         "sala_horarios": combinaciones,
         "reservas": services.get_reservas(),
         "bloqueos": services.get_bloqueos(),
+        "bloqueos_activos": services.get_active_maintenance_blocks(),
     }
     return render(request, "reservas/dashboard.html", context)
 
@@ -276,6 +277,33 @@ def block_room_view(request):
 
     return redirect("dashboard")
 
+
+@admin_login_required
+@handle_db_errors
+@require_POST
+def unblock_room_view(request, id_sala_horario):
+    """Saca un horario de mantenimiento y lo vuelve a dejar disponible."""
+    try:
+        sala_horario = services.unblock_room_schedule_from_maintenance(
+            codigo_usuario_admin=request.session["codigo_usuario"],
+            id_sala_horario=id_sala_horario,
+        )
+    except (
+        services.ScheduleNotFoundError,
+        services.ScheduleNotBlockedError,
+        services.NotAuthorizedError,
+    ) as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(
+            request,
+            f"El horario {sala_horario.horario} de {sala_horario.sala} "
+            "volvió a estar disponible. Las reservas afectadas anteriormente "
+            "no fueron restauradas.",
+        )
+
+    return redirect("dashboard")
+
 # En esta parte se encuentra para poder CREAR tanto SALAS y HORARIOS por el admin
 @handle_db_errors
 @admin_login_required
@@ -324,3 +352,103 @@ def _contexto_gestion_salas(request):
             "sala__nombre_sala", "horario__hora_inicio"
         ),
     }
+
+
+# --- Administración de sanciones y solicitantes ----------------------------
+
+@handle_db_errors
+@admin_login_required
+def sanctions_admin_view(request):
+    """Lista solicitantes, sanciones vigentes y estado de sus cuentas."""
+    filtro = request.GET.get("filtro", "todos")
+    if filtro not in {"todos", "activos", "inactivos", "sancionados"}:
+        filtro = "todos"
+    termino = request.GET.get("q", "").strip()
+    return render(
+        request,
+        "reservas/gestion_sanciones.html",
+        {
+            "nombre_completo": request.session.get("nombre_completo"),
+            "filas": gestion_sanciones.get_solicitantes(termino, filtro),
+            "opciones_duracion": gestion_sanciones.OPCIONES_DURACION,
+            "filtro": filtro,
+            "termino": termino,
+            "codigo_seleccionado": request.GET.get("codigo", ""),
+        },
+    )
+
+
+@handle_db_errors
+@admin_login_required
+@require_POST
+def apply_sanction_view(request):
+    try:
+        sancion = gestion_sanciones.apply_manual_sanction(
+            request.usuario.pk,
+            _leer_codigo_solicitante(request),
+            request.POST.get("duracion", ""),
+            request.POST.get("motivo", ""),
+        )
+    except gestion_sanciones.GestionSancionesError as exc:
+        messages.error(request, str(exc))
+    else:
+        vence = timezone.localtime(sancion.fecha_fin).strftime(
+            "%d/%m/%Y %H:%M"
+        )
+        messages.success(
+            request,
+            f"Sanción aplicada a {sancion.usuario}. Vigente hasta {vence}.",
+        )
+    return redirect("sanctions_admin")
+
+
+@handle_db_errors
+@admin_login_required
+@require_POST
+def clear_sanctions_view(request):
+    try:
+        cantidad = gestion_sanciones.clear_all_sanctions(request.usuario.pk)
+    except gestion_sanciones.GestionSancionesError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(
+            request,
+            f"Reinicio semestral completado: {cantidad} sanción(es) eliminada(s).",
+        )
+    return redirect("sanctions_admin")
+
+
+@handle_db_errors
+@admin_login_required
+@require_POST
+def change_student_status_view(request, codigo_usuario):
+    nuevo_estado = request.POST.get("nuevo_estado", "")
+    if nuevo_estado not in {"0", "1"}:
+        messages.error(request, "El estado solicitado no es válido.")
+        return redirect("sanctions_admin")
+    try:
+        solicitante = gestion_sanciones.set_student_active_status(
+            request.usuario.pk,
+            codigo_usuario,
+            activo=nuevo_estado == "1",
+        )
+    except gestion_sanciones.GestionSancionesError as exc:
+        messages.error(request, str(exc))
+    else:
+        estado = "activada" if solicitante.estado_usuario else "desactivada"
+        messages.success(request, f"Cuenta de {solicitante} {estado}.")
+    return redirect("sanctions_admin")
+
+
+def _leer_codigo_solicitante(request):
+    codigo = request.POST.get("codigo_solicitante", "").strip()
+    if not codigo.isascii() or not codigo.isdecimal():
+        raise gestion_sanciones.GestionSancionesError(
+            "Ingresa un código universitario válido."
+        )
+    valor = int(codigo)
+    if not 0 < valor <= 9223372036854775807:
+        raise gestion_sanciones.GestionSancionesError(
+            "Ingresa un código universitario válido."
+        )
+    return valor

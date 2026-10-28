@@ -1,0 +1,176 @@
+from datetime import datetime, timedelta
+from unittest.mock import patch
+
+import pytest
+from django.contrib.auth.hashers import make_password
+from django.urls import reverse
+from django.utils import timezone
+
+from cuentas.services import authenticate_user
+from reservas import gestion_sanciones
+from reservas.models import Rol, Sancion, TipoSancion, Usuario, UsuarioRol
+
+
+pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture
+def usuarios_sanciones(client):
+    rol_admin = Rol.objects.create(nombre_rol="Administrador")
+    rol_solicitante = Rol.objects.create(nombre_rol="Solicitante")
+    admin = Usuario.objects.create(
+        pk=900001,
+        email="admin@salamandra.test",
+        nombre="Admin",
+        apellido="Prueba",
+        password_hash=make_password("admin123"),
+    )
+    estudiante = Usuario.objects.create(
+        pk=101145,
+        email="sebastiancruz1@upb.edu",
+        nombre="Sebastian",
+        apellido="Cruz",
+        password_hash=make_password("clave-segura"),
+    )
+    UsuarioRol.objects.create(usuario=admin, rol=rol_admin)
+    UsuarioRol.objects.create(usuario=estudiante, rol=rol_solicitante)
+    client.post(
+        reverse("login"),
+        {"identificador": str(admin.pk), "password": "admin123"},
+    )
+    return admin, estudiante
+
+
+def test_aplica_sancion_manual_con_motivo_y_duracion(usuarios_sanciones):
+    admin, estudiante = usuarios_sanciones
+    ahora = timezone.make_aware(datetime(2026, 10, 27, 9))
+    with patch(
+        "reservas.gestion_sanciones.timezone.localtime",
+        return_value=ahora,
+    ):
+        sancion = gestion_sanciones.apply_manual_sanction(
+            admin.pk,
+            estudiante.pk,
+            "1_semana",
+            "Uso indebido de la sala",
+        )
+
+    assert sancion.usuario == estudiante
+    assert sancion.motivo == "Uso indebido de la sala"
+    assert sancion.tipo_sancion.duracion == 168
+    assert sancion.fecha_inicio == ahora
+    assert sancion.fecha_fin == ahora + timedelta(hours=168)
+
+
+def test_listado_muestra_solo_la_sancion_vigente(usuarios_sanciones):
+    _, estudiante = usuarios_sanciones
+    ahora = timezone.make_aware(datetime(2026, 10, 27, 9))
+    tipo = TipoSancion.objects.create(nombre_sancion="Manual", duracion=24)
+    Sancion.objects.create(
+        usuario=estudiante,
+        tipo_sancion=tipo,
+        motivo="Sanción vencida",
+        fecha_inicio=ahora - timedelta(days=2),
+        fecha_fin=ahora - timedelta(days=1),
+    )
+    vigente = Sancion.objects.create(
+        usuario=estudiante,
+        tipo_sancion=tipo,
+        motivo="Sanción vigente",
+        fecha_inicio=ahora - timedelta(hours=1),
+        fecha_fin=ahora + timedelta(hours=23),
+    )
+
+    filas = gestion_sanciones.get_solicitantes(
+        filtro="sancionados", ahora=ahora
+    )
+    assert len(filas) == 1
+    assert filas[0]["usuario"] == estudiante
+    assert filas[0]["sancion"] == vigente
+
+
+def test_reinicio_semestral_elimina_todo_el_historial(usuarios_sanciones):
+    admin, estudiante = usuarios_sanciones
+    ahora = timezone.localtime()
+    tipo = TipoSancion.objects.create(nombre_sancion="Manual", duracion=24)
+    for dias in (1, 30):
+        Sancion.objects.create(
+            usuario=estudiante,
+            tipo_sancion=tipo,
+            motivo="Historial",
+            fecha_inicio=ahora - timedelta(days=dias),
+            fecha_fin=ahora + timedelta(days=1),
+        )
+
+    cantidad = gestion_sanciones.clear_all_sanctions(admin.pk)
+    assert cantidad == 2
+    assert not Sancion.objects.exists()
+    assert TipoSancion.objects.filter(pk=tipo.pk).exists()
+
+
+def test_desactivar_cuenta_cierra_sesion_e_impide_login(
+    client, usuarios_sanciones
+):
+    admin, estudiante = usuarios_sanciones
+    client.get(reverse("logout"))
+    client.post(
+        reverse("login"),
+        {"identificador": str(estudiante.pk), "password": "clave-segura"},
+    )
+    assert client.session["codigo_usuario"] == estudiante.pk
+
+    gestion_sanciones.set_student_active_status(
+        admin.pk, estudiante.pk, activo=False
+    )
+    response = client.get(reverse("student_panel"))
+    assert response.url == reverse("login")
+    assert "codigo_usuario" not in client.session
+    assert authenticate_user(str(estudiante.pk), "clave-segura") is None
+
+    gestion_sanciones.set_student_active_status(
+        admin.pk, estudiante.pk, activo=True
+    )
+    assert authenticate_user(str(estudiante.pk), "clave-segura") == estudiante
+
+
+def test_pantalla_administrativa_procesa_sancion_estado_y_reinicio(
+    client, usuarios_sanciones
+):
+    _, estudiante = usuarios_sanciones
+    response = client.get(reverse("sanctions_admin"))
+    assert response.status_code == 200
+    assert "Sebastian Cruz" in response.content.decode()
+
+    response = client.post(
+        reverse("apply_sanction"),
+        {
+            "codigo_solicitante": estudiante.pk,
+            "duracion": "24_horas",
+            "motivo": "Conducta indebida",
+        },
+    )
+    assert response.url == reverse("sanctions_admin")
+    assert Sancion.objects.filter(usuario=estudiante).exists()
+
+    client.post(
+        reverse("change_student_status", args=[estudiante.pk]),
+        {"nuevo_estado": "0"},
+    )
+    estudiante.refresh_from_db()
+    assert not estudiante.estado_usuario
+
+    client.post(reverse("clear_sanctions"))
+    assert not Sancion.objects.exists()
+
+
+def test_solicitante_no_puede_administrar_sanciones(
+    client, usuarios_sanciones
+):
+    _, estudiante = usuarios_sanciones
+    client.get(reverse("logout"))
+    client.post(
+        reverse("login"),
+        {"identificador": str(estudiante.pk), "password": "clave-segura"},
+    )
+    assert client.get(reverse("sanctions_admin")).status_code == 403
+    assert client.post(reverse("clear_sanctions")).status_code == 403

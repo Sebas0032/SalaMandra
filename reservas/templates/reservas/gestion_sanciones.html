@@ -1,0 +1,98 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sanciones — SalaMandra</title>
+    <link rel="stylesheet" href="{% static 'reservas/css/panel_solicitante.css' %}">
+    <link rel="stylesheet" href="{% static 'reservas/css/mantenimiento.css' %}">
+    <link rel="stylesheet" href="{% static 'reservas/css/sanciones.css' %}">
+</head>
+<body>
+<header class="cabecera">
+    <a class="marca" href="{% url 'dashboard' %}"><span class="emblema" aria-hidden="true">S</span><span>Sala<strong>Mandra</strong></span></a>
+    <span class="administracion">| Administración</span>
+    <nav aria-label="Cuenta"><span>{{ nombre_completo }}</span><a href="{% url 'logout' %}">Salir ↗</a></nav>
+</header>
+<div class="estructura-admin">
+    <aside class="menu-admin"><nav aria-label="Administración">
+        <a href="{% url 'student_panel' %}">Salas y horarios</a>
+        <a href="{% url 'block_room' %}">Mantenimiento</a>
+        <a href="{% url 'sanctions_admin' %}" aria-current="page">Sanciones</a>
+        <a href="{% url 'gestion_salas' %}">Gestión de salas y horarios</a>
+    </nav></aside>
+    <main class="contenido-admin">
+        <h1>Solicitantes</h1>
+        <p class="descripcion">Consulta sanciones vigentes, aplica sanciones manuales y administra el estado de las cuentas.</p>
+        {% if messages %}<div class="avisos-gestion" aria-live="polite">{% for message in messages %}<p class="aviso {{ message.tags }}">{{ message }}</p>{% endfor %}</div>{% endif %}
+
+        <div class="paneles-sanciones">
+            <section class="tarjeta listado-solicitantes">
+                <div class="encabezado-listado">
+                    <h2>Solicitantes registrados</h2>
+                    <form class="busqueda" method="get">
+                        <input type="search" name="q" value="{{ termino }}" placeholder="Buscar por código, nombre o correo" aria-label="Buscar solicitante">
+                        <input type="hidden" name="filtro" value="{{ filtro }}">
+                        <button type="submit">Buscar</button>
+                    </form>
+                    <nav class="filtros" aria-label="Filtrar solicitantes">
+                        <a href="?filtro=todos&q={{ termino|urlencode }}" {% if filtro == 'todos' %}aria-current="page"{% endif %}>Todos</a>
+                        <a href="?filtro=activos&q={{ termino|urlencode }}" {% if filtro == 'activos' %}aria-current="page"{% endif %}>Activos</a>
+                        <a href="?filtro=inactivos&q={{ termino|urlencode }}" {% if filtro == 'inactivos' %}aria-current="page"{% endif %}>Inactivos</a>
+                        <a href="?filtro=sancionados&q={{ termino|urlencode }}" {% if filtro == 'sancionados' %}aria-current="page"{% endif %}>Sancionados</a>
+                    </nav>
+                </div>
+                <div class="tabla-scroll"><table>
+                    <thead><tr><th>Solicitante</th><th>Código</th><th>Sanción vigente</th><th>Cuenta</th><th>Acciones</th></tr></thead>
+                    <tbody>
+                    {% for fila in filas %}
+                    <tr>
+                        <th scope="row">{{ fila.usuario }}<small>{{ fila.usuario.email }}</small></th>
+                        <td>{{ fila.usuario.pk }}</td>
+                        <td>{% if fila.sancion %}<strong>{{ fila.sancion.tipo_sancion }}</strong><small>{{ fila.sancion.motivo }}<br>Hasta {{ fila.sancion.fecha_fin|date:"d/m/Y H:i" }}</small>{% else %}—{% endif %}</td>
+                        <td><span class="estado-cuenta {% if not fila.usuario.estado_usuario %}inactiva{% endif %}">{% if fila.usuario.estado_usuario %}Activa{% else %}Inactiva{% endif %}</span></td>
+                        <td class="acciones-solicitante">
+                            <a href="?codigo={{ fila.usuario.pk }}#form-sancion">Sancionar</a>
+                            <form method="post" action="{% url 'change_student_status' fila.usuario.pk %}" {% if fila.usuario.estado_usuario %}onsubmit="return confirm('¿Desactivar esta cuenta? El estudiante dejará de iniciar sesión y reservar.')"{% endif %}>
+                                {% csrf_token %}
+                                <input type="hidden" name="nuevo_estado" value="{% if fila.usuario.estado_usuario %}0{% else %}1{% endif %}">
+                                <button type="submit">{% if fila.usuario.estado_usuario %}Desactivar{% else %}Activar{% endif %}</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}<tr><td colspan="5">No se encontraron solicitantes.</td></tr>{% endfor %}
+                    </tbody>
+                </table></div>
+                <form class="reinicio-semestre" method="post" action="{% url 'clear_sanctions' %}" onsubmit="return confirm('¿Eliminar todas las sanciones? Esta acción reinicia el historial de todos los estudiantes para el nuevo semestre.')">
+                    {% csrf_token %}
+                    <p><strong>Inicio de semestre:</strong> esta acción elimina todas las sanciones y reinicia la escala de faltas.</p>
+                    <button type="submit">Eliminar todas las sanciones</button>
+                </form>
+            </section>
+
+            <section class="tarjeta formulario-sancion" id="form-sancion">
+                <h2>Sancionar solicitante</h2>
+                <form method="post" action="{% url 'apply_sanction' %}">
+                    {% csrf_token %}
+                    <label class="etiqueta" for="codigo_solicitante">Código universitario</label>
+                    <input id="codigo_solicitante" name="codigo_solicitante" type="number" min="1" value="{{ codigo_seleccionado }}" required>
+                    <fieldset>
+                        <legend>Tiempo de sanción</legend>
+                        <div class="duraciones">
+                            {% for codigo, etiqueta, horas in opciones_duracion %}
+                            <label><input type="radio" name="duracion" value="{{ codigo }}" required><span>{{ etiqueta }}</span></label>
+                            {% endfor %}
+                        </div>
+                    </fieldset>
+                    <label class="etiqueta" for="motivo">Motivo</label>
+                    <textarea id="motivo" name="motivo" maxlength="255" rows="4" placeholder="Describe el uso indebido de la sala" required></textarea>
+                    <p class="nota">El estudiante podrá consultar las salas, pero no podrá reservar hasta que termine la sanción.</p>
+                    <button class="boton-sancion" type="submit">Aplicar sanción</button>
+                </form>
+            </section>
+        </div>
+    </main>
+</div>
+</body>
+</html>

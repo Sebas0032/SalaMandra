@@ -94,7 +94,7 @@ Crea (sin duplicar si lo corres de nuevo):
 - Roles `Administrador` y `Estudiante`
 - **Administrador: `admin@salamandra.upb.edu` / `admin123`**
 - Una estudiante (Luciana Perez), sin login, con reservas a su nombre
-- Catálogo `tipo_sancion` (escala de la Sesión 06; su lógica aún no existe)
+- Catálogo `tipo_sancion` para sanciones automáticas y manuales
 - 2 salas, 2 horarios (`10:00-12:00`, `15:00-17:00`) y sus combinaciones
   `sala_horario`
 - 2 reservas `CONFIRMADA` para mañana
@@ -180,10 +180,12 @@ db.sqlite3                     Se crea al ejecutar migrate (no se sube a git)
 ## 10. Limitaciones actuales (a propósito)
 
 - No hay pruebas automatizadas del flujo de bloqueo (plan de Sesiones 08–09).
-- `tipo_sancion` y `sanciones` existen como tablas, pero la lógica de
-  RES-RF-02 (penalizar cancelaciones tardías) no está implementada.
+- Las cancelaciones tardías generan sanciones escalares y el Administrador
+  puede aplicar sanciones manuales o reiniciar el historial semestral.
 - Solo hay un Administrador (creado por `seed_data`); no hay pantalla para
   crear más usuarios o roles.
 - No se notifica a los estudiantes cuando su reserva pasa a
   `POR_MANTENIMIENTO` (pregunta pendiente con Sergio).
-- No hay forma de "desbloquear" un horario desde la interfaz todavía.
+- El Administrador puede sacar un horario de mantenimiento desde la interfaz;
+  el registro del bloqueo se conserva como historial y las reservas que ya
+  pasaron a `POR_MANTENIMIENTO` no se restauran automáticamente.
