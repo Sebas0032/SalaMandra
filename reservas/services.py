@@ -28,11 +28,26 @@ from django.utils import timezone
 
 from cuentas.services import ROL_ADMINISTRADOR, usuario_tiene_rol
 
-from .models import Bloqueo, Reserva, SalaHorario, Horario, Sancion, Usuario
+from .models import (
+    Bloqueo,
+    Horario,
+    Reserva,
+    SalaHorario,
+    Sancion,
+    TipoSancion,
+    Usuario,
+)
 
 ACTIVIDADES = ("Tutoría", "Examen", "Tarea", "Proyecto")
 ESTADOS_ACTIVOS = ("CONFIRMADA", "EN_USO")
 ANTICIPACION_MINIMA_MODIFICACION = timedelta(hours=1)
+ANTICIPACION_CANCELACION_SIN_SANCION = timedelta(hours=1)
+ESCALA_SANCIONES_CANCELACION = (
+    ("Cancelación tardía (1ra vez)", 24),
+    ("Cancelación tardía (2da vez)", 48),
+    ("Cancelación tardía (3ra vez)", 168),
+    ("Cancelación tardía (4ta vez, todo el semestre)", 9999),
+)
 
 
 class ReservationError(Exception):
@@ -80,6 +95,25 @@ def modify_student_reservation(codigo_usuario, id_reserva, id_sala_horario):
     reserva.sala_horario = nuevo_sala_horario
     reserva.save(update_fields=["sala_horario"])
     return reserva
+
+
+@transaction.atomic
+def cancel_reservation(codigo_usuario_actor, id_reserva):
+    """Cancela una reserva confirmada y sanciona si faltaba menos de una hora."""
+    actor = _obtener_usuario_reservante(codigo_usuario_actor)
+    reserva = _obtener_reserva_para_cancelar(actor, id_reserva)
+    ahora = timezone.localtime()
+    inicio = _inicio_de_reserva(reserva)
+    if ahora >= inicio:
+        raise ReservationError("La reserva ya comenzó y no se puede cancelar.")
+
+    reserva.estado_reserva = Reserva.ESTADO_CANCELADA
+    reserva.save(update_fields=["estado_reserva"])
+
+    sancion = None
+    if inicio - ahora < ANTICIPACION_CANCELACION_SIN_SANCION:
+        sancion = _registrar_sancion_por_cancelacion(reserva.usuario_id, ahora)
+    return {"reserva": reserva, "sancion": sancion}
 
 
 def _validar_reglas_reserva(
@@ -140,6 +174,46 @@ def _obtener_reserva_confirmada_del_usuario(usuario, id_reserva, bloquear=False)
         ) from exc
 
 
+def _obtener_reserva_para_cancelar(actor, id_reserva):
+    try:
+        reserva = Reserva.objects.select_for_update().select_related(
+            "usuario", "sala_horario__horario"
+        ).get(pk=id_reserva, estado_reserva=Reserva.ESTADO_CONFIRMADA)
+    except Reserva.DoesNotExist as exc:
+        raise ReservationError(
+            "La reserva no existe o ya no está confirmada."
+        ) from exc
+
+    puede_cancelar_ajena = actor.usuariorol_set.filter(
+        rol__nombre_rol__in=["Operador", "Administrador"]
+    ).exists()
+    if reserva.usuario_id != actor.pk and not puede_cancelar_ajena:
+        raise ReservationError("La reserva no te pertenece.")
+    return reserva
+
+
+def _registrar_sancion_por_cancelacion(codigo_usuario, ahora):
+    usuario = Usuario.objects.select_for_update().get(pk=codigo_usuario)
+    faltas_previas = Sancion.objects.filter(
+        usuario=usuario,
+        tipo_sancion__nombre_sancion__startswith="Cancelación tardía",
+    ).count()
+    nombre, horas = ESCALA_SANCIONES_CANCELACION[
+        min(faltas_previas, len(ESCALA_SANCIONES_CANCELACION) - 1)
+    ]
+    tipo_sancion, _ = TipoSancion.objects.get_or_create(
+        nombre_sancion=nombre,
+        defaults={"duracion": horas},
+    )
+    return Sancion.objects.create(
+        usuario=usuario,
+        tipo_sancion=tipo_sancion,
+        motivo=nombre,
+        fecha_inicio=ahora,
+        fecha_fin=ahora + timedelta(hours=tipo_sancion.duracion),
+    )
+
+
 def _inicio_de_reserva(reserva):
     return timezone.make_aware(
         datetime.combine(
@@ -161,6 +235,13 @@ def _puede_modificar_reserva(reserva, ahora):
         reserva.estado_reserva == Reserva.ESTADO_CONFIRMADA
         and ahora
         <= _inicio_de_reserva(reserva) - ANTICIPACION_MINIMA_MODIFICACION
+    )
+
+
+def _puede_cancelar_reserva(reserva, ahora):
+    return (
+        reserva.estado_reserva == Reserva.ESTADO_CONFIRMADA
+        and ahora < _inicio_de_reserva(reserva)
     )
 
 
@@ -269,6 +350,7 @@ def _construir_mis_reservas(codigo_usuario, fecha, ahora):
         {
             "reserva": reserva,
             "puede_modificar": _puede_modificar_reserva(reserva, ahora),
+            "puede_cancelar": _puede_cancelar_reserva(reserva, ahora),
         }
         for reserva in reservas
     ]

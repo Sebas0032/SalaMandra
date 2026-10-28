@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.db import IntegrityError, OperationalError, ProgrammingError
 from django.shortcuts import redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from cuentas.permisos import admin_login_required, login_required
 from cuentas.services import usuario_tiene_rol
@@ -81,6 +82,34 @@ def modify_reservation_view(request, id_reserva):
         }
     )
     return render(request, "reservas/modificar_reserva.html", contexto)
+
+
+@handle_db_errors
+@login_required
+@require_POST
+def cancel_reservation_view(request, id_reserva):
+    """Cancela una reserva y comunica si se aplicó una sanción."""
+    try:
+        resultado = services.cancel_reservation(request.usuario.pk, id_reserva)
+    except services.ReservationError as exc:
+        messages.error(request, str(exc))
+    else:
+        _mostrar_resultado_cancelacion(request, resultado)
+    return redirect("student_panel")
+
+
+def _mostrar_resultado_cancelacion(request, resultado):
+    reserva = resultado["reserva"]
+    sancion = resultado["sancion"]
+    if sancion is None:
+        messages.success(request, f"Reserva #{reserva.pk} cancelada sin sanción.")
+        return
+    vence = timezone.localtime(sancion.fecha_fin).strftime("%d/%m/%Y %H:%M")
+    messages.success(
+        request,
+        f"Reserva #{reserva.pk} cancelada. Se aplicó {sancion.tipo_sancion} "
+        f"hasta el {vence}.",
+    )
 
 
 def _intentar_crear_reserva(request):

@@ -142,6 +142,7 @@ class SalaHorario(models.Model):
 
 class Reserva(models.Model):
     ESTADO_CONFIRMADA = "CONFIRMADA"
+    ESTADO_CANCELADA = "CANCELADA"
     ESTADO_POR_MANTENIMIENTO = "POR_MANTENIMIENTO"
 
     id_reserva = models.AutoField(primary_key=True)

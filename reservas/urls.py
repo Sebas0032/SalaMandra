@@ -9,6 +9,11 @@ urlpatterns = [
         views.modify_reservation_view,
         name="modify_reservation",
     ),
+    path(
+        "reservas/<int:id_reserva>/cancelar/",
+        views.cancel_reservation_view,
+        name="cancel_reservation",
+    ),
     path("", views.dashboard_view, name="dashboard"),
     path("bloquear/", views.block_room_view, name="block_room"),
     path("/gestion/salas/", views.gestion_salas_view, name="gestion_salas"),

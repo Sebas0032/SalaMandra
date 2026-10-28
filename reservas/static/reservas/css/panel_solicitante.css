@@ -45,6 +45,8 @@ select { width: 100%; border: 1px solid #b8bdc2; border-radius: 9px; padding: 10
 .reserva-propia { display: grid; gap: 4px; margin-bottom: 10px; padding: 11px; border-radius: 9px; background: #f2f6fc; }
 .reserva-propia a { justify-self: start; margin-top: 4px; color: var(--azul); font-weight: 700; }
 .reserva-propia small { color: #6f7984; }
+.reserva-propia form { margin-top: 4px; }
+.cancelar-reserva { border: 0; padding: 0; background: transparent; color: #a32222; font: inherit; font-weight: 700; cursor: pointer; }
 .pagina-modificacion { max-width: 620px; }
 .formulario-modificacion { margin-top: 20px; }
 .reserva-actual { display: grid; gap: 5px; margin-bottom: 16px; padding: 15px; border-radius: 10px; background: #f2f6fc; }
