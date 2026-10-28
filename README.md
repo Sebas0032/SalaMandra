@@ -91,7 +91,7 @@ python manage.py seed_data
 
 Crea (sin duplicar si lo corres de nuevo):
 
-- Roles `Administrador` y `Estudiante`
+- Roles `Administrador`, `Operante` y `Solicitante` (uno por usuario)
 - **Administrador: `admin@salamandra.upb.edu` / `admin123`**
 - Una estudiante (Luciana Perez), sin login, con reservas a su nombre
 - Catálogo `tipo_sancion` para sanciones automáticas y manuales
@@ -179,7 +179,7 @@ db.sqlite3                     Se crea al ejecutar migrate (no se sube a git)
 
 ## 10. Limitaciones actuales (a propósito)
 
-- No hay pruebas automatizadas del flujo de bloqueo (plan de Sesiones 08–09).
+- Hay pruebas automatizadas de reservas, mantenimiento, sanciones y auditoría.
 - Las cancelaciones tardías generan sanciones escalares y el Administrador
   puede aplicar sanciones manuales o reiniciar el historial semestral.
 - Solo hay un Administrador (creado por `seed_data`); no hay pantalla para

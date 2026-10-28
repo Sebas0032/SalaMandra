@@ -14,7 +14,7 @@ from django.contrib.auth.hashers import make_password
 from django.utils import timezone
 
 from reservas import services
-from reservas.models import (Bloqueo, Horario, Reserva, Rol, Sala, SalaHorario, Sancion, Usuario, UsuarioRol,)
+from reservas.models import (Bloqueo, Horario, Reserva, Rol, Sala, SalaHorario, Sancion, Usuario,)
 
 
 pytestmark = pytest.mark.django_db
@@ -36,22 +36,21 @@ def manana():
 
 def crear_usuario(codigo_usuario, email, nombre, rol):
     """Crea un usuario de prueba y le asigna un rol."""
-    usuario = Usuario.objects.create(codigo_usuario=codigo_usuario, email=email, nombre=nombre, apellido="Test", estado_usuario=True, password_hash=make_password(PASSWORD),)
-    UsuarioRol.objects.create(usuario=usuario, rol=rol)
+    usuario = Usuario.objects.create(rol=rol, codigo_usuario=codigo_usuario, email=email, nombre=nombre, apellido="Test", estado_usuario=True, password_hash=make_password(PASSWORD),)
     return usuario
 
 
 @pytest.fixture
 def admin():
     """Crea un administrador para las pruebas."""
-    rol = Rol.objects.create(nombre_rol=services.ROL_ADMINISTRADOR)
+    rol = Rol.objects.get_or_create(nombre_rol=services.ROL_ADMINISTRADOR)[0]
     return crear_usuario(900001, "admin@test.edu", "Admin", rol)
 
 
 @pytest.fixture
 def estudiante():
     """Crea un estudiante para las pruebas."""
-    rol = Rol.objects.create(nombre_rol="Estudiante")
+    rol = Rol.objects.get_or_create(nombre_rol="Solicitante")[0]
 
     return crear_usuario(900002, "estudiante@test.edu", "Luciana", rol,)
 

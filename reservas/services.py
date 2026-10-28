@@ -29,9 +29,11 @@ from django.utils import timezone
 from cuentas.services import ROL_ADMINISTRADOR, usuario_tiene_rol
 
 from .models import (
+    Auditoria,
     Bloqueo,
     Horario,
     Reserva,
+    Rol,
     SalaHorario,
     Sancion,
     TipoSancion,
@@ -64,10 +66,15 @@ def create_student_reservation(codigo_usuario, id_sala_horario, actividad):
     sala_horario = _obtener_sala_horario(id_sala_horario)
     _validar_reglas_reserva(usuario, sala_horario, actividad, hoy, ahora)
 
-    return Reserva.objects.create(
+    reserva = Reserva.objects.create(
         usuario=usuario, sala_horario=sala_horario, fecha=hoy,
         tipo_actividad=actividad,
     )
+    Auditoria.objects.create(
+        reserva=reserva, actor=usuario, accion=Auditoria.Accion.CREAR,
+        fecha_accion=ahora,
+    )
+    return reserva
 
 
 @transaction.atomic
@@ -94,6 +101,10 @@ def modify_student_reservation(codigo_usuario, id_reserva, id_sala_horario):
     # El cambio se guarda únicamente después de superar todas las validaciones.
     reserva.sala_horario = nuevo_sala_horario
     reserva.save(update_fields=["sala_horario"])
+    Auditoria.objects.create(
+        reserva=reserva, actor=usuario, accion=Auditoria.Accion.MODIFICAR,
+        fecha_accion=ahora,
+    )
     return reserva
 
 
@@ -113,6 +124,10 @@ def cancel_reservation(codigo_usuario_actor, id_reserva):
     sancion = None
     if inicio - ahora < ANTICIPACION_CANCELACION_SIN_SANCION:
         sancion = _registrar_sancion_por_cancelacion(reserva.usuario_id, ahora)
+    Auditoria.objects.create(
+        reserva=reserva, actor=actor, accion=Auditoria.Accion.CANCELAR,
+        fecha_accion=ahora,
+    )
     return {"reserva": reserva, "sancion": sancion}
 
 
@@ -149,9 +164,8 @@ def _bloquear_sala_horario(id_sala_horario):
 
 def _obtener_usuario_reservante(codigo_usuario):
     usuario = Usuario.objects.filter(pk=codigo_usuario, estado_usuario=True).first()
-    if usuario is None or not usuario.password_hash or not usuario.usuariorol_set.filter(
-        rol__nombre_rol__in=["Solicitante", "Estudiante", "Administrador", "Operador"]
-    ).exists():
+    if (usuario is None or not usuario.password_hash
+            or usuario.rol.nombre_rol not in Rol.Nombre.values):
         raise ReservationError("La cuenta no está habilitada para reservar.")
     return usuario
 
@@ -184,9 +198,9 @@ def _obtener_reserva_para_cancelar(actor, id_reserva):
             "La reserva no existe o ya no está confirmada."
         ) from exc
 
-    puede_cancelar_ajena = actor.usuariorol_set.filter(
-        rol__nombre_rol__in=["Operador", "Administrador"]
-    ).exists()
+    puede_cancelar_ajena = actor.rol.nombre_rol in [
+        Rol.Nombre.OPERANTE, Rol.Nombre.ADMINISTRADOR,
+    ]
     if reserva.usuario_id != actor.pk and not puede_cancelar_ajena:
         raise ReservationError("La reserva no te pertenece.")
     return reserva
@@ -207,6 +221,8 @@ def _registrar_sancion_por_cancelacion(codigo_usuario, ahora):
     )
     return Sancion.objects.create(
         usuario=usuario,
+        origen=Sancion.Origen.AUTOMATICA,
+        aplicada_por=None,
         tipo_sancion=tipo_sancion,
         motivo=nombre,
         fecha_inicio=ahora,
@@ -523,6 +539,13 @@ def block_room_schedule_for_maintenance(codigo_usuario_admin, id_sala_horario, m
     Reserva.objects.filter(pk__in=[r.pk for r in reservas_canceladas]).update(
         estado_reserva=Reserva.ESTADO_POR_MANTENIMIENTO
     )
+    Auditoria.objects.bulk_create([
+        Auditoria(
+            reserva=reserva, actor_id=codigo_usuario_admin,
+            accion=Auditoria.Accion.CANCELAR,
+        )
+        for reserva in reservas_canceladas
+    ])
 
     # Paso 6 — el horario de la sala pasa a MANTENIMIENTO
     sala_horario.estado_sala_horario = SalaHorario.ESTADO_MANTENIMIENTO

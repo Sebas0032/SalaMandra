@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from reservas import services
 from reservas.models import (
-    Bloqueo, Horario, Reserva, Rol, Sala, SalaHorario, Sancion, Usuario, UsuarioRol
+    Bloqueo, Horario, Reserva, Rol, Sala, SalaHorario, Sancion, Usuario
 )
 
 # Todas las pruebas de este archivo usan la base de datos de prueba
@@ -37,21 +37,21 @@ def manana():
 
 def _crear_usuario(codigo_usuario, email, nombre, rol):
     usuario = Usuario.objects.create(
+        rol=rol,
         codigo_usuario=codigo_usuario,
         email=email, nombre=nombre, apellido="Test",
         estado_usuario=True, password_hash=make_password(PASSWORD)
     )
-    UsuarioRol.objects.create(usuario=usuario, rol=rol)
     return usuario
 
 @pytest.fixture
 def admin():
-    rol = Rol.objects.create(nombre_rol=services.ROL_ADMINISTRADOR)
+    rol = Rol.objects.get_or_create(nombre_rol=services.ROL_ADMINISTRADOR)[0]
     return _crear_usuario(900001, "admin@test.edu", "Admin", rol)
 
 @pytest.fixture
 def estudiante():
-    rol = Rol.objects.create(nombre_rol="Estudiante")
+    rol = Rol.objects.get_or_create(nombre_rol="Solicitante")[0]
     return _crear_usuario(900002, "estudiante@test.edu", "Luciana", rol)
 
 @pytest.fixture

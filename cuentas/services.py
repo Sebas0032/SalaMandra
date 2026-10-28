@@ -3,15 +3,15 @@
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import transaction
 
-from reservas.models import Rol, Usuario, UsuarioRol
+from reservas.models import Rol, Usuario
 
 
 ROL_ADMINISTRADOR = "Administrador"
 
 
 def usuario_tiene_rol(codigo_usuario, nombre_rol):
-    return UsuarioRol.objects.filter(
-        usuario_id=codigo_usuario, rol__nombre_rol=nombre_rol
+    return Usuario.objects.filter(
+        pk=codigo_usuario, rol__nombre_rol=nombre_rol
     ).exists()
 
 
@@ -43,10 +43,7 @@ def _parse_codigo_usuario(identificador):
 
 
 def _usuario_tiene_rol_permitido(usuario):
-    return UsuarioRol.objects.filter(
-        usuario=usuario,
-        rol__nombre_rol__in=["Administrador", "Solicitante", "Estudiante", "Operador"],
-    ).exists()
+    return usuario.rol.nombre_rol in Rol.Nombre.values
 
 
 class RegistrationError(Exception):
@@ -63,6 +60,9 @@ def register_student_account(codigo_usuario, email, password):
     if not usuario.estado_usuario:
         raise RegistrationError("Este usuario está inactivo y no puede registrarse.")
 
+    if usuario.rol.nombre_rol != Rol.Nombre.SOLICITANTE:
+        raise RegistrationError("El registro está habilitado solo para solicitantes.")
+
     correo_registrado = usuario.email.strip().casefold()
     correo_ingresado = email.strip().casefold()
     if correo_registrado != correo_ingresado:
@@ -78,6 +78,4 @@ def register_student_account(codigo_usuario, email, password):
         raise RegistrationError("Este código ya tiene una cuenta registrada.")
 
     usuario.refresh_from_db(fields=["password_hash"])
-    rol_solicitante, _ = Rol.objects.get_or_create(nombre_rol="Solicitante")
-    UsuarioRol.objects.get_or_create(usuario=usuario, rol=rol_solicitante)
     return usuario

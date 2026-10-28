@@ -3,9 +3,9 @@ Comando: python manage.py seed_data
 
 Carga en la base de datos los datos mínimos para probar el caso de uso RES-CU-02:
 
-    - roles: Administrador y Estudiante
+    - roles: Administrador, Operante y Solicitante
     - usuarios: un Administrador (con login) y una estudiante (sin login)
-    - tipo_sancion: catálogo de RES-RF-02 (sin lógica implementada todavía)
+    - tipo_sancion: catálogo de RES-RF-02
     - salas, horarios y sus combinaciones (sala_horario)
     - 2 reservas CONFIRMADA de ejemplo
 
@@ -21,6 +21,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from reservas.models import (
+    Auditoria,
     Bloqueo,
     Horario,
     Reserva,
@@ -30,7 +31,6 @@ from reservas.models import (
     Sancion,
     TipoSancion,
     Usuario,
-    UsuarioRol,
 )
 
 ADMIN_EMAIL = "admin@salamandra.upb.edu"
@@ -54,7 +54,7 @@ class Command(BaseCommand):
         if options["reset"]:
             # Orden: primero las tablas que dependen de otras.
             for modelo in (
-                Bloqueo, Reserva, SalaHorario, Sancion, UsuarioRol,
+                Auditoria, Bloqueo, Reserva, SalaHorario, Sancion,
                 Sala, Horario, TipoSancion, Usuario, Rol,
             ):
                 modelo.objects.all().delete()
@@ -62,13 +62,15 @@ class Command(BaseCommand):
 
         # --- roles ---------------------------------------------------------
         rol_admin, _ = Rol.objects.get_or_create(nombre_rol="Administrador")
-        rol_estudiante, _ = Rol.objects.get_or_create(nombre_rol="Estudiante")
+        Rol.objects.get_or_create(nombre_rol="Operante")
+        rol_estudiante, _ = Rol.objects.get_or_create(nombre_rol="Solicitante")
 
         # --- usuarios ------------------------------------------------------
         admin, creado = Usuario.objects.get_or_create(
             email=ADMIN_EMAIL,
             defaults={
                 "codigo_usuario": ADMIN_CODIGO_USUARIO,
+                "rol": rol_admin,
                 "nombre": "Admin",
                 "apellido": "SalaMandra",
                 "estado_usuario": True,
@@ -84,17 +86,14 @@ class Command(BaseCommand):
             email="luciana.perez@upb.edu",
             defaults={
                 "codigo_usuario": ESTUDIANTE_CODIGO_USUARIO,
+                "rol": rol_estudiante,
                 "nombre": "Luciana",
                 "apellido": "Perez",
                 "estado_usuario": True,
             },
         )
 
-        # --- usuarios_roles ------------------------------------------------
-        UsuarioRol.objects.get_or_create(usuario=admin, rol=rol_admin)
-        UsuarioRol.objects.get_or_create(usuario=estudiante, rol=rol_estudiante)
-
-        # --- tipo_sancion (catálogo de RES-RF-02, sin lógica todavía) ---------
+        # --- tipo_sancion (catálogo de RES-RF-02) ----------------------------
         for nombre, horas in (
             ("Cancelación tardía (1ra vez)", 24),
             ("Cancelación tardía (2da vez)", 48),
@@ -128,14 +127,18 @@ class Command(BaseCommand):
         # --- reservas (solo si todavía no hay ninguna) ------------------------
         if not Reserva.objects.exists():
             manana = timezone.localdate() + timedelta(days=1)
-            Reserva.objects.create(
+            reserva_manana = Reserva.objects.create(
                 usuario=estudiante, sala_horario=sh_a_manana,
                 tipo_actividad="Estudios", fecha=manana,
             )
-            Reserva.objects.create(
+            reserva_tarde = Reserva.objects.create(
                 usuario=estudiante, sala_horario=sh_b_tarde,
                 tipo_actividad="Trabajo en grupo", fecha=manana,
             )
+            Auditoria.objects.bulk_create([
+                Auditoria(reserva=reserva, actor=admin, accion=Auditoria.Accion.CREAR)
+                for reserva in (reserva_manana, reserva_tarde)
+            ])
             self.stdout.write(self.style.SUCCESS("Reservas de ejemplo creadas."))
 
         self.stdout.write(self.style.SUCCESS(

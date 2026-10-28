@@ -11,7 +11,7 @@ from cuentas.services import ROL_ADMINISTRADOR
 from .models import Sancion, TipoSancion, Usuario
 
 
-ROLES_SOLICITANTE = ("Solicitante", "Estudiante")
+ROLES_SOLICITANTE = ("Solicitante",)
 
 OPCIONES_DURACION = (
     ("24_horas", "24 horas", 24),
@@ -40,7 +40,7 @@ def get_solicitantes(termino="", filtro="todos", ahora=None):
     ).select_related("tipo_sancion").order_by("-fecha_fin")
 
     usuarios = Usuario.objects.filter(
-        usuariorol__rol__nombre_rol__in=ROLES_SOLICITANTE
+        rol__nombre_rol__in=ROLES_SOLICITANTE
     ).distinct().prefetch_related(
         Prefetch(
             "sancion_set",
@@ -82,7 +82,7 @@ def apply_manual_sanction(
     codigo_admin, codigo_solicitante, codigo_duracion, motivo
 ):
     """Registra una sanción manual elegida por un Administrador."""
-    _obtener_administrador(codigo_admin)
+    administrador = _obtener_administrador(codigo_admin)
     solicitante = _obtener_solicitante(codigo_solicitante, bloquear=True)
 
     try:
@@ -107,6 +107,8 @@ def apply_manual_sanction(
     )
     return Sancion.objects.create(
         usuario=solicitante,
+        origen=Sancion.Origen.MANUAL,
+        aplicada_por=administrador,
         tipo_sancion=tipo_sancion,
         motivo=motivo,
         fecha_inicio=ahora,
@@ -127,12 +129,6 @@ def set_student_active_status(codigo_admin, codigo_solicitante, activo):
     """Activa o desactiva la cuenta de un solicitante."""
     _obtener_administrador(codigo_admin)
     solicitante = _obtener_solicitante(codigo_solicitante, bloquear=True)
-    if solicitante.usuariorol_set.filter(
-        rol__nombre_rol=ROL_ADMINISTRADOR
-    ).exists():
-        raise GestionSancionesError(
-            "El estado de una cuenta administradora no se modifica aquí."
-        )
     solicitante.estado_usuario = bool(activo)
     solicitante.save(update_fields=["estado_usuario"])
     return solicitante
@@ -142,7 +138,7 @@ def _obtener_administrador(codigo_admin):
     administrador = Usuario.objects.filter(
         pk=codigo_admin,
         estado_usuario=True,
-        usuariorol__rol__nombre_rol=ROL_ADMINISTRADOR,
+        rol__nombre_rol=ROL_ADMINISTRADOR,
     ).distinct().first()
     if administrador is None:
         raise GestionSancionesError(
@@ -154,7 +150,7 @@ def _obtener_administrador(codigo_admin):
 def _obtener_solicitante(codigo_solicitante, bloquear=False):
     consulta = Usuario.objects.filter(
         pk=codigo_solicitante,
-        usuariorol__rol__nombre_rol__in=ROLES_SOLICITANTE,
+        rol__nombre_rol__in=ROLES_SOLICITANTE,
     ).distinct()
     if bloquear:
         consulta = consulta.select_for_update()

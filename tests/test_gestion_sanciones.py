@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from cuentas.services import authenticate_user
 from reservas import gestion_sanciones
-from reservas.models import Rol, Sancion, TipoSancion, Usuario, UsuarioRol
+from reservas.models import Rol, Sancion, TipoSancion, Usuario
 
 
 pytestmark = pytest.mark.django_db
@@ -16,9 +16,10 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def usuarios_sanciones(client):
-    rol_admin = Rol.objects.create(nombre_rol="Administrador")
-    rol_solicitante = Rol.objects.create(nombre_rol="Solicitante")
+    rol_admin = Rol.objects.get_or_create(nombre_rol="Administrador")[0]
+    rol_solicitante = Rol.objects.get_or_create(nombre_rol="Solicitante")[0]
     admin = Usuario.objects.create(
+        rol=rol_admin,
         pk=900001,
         email="admin@salamandra.test",
         nombre="Admin",
@@ -26,14 +27,13 @@ def usuarios_sanciones(client):
         password_hash=make_password("admin123"),
     )
     estudiante = Usuario.objects.create(
+        rol=rol_solicitante,
         pk=101145,
         email="sebastiancruz1@upb.edu",
         nombre="Sebastian",
         apellido="Cruz",
         password_hash=make_password("clave-segura"),
     )
-    UsuarioRol.objects.create(usuario=admin, rol=rol_admin)
-    UsuarioRol.objects.create(usuario=estudiante, rol=rol_solicitante)
     client.post(
         reverse("login"),
         {"identificador": str(admin.pk), "password": "admin123"},
@@ -56,6 +56,8 @@ def test_aplica_sancion_manual_con_motivo_y_duracion(usuarios_sanciones):
         )
 
     assert sancion.usuario == estudiante
+    assert sancion.origen == Sancion.Origen.MANUAL
+    assert sancion.aplicada_por == admin
     assert sancion.motivo == "Uso indebido de la sala"
     assert sancion.tipo_sancion.duracion == 168
     assert sancion.fecha_inicio == ahora
@@ -63,10 +65,11 @@ def test_aplica_sancion_manual_con_motivo_y_duracion(usuarios_sanciones):
 
 
 def test_listado_muestra_solo_la_sancion_vigente(usuarios_sanciones):
-    _, estudiante = usuarios_sanciones
+    admin, estudiante = usuarios_sanciones
     ahora = timezone.make_aware(datetime(2026, 10, 27, 9))
     tipo = TipoSancion.objects.create(nombre_sancion="Manual", duracion=24)
     Sancion.objects.create(
+        origen=Sancion.Origen.MANUAL, aplicada_por=admin,
         usuario=estudiante,
         tipo_sancion=tipo,
         motivo="Sanción vencida",
@@ -74,6 +77,7 @@ def test_listado_muestra_solo_la_sancion_vigente(usuarios_sanciones):
         fecha_fin=ahora - timedelta(days=1),
     )
     vigente = Sancion.objects.create(
+        origen=Sancion.Origen.MANUAL, aplicada_por=admin,
         usuario=estudiante,
         tipo_sancion=tipo,
         motivo="Sanción vigente",
@@ -95,6 +99,7 @@ def test_reinicio_semestral_elimina_todo_el_historial(usuarios_sanciones):
     tipo = TipoSancion.objects.create(nombre_sancion="Manual", duracion=24)
     for dias in (1, 30):
         Sancion.objects.create(
+            origen=Sancion.Origen.MANUAL, aplicada_por=admin,
             usuario=estudiante,
             tipo_sancion=tipo,
             motivo="Historial",

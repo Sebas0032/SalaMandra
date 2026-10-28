@@ -3,7 +3,7 @@ from functools import wraps
 from django.contrib import messages
 from django.http import HttpResponseForbidden
 from django.shortcuts import redirect
-from reservas.models import Usuario
+from reservas.models import Rol, Usuario
 from .services import usuario_tiene_rol
 
 
@@ -12,7 +12,7 @@ def login_required(view_func):
     def wrapper(request, *args, **kwargs):
         usuario = Usuario.objects.filter(
             pk=request.session.get("codigo_usuario"), estado_usuario=True,
-            usuariorol__rol__nombre_rol__in=["Administrador", "Solicitante", "Estudiante", "Operador"],
+            rol__nombre_rol__in=Rol.Nombre.values,
         ).first()
         if usuario is None or not usuario.password_hash:
             request.session.flush()
