@@ -15,8 +15,8 @@ Notas:
       sala_horario.id_horario     -> horarios.id_horario
       reservas.id_sala_horario    -> sala_horario.id_sala_horario
       bloqueos.id_sala_horario    -> sala_horario.id_sala_horario
-- `tipo_sancion` y `sanciones` existen como tablas, pero la lógica para
-  aplicar sanciones (RES-RF-02) todavía no está implementada.
+- La lógica de sanciones automáticas y manuales utiliza `tipo_sancion` y
+  `sanciones` mediante el ORM de Django.
 """
 
 from django.db import models

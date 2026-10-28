@@ -1,0 +1,35 @@
+.paneles-sanciones { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 18px; align-items: start; }
+.listado-solicitantes { padding-bottom: 0; }
+.encabezado-listado { display: grid; gap: 12px; padding: 0 14px 14px; }
+.encabezado-listado h2 { padding: 0; }
+.busqueda { display: grid; grid-template-columns: minmax(180px, 1fr) auto; gap: 8px; }
+.busqueda input, .formulario-sancion input[type="number"] { width: 100%; min-width: 0; padding: 10px; border: 1px solid #b8bdc2; border-radius: 9px; font: inherit; }
+.busqueda button { border: 0; border-radius: 9px; padding: 0 16px; color: white; background: var(--azul); font-weight: 700; cursor: pointer; }
+.filtros { display: flex; flex-wrap: wrap; gap: 5px; }
+.filtros a { padding: 7px 11px; border: 1px solid #7fa0c3; color: var(--azul); text-decoration: none; font-size: 12px; font-weight: 700; }
+.filtros a:first-child { border-radius: 8px 0 0 8px; }
+.filtros a:last-child { border-radius: 0 8px 8px 0; }
+.filtros a[aria-current] { color: white; background: var(--azul); }
+.listado-solicitantes th small, .listado-solicitantes td small { display: block; margin-top: 3px; font-weight: 400; }
+.estado-cuenta { display: inline-block; padding: 5px 11px; border: 1px solid #5a8fc5; border-radius: 14px; color: var(--azul); font-size: 11px; font-weight: 700; }
+.estado-cuenta.inactiva { border-color: #a8afb6; color: #626b73; background: #edf0f2; }
+.acciones-solicitante { min-width: 105px; }
+.acciones-solicitante a, .acciones-solicitante button { display: block; border: 0; padding: 2px 0; color: var(--azul); background: transparent; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.acciones-solicitante form { margin-top: 5px; }
+.reinicio-semestre { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px; background: #fff1ef; border-top: 1px solid #f1b4ac; }
+.reinicio-semestre p { margin: 0; font-size: 12px; line-height: 1.4; }
+.reinicio-semestre button { flex: 0 0 auto; padding: 9px 12px; border: 0; border-radius: 8px; background: #a62b1f; color: white; font-weight: 700; cursor: pointer; }
+.formulario-sancion { padding: 22px; }
+.formulario-sancion h2 { padding: 0 0 20px; text-align: center; font-size: 25px; }
+.formulario-sancion form { display: grid; gap: 13px; }
+.formulario-sancion fieldset { margin: 4px 0 0; }
+.duraciones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.duraciones label { position: relative; }
+.duraciones label:last-child { grid-column: 1 / -1; }
+.duraciones input { position: absolute; opacity: 0; }
+.duraciones span { display: grid; place-items: center; min-height: 40px; border: 1px solid #b8bdc2; border-radius: 9px; font-weight: 650; cursor: pointer; }
+.duraciones input:checked + span { color: white; border-color: var(--azul); background: var(--azul); }
+.duraciones input:focus-visible + span { outline: 3px solid #3685dc; outline-offset: 2px; }
+.boton-sancion { padding: 12px; border: 0; border-radius: 9px; background: var(--azul); color: white; font: inherit; font-weight: 700; cursor: pointer; }
+@media (max-width: 1050px) { .paneles-sanciones { grid-template-columns: 1fr; } }
+@media (max-width: 650px) { .reinicio-semestre { align-items: stretch; flex-direction: column; } .reinicio-semestre button { width: 100%; } }
