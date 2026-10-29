@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from reservas import services
 from reservas.models import (
+    Auditoria,
     Horario,
     Reserva,
     Rol,
@@ -157,14 +158,66 @@ def test_cancelacion_desde_el_panel_muestra_resultado(
     client, escenario_cancelacion
 ):
     _, _, reserva, ahora = escenario_cancelacion
+    ahora = ahora.replace(minute=30)
     with patch("reservas.services.timezone.localtime", return_value=ahora):
         panel = client.get(reverse("student_panel"))
         assert reverse("cancel_reservation", args=[reserva.pk]) in panel.content.decode()
+        assert "vas a recibir una sanción" in panel.content.decode()
         respuesta = client.post(
             reverse("cancel_reservation", args=[reserva.pk]), follow=True
         )
 
     assert respuesta.status_code == 200
-    assert "cancelada sin sanción" in respuesta.content.decode()
+    assert "Se aplicó" in respuesta.content.decode()
     reserva.refresh_from_db()
     assert reserva.estado_reserva == Reserva.ESTADO_CANCELADA
+
+
+def test_administrador_lista_y_cancela_reservas_sin_sancion(
+    client, escenario_cancelacion
+):
+    usuario, bloque, reserva, ahora = escenario_cancelacion
+    ahora = ahora.replace(minute=30)
+    admin = Usuario.objects.create(
+        rol=Rol.objects.get_or_create(nombre_rol="Administrador")[0],
+        pk=900001,
+        email="admin@salamandra.test",
+        nombre="Admin",
+        apellido="Prueba",
+        password_hash=make_password("clave-admin"),
+    )
+    horario_pasado = Horario.objects.create(
+        hora_inicio=time(11), hora_fin=time(13)
+    )
+    bloque_pasado = SalaHorario.objects.create(
+        sala=bloque.sala, horario=horario_pasado
+    )
+    reserva_iniciada = Reserva.objects.create(
+        usuario=usuario,
+        sala_horario=bloque_pasado,
+        fecha=ahora.date(),
+        tipo_actividad="Lectura",
+    )
+    client.get(reverse("logout"))
+    client.post(
+        reverse("login"),
+        {"identificador": str(admin.pk), "password": "clave-admin"},
+    )
+
+    with patch("reservas.services.timezone.localtime", return_value=ahora):
+        panel = client.get(reverse("admin_cancellations"))
+        assert reverse("admin_cancel_reservation", args=[reserva.pk]) in panel.content.decode()
+        assert reverse(
+            "admin_cancel_reservation", args=[reserva_iniciada.pk]
+        ) not in panel.content.decode()
+        respuesta = client.post(
+            reverse("admin_cancel_reservation", args=[reserva.pk]), follow=True
+        )
+
+    assert respuesta.status_code == 200
+    reserva.refresh_from_db()
+    assert reserva.estado_reserva == Reserva.ESTADO_CANCELADA
+    assert not Sancion.objects.exists()
+    assert Auditoria.objects.get(
+        reserva=reserva, accion=Auditoria.Accion.CANCELAR
+    ).actor == admin

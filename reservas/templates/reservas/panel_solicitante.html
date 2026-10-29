@@ -89,7 +89,7 @@
                     <small>El plazo para modificar terminó.</small>
                     {% endif %}
                     {% if item.puede_cancelar %}
-                    <form method="post" action="{% url 'cancel_reservation' item.reserva.pk %}">
+                    <form method="post" action="{% url 'cancel_reservation' item.reserva.pk %}"{% if item.genera_sancion %} onsubmit="return confirm('Si cancelas ahora, vas a recibir una sanción. ¿Estás seguro?')"{% endif %}>
                         {% csrf_token %}
                         <button class="cancelar-reserva" type="submit">Cancelar reserva</button>
                     </form>

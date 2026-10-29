@@ -134,7 +134,7 @@ def modify_reservation(codigo_actor, id_reserva, id_sala_horario):
 
 @transaction.atomic
 def cancel_reservation(codigo_usuario_actor, id_reserva):
-    """Cancela una reserva confirmada y sanciona si faltaba menos de una hora."""
+    """Cancela una reserva y audita al actor; el administrador nunca sanciona."""
     actor = _obtener_usuario_reservante(codigo_usuario_actor)
     reserva = _obtener_reserva_para_cancelar(actor, id_reserva)
     ahora = timezone.localtime()
@@ -146,13 +146,34 @@ def cancel_reservation(codigo_usuario_actor, id_reserva):
     reserva.save(update_fields=["estado_reserva"])
 
     sancion = None
-    if inicio - ahora < ANTICIPACION_CANCELACION_SIN_SANCION:
+    if (
+        actor.rol.nombre_rol != Rol.Nombre.ADMINISTRADOR
+        and _cancelacion_es_tardia(reserva, ahora)
+    ):
         sancion = _registrar_sancion_por_cancelacion(reserva.usuario_id, ahora)
     Auditoria.objects.create(
         reserva=reserva, actor=actor, accion=Auditoria.Accion.CANCELAR,
         fecha_accion=ahora,
     )
     return {"reserva": reserva, "sancion": sancion}
+
+
+def get_admin_cancellable_reservations(codigo_usuario_admin, now=None):
+    """Lista reservas confirmadas que todavía no comenzaron para el administrador."""
+    actor = _obtener_usuario_reservante(codigo_usuario_admin)
+    if actor.rol.nombre_rol != Rol.Nombre.ADMINISTRADOR:
+        raise ReservationError("Solo un administrador puede gestionar cancelaciones.")
+
+    now = now or timezone.localtime()
+    reservas = Reserva.objects.filter(
+        estado_reserva=Reserva.ESTADO_CONFIRMADA,
+        fecha__gte=now.date(),
+    ).select_related(
+        "usuario", "sala_horario__sala", "sala_horario__horario"
+    ).order_by(
+        "fecha", "sala_horario__horario__hora_inicio", "id_reserva"
+    )
+    return [reserva for reserva in reservas if _inicio_de_reserva(reserva) > now]
 
 
 def _validar_reglas_reserva(
@@ -311,6 +332,11 @@ def _puede_cancelar_reserva(reserva, ahora):
     )
 
 
+def _cancelacion_es_tardia(reserva, ahora):
+    inicio = _inicio_de_reserva(reserva)
+    return ahora < inicio and inicio - ahora < ANTICIPACION_CANCELACION_SIN_SANCION
+
+
 def _validar_dia_habil(fecha):
     if not _es_dia_habilitado(fecha):
         raise ReservationError("Hoy no se realizan reservas: es fin de semana o feriado.")
@@ -463,6 +489,7 @@ def _construir_mis_reservas(codigo_usuario, fecha, ahora):
             "reserva": reserva,
             "puede_modificar": _puede_modificar_reserva(reserva, ahora),
             "puede_cancelar": _puede_cancelar_reserva(reserva, ahora),
+            "genera_sancion": _cancelacion_es_tardia(reserva, ahora),
         }
         for reserva in reservas
     ]

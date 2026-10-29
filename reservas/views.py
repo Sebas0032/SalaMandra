@@ -100,6 +100,39 @@ def cancel_reservation_view(request, id_reserva):
     return redirect("student_panel")
 
 
+@handle_db_errors
+@admin_login_required
+def admin_cancellations_view(request):
+    """Muestra las reservas activas que el administrador todavía puede cancelar."""
+    reservas = services.get_admin_cancellable_reservations(request.usuario.pk)
+    return render(
+        request,
+        "reservas/gestion_cancelaciones.html",
+        {
+            "reservas": reservas,
+            "nombre_completo": request.session.get("nombre_completo"),
+        },
+    )
+
+
+@handle_db_errors
+@admin_login_required
+@require_POST
+def admin_cancel_reservation_view(request, id_reserva):
+    """Cancela por decisión administrativa sin sancionar al solicitante."""
+    try:
+        resultado = services.cancel_reservation(request.usuario.pk, id_reserva)
+    except services.ReservationError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(
+            request,
+            f"Reserva #{resultado['reserva'].pk} cancelada administrativamente "
+            "sin sanción.",
+        )
+    return redirect("admin_cancellations")
+
+
 def _mostrar_resultado_cancelacion(request, resultado):
     reserva = resultado["reserva"]
     sancion = resultado["sancion"]

@@ -17,6 +17,7 @@ def register_view(request):
         codigo_usuario = request.POST.get("codigo_usuario", "").strip()
         email = request.POST.get("email", "").strip()
         password = request.POST.get("password", "")
+        password_confirmation = request.POST.get("password_confirmation", "")
         valores = {"codigo_usuario": codigo_usuario, "email": email}
 
         try:
@@ -32,6 +33,8 @@ def register_view(request):
                 raise RegistrationError("Ingresa un correo válido.") from exc
             if len(password) > 128:
                 raise RegistrationError("La contraseña no puede superar 128 caracteres.")
+            if password != password_confirmation:
+                raise RegistrationError("Las contraseñas no coinciden.")
             try:
                 validate_password(password)
             except ValidationError as exc:

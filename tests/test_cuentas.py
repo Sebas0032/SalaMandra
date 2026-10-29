@@ -63,7 +63,12 @@ def test_registro_conserva_validacion_y_no_reemplaza_contrasena(client):
     )
     assert reverse("registro") == "/cuentas/registro/"
     assert client.get(reverse("registro")).status_code == 200
-    datos = {"codigo_usuario": usuario.pk, "email": "otro@salamandra.test", "password": "SalaMandra_2026!"}
+    datos = {
+        "codigo_usuario": usuario.pk,
+        "email": "otro@salamandra.test",
+        "password": "SalaMandra_2026!",
+        "password_confirmation": "SalaMandra_2026!",
+    }
     assert client.post(reverse("registro"), datos).status_code == 400
     usuario.refresh_from_db()
     assert usuario.password_hash == ""
@@ -75,6 +80,7 @@ def test_registro_conserva_validacion_y_no_reemplaza_contrasena(client):
     assert usuario.rol.nombre_rol == "Solicitante"
 
     datos["password"] = "OtraClave_2026!"
+    datos["password_confirmation"] = "OtraClave_2026!"
     assert client.post(reverse("registro"), datos).status_code == 400
     usuario.refresh_from_db()
     assert check_password("SalaMandra_2026!", usuario.password_hash)
