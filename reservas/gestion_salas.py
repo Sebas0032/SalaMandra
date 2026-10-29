@@ -1,11 +1,13 @@
 from datetime import datetime, time
 import re
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models import F
+from django.utils import timezone
 
 from cuentas.services import ROL_ADMINISTRADOR, usuario_tiene_rol
-from .models import Horario, Sala, SalaHorario, Usuario
+from .models import Horario, Reserva, Sala, SalaHorario, Usuario
 
 
 class GestionSalasError(Exception):
@@ -15,6 +17,7 @@ class GestionSalasError(Exception):
 @transaction.atomic
 def create_room(codigo_usuario_admin, nombre_sala):
     """Crea una sala activa sin repetir nombres (incluso con distinto uso de mayúsculas)."""
+    _validar_gestion_habilitada()
     _validar_administrador(codigo_usuario_admin)
     nombre = _validar_nombre_sala(nombre_sala)
     _validar_sala_no_duplicada(nombre)
@@ -24,6 +27,7 @@ def create_room(codigo_usuario_admin, nombre_sala):
 @transaction.atomic
 def create_room_schedule(codigo_usuario_admin, id_sala, hora_inicio, hora_fin):
     """Añade un bloque a una sala sin alterar sus asignaciones anteriores."""
+    _validar_gestion_habilitada()
     _validar_administrador(codigo_usuario_admin)
     inicio, fin = _validar_intervalo(hora_inicio, hora_fin)
     sala = _obtener_sala_activa_y_bloquear(id_sala)
@@ -32,7 +36,57 @@ def create_room_schedule(codigo_usuario_admin, id_sala, hora_inicio, hora_fin):
     _validar_sin_superposicion(inicio, fin, horarios_actuales)
     _validar_separacion_limpieza(inicio, fin, horarios_actuales)
     horario, _ = Horario.objects.get_or_create(hora_inicio=inicio, hora_fin=fin)
+    asignacion_retirada = SalaHorario.objects.filter(
+        sala=sala, horario=horario,
+        estado_sala_horario=SalaHorario.ESTADO_RETIRADO,
+    ).first()
+    if asignacion_retirada is not None:
+        asignacion_retirada.estado_sala_horario = SalaHorario.ESTADO_DISPONIBLE
+        asignacion_retirada.save(update_fields=["estado_sala_horario"])
+        return asignacion_retirada
     return SalaHorario.objects.create(sala=sala, horario=horario)
+
+
+@transaction.atomic
+def remove_room_schedule(codigo_usuario_admin, id_sala_horario):
+    """Retira un horario de una sala sin borrar reservas ni historial."""
+    _validar_gestion_habilitada()
+    _validar_administrador(codigo_usuario_admin)
+    try:
+        id_sala_horario = int(id_sala_horario)
+    except (ValueError, TypeError) as exc:
+        raise GestionSalasError("Selecciona un horario válido.") from exc
+    if not 0 < id_sala_horario <= 9223372036854775807:
+        raise GestionSalasError("Selecciona un horario válido.")
+
+    # Serializa la retirada con la creación de reservas en SQLite.
+    if not SalaHorario.objects.filter(pk=id_sala_horario).update(
+        estado_sala_horario=F("estado_sala_horario")
+    ):
+        raise GestionSalasError("El horario seleccionado no existe.")
+    asignacion = SalaHorario.objects.select_related("sala", "horario").get(
+        pk=id_sala_horario
+    )
+    if asignacion.estado_sala_horario == SalaHorario.ESTADO_RETIRADO:
+        raise GestionSalasError("Ese horario ya fue retirado de la sala.")
+    if asignacion.estado_sala_horario == SalaHorario.ESTADO_MANTENIMIENTO:
+        raise GestionSalasError("Saca primero el horario de mantenimiento.")
+    if Reserva.objects.filter(
+        sala_horario=asignacion,
+        fecha__gte=timezone.localdate(),
+        estado_reserva__in=[Reserva.ESTADO_CONFIRMADA, "EN_USO"],
+    ).exists():
+        raise GestionSalasError(
+            "Este horario tiene reservas activas. Modifícalas o cancélalas antes de retirarlo."
+        )
+    asignacion.estado_sala_horario = SalaHorario.ESTADO_RETIRADO
+    asignacion.save(update_fields=["estado_sala_horario"])
+    return asignacion
+
+
+def _validar_gestion_habilitada():
+    if not settings.GESTION_SALAS_HABILITADA:
+        raise GestionSalasError("La gestión de salas y horarios está deshabilitada.")
 
 
 def _validar_administrador(codigo):
@@ -104,7 +158,9 @@ def _obtener_horarios_de_sala(sala):
     """Lee solamente los horarios de esta sala, incluidos los bloqueados."""
     return [
         (_minutos(asignacion.horario.hora_inicio), _minutos(asignacion.horario.hora_fin))
-        for asignacion in SalaHorario.objects.filter(sala=sala).select_related("horario")
+        for asignacion in SalaHorario.objects.filter(sala=sala).exclude(
+            estado_sala_horario=SalaHorario.ESTADO_RETIRADO
+        ).select_related("horario")
     ]
 
 

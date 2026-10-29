@@ -187,6 +187,7 @@ class Sala(models.Model):
 class SalaHorario(models.Model):
     ESTADO_DISPONIBLE = "DISPONIBLE"
     ESTADO_MANTENIMIENTO = "MANTENIMIENTO"
+    ESTADO_RETIRADO = "RETIRADO"
 
     id_sala_horario = models.AutoField(primary_key=True)
     sala = models.ForeignKey(Sala, on_delete=models.PROTECT, db_column="id_sala")
