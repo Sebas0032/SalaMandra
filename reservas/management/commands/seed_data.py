@@ -4,7 +4,7 @@ Comando: python manage.py seed_data
 Carga en la base de datos los datos mínimos para probar el caso de uso RES-CU-02:
 
     - roles: Administrador, Operante y Solicitante
-    - usuarios: un Administrador (con login) y una estudiante (sin login)
+    - usuarios: Administrador, Operante y 16 estudiantes sin cuenta activada
     - tipo_sancion: catálogo de RES-RF-02
     - salas, horarios y sus combinaciones (sala_horario)
     - 2 reservas CONFIRMADA de ejemplo
@@ -39,7 +39,24 @@ ADMIN_CODIGO_USUARIO = 900001
 OPERANTE_EMAIL = "operante@salamandra.upb.edu"
 OPERANTE_PASSWORD = "Operante_2026!"
 OPERANTE_CODIGO_USUARIO = 900003
-ESTUDIANTE_CODIGO_USUARIO = 900002
+ALUMNOS = (
+    (95445, "95445@salamandra.test", "Santiago", "Arauz"),
+    (94186, "94186@salamandra.test", "Sofía", "Arduz"),
+    (94102, "94102@salamandra.test", "Gonzalo", "Cardenas"),
+    (101145, "101145@salamandra.test", "Sebastian", "Cruz"),
+    (87097, "87097@salamandra.test", "Ismael", "Diaz"),
+    (86289, "86289@salamandra.test", "Marcos", "Dominguez"),
+    (89352, "89352@salamandra.test", "Andrew", "Laura"),
+    (94635, "94635@salamandra.test", "Katrina", "Leigue"),
+    (91870, "91870@salamandra.test", "Alejandro", "Parraga"),
+    (95429, "95429@salamandra.test", "Luciana", "Soledad"),
+    (94008, "94008@salamandra.test", "Sebastian", "Soto"),
+    (94302, "94302@salamandra.test", "Peter", "Teran"),
+    (94046, "94046@salamandra.test", "Andrea", "Trujillo"),
+    (95187, "95187@salamandra.test", "Raul", "Vaca"),
+    (95503, "95503@salamandra.test", "Hugo", "Zuñiga"),
+    (95343, "95343@salamandra.test", "Lucas", "Leibovich"),
+)
 
 
 class Command(BaseCommand):
@@ -101,16 +118,19 @@ class Command(BaseCommand):
                 f"Operante creado -> código {operante.pk} / {OPERANTE_PASSWORD}"
             ))
 
-        estudiante, _ = Usuario.objects.get_or_create(
-            email="luciana.perez@upb.edu",
-            defaults={
-                "codigo_usuario": ESTUDIANTE_CODIGO_USUARIO,
-                "rol": rol_estudiante,
-                "nombre": "Luciana",
-                "apellido": "Perez",
-                "estado_usuario": True,
-            },
-        )
+        for codigo, email, nombre, apellido in ALUMNOS:
+            Usuario.objects.get_or_create(
+                codigo_usuario=codigo,
+                defaults={
+                    "rol": rol_estudiante,
+                    "email": email,
+                    "nombre": nombre,
+                    "apellido": apellido,
+                    "estado_usuario": True,
+                    "password_hash": "",
+                },
+            )
+        estudiante = Usuario.objects.get(codigo_usuario=95429)
 
         # --- tipo_sancion (catálogo de RES-RF-02) ----------------------------
         for tipo_id, nombre, horas in TipoSancion.CATALOGO:
@@ -120,34 +140,46 @@ class Command(BaseCommand):
             )
 
         # --- salas ---------------------------------------------------------
-        sala_a, _ = Sala.objects.get_or_create(
-            nombre_sala="Sala de estudio A", defaults={"estado_sala": True}
-        )
-        sala_b, _ = Sala.objects.get_or_create(
-            nombre_sala="Sala de estudio B", defaults={"estado_sala": True}
-        )
+        salas = {
+            letra: Sala.objects.get_or_create(
+                nombre_sala=f"Sala de estudio {letra}",
+                defaults={"estado_sala": True},
+            )[0]
+            for letra in "ABCDEF"
+        }
 
         # --- horarios ------------------------------------------------------
-        h_manana, _ = Horario.objects.get_or_create(
-            hora_inicio=time(10, 0), hora_fin=time(12, 0)
+        intervalos = (
+            (time(7, 45), time(9, 45)),
+            (time(10, 0), time(12, 0)),
+            (time(12, 15), time(14, 15)),
+            (time(14, 30), time(16, 30)),
+            (time(16, 45), time(18, 45)),
+            (time(19, 0), time(21, 0)),
         )
-        h_tarde, _ = Horario.objects.get_or_create(
-            hora_inicio=time(15, 0), hora_fin=time(17, 0)
-        )
+        horarios = [
+            Horario.objects.get_or_create(hora_inicio=inicio, hora_fin=fin)[0]
+            for inicio, fin in intervalos
+        ]
 
         # --- sala_horario --------------------------------------------------
-        sh_a_manana, _ = SalaHorario.objects.get_or_create(sala=sala_a, horario=h_manana)
-        sh_b_tarde, _ = SalaHorario.objects.get_or_create(sala=sala_b, horario=h_tarde)
+        sala_horarios = {
+            (letra, horario.hora_inicio): SalaHorario.objects.get_or_create(
+                sala=sala, horario=horario
+            )[0]
+            for letra, sala in salas.items()
+            for horario in horarios
+        }
 
         # --- reservas (solo si todavía no hay ninguna) ------------------------
         if not Reserva.objects.exists():
             manana = timezone.localdate() + timedelta(days=1)
             reserva_manana = Reserva.objects.create(
-                usuario=estudiante, sala_horario=sh_a_manana,
+                usuario=estudiante, sala_horario=sala_horarios[("A", time(10, 0))],
                 tipo_actividad="Estudios", fecha=manana,
             )
             reserva_tarde = Reserva.objects.create(
-                usuario=estudiante, sala_horario=sh_b_tarde,
+                usuario=estudiante, sala_horario=sala_horarios[("B", time(14, 30))],
                 tipo_actividad="Trabajo en grupo", fecha=manana,
             )
             Auditoria.objects.bulk_create([

@@ -83,6 +83,21 @@ python manage.py migrate
   las mismas tablas.
 - `migrate` crea el archivo `db.sqlite3` con todas las tablas.
 
+Las fechas con hora se guardan en SQLite con la hora de `America/La_Paz`
+(GMT-4); los horarios de clase y las fechas de reserva ya son datos locales.
+Si conservas un `db.sqlite3` creado antes de este cambio, **una sola vez** y
+antes de levantar el servidor ejecuta:
+
+```bash
+python manage.py convert_legacy_utc --apply
+```
+
+El comando crea primero una copia en `.backups/` y convierte las fechas UTC
+existentes sin perder segundos ni microsegundos. No se usa en bases nuevas.
+SQLite mantiene `CURRENT_TIMESTAMP` en UTC para SQL escrito directamente en
+DB Browser. Si insertas fechas a mano, usa `datetime('now', '-4 hours')` para
+guardarlas en GMT-4; las escrituras hechas mediante el ORM ya usan La Paz.
+
 ## 4. Cargar datos de ejemplo
 
 ```bash
@@ -93,11 +108,18 @@ Crea (sin duplicar si lo corres de nuevo):
 
 - Roles `Administrador`, `Operante` y `Solicitante` (uno por usuario)
 - **Administrador: `admin@salamandra.upb.edu` / `admin123`**
-- Una estudiante (Luciana Perez), sin login, con reservas a su nombre
+- 16 alumnos con sus códigos y correos de ejemplo, aún sin contraseña; pueden
+  crear su cuenta con el código y correo correspondientes. Las reservas de
+  ejemplo están a nombre de Luciana Soledad (código 95429)
 - Catálogo `tipo_sancion` para sanciones automáticas y manuales
-- 2 salas, 2 horarios (`10:00-12:00`, `15:00-17:00`) y sus combinaciones
-  `sala_horario`
+- 6 salas (A, B, C, D, E y F), 6 horarios (`07:45-09:45`, `10:00-12:00`,
+  `12:15-14:15`, `14:30-16:30`, `16:45-18:45` y `19:00-21:00`) y las 36
+  combinaciones en `sala_horario`
 - 2 reservas `CONFIRMADA` para mañana
+
+La gestión de altas y retiros de salas y horarios está deshabilitada en esta
+entrega. El Administrador trabaja con las seis salas y los seis horarios de
+ejemplo; tampoco puede abrir el formulario de gestión mediante su URL.
 
 Para borrar todos los datos y volver a cargarlos:
 ```bash
@@ -118,7 +140,7 @@ Abre **http://localhost:8000/**
 1. Inicia sesión con `admin@salamandra.upb.edu` / `admin123`.
 2. Verás las combinaciones sala+horario, las reservas y los bloqueos.
 3. En **"Bloquear un horario por mantenimiento"** elige, por ejemplo,
-   *Sala de estudio B — 15:00 a 17:00* y escribe un motivo (`Fuga de agua`).
+   *Sala de estudio B — 14:30 a 16:30* y escribe un motivo (`Fuga de agua`).
 4. Al enviar, el sistema (todo dentro de **una sola transacción**):
    - pasa las reservas `CONFIRMADA` de ese horario a **`POR_MANTENIMIENTO`**
      (sin penalizar al estudiante),

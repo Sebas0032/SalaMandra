@@ -11,6 +11,8 @@
 .reglas-gestion { margin: 0; color: #566b80; font-size: 12px; line-height: 1.5; }
 .boton-gestion { padding: 12px 15px; border: 0; border-radius: 9px; color: #fff; background: var(--azul); font: inherit; font-weight: 700; cursor: pointer; }
 .boton-gestion:disabled { opacity: .5; cursor: not-allowed; }
+.boton-retirar { padding: 7px 10px; border: 1px solid #a32222; border-radius: 8px; background: white; color: #a32222; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.boton-retirar:hover { background: #fff0f0; }
 .tablas-gestion .tarjeta h2 { padding-bottom: 15px; }
 .avisos-gestion { margin-bottom: 15px; }
 @media (max-width: 980px) { .formularios-gestion, .tablas-gestion { grid-template-columns: 1fr; } }

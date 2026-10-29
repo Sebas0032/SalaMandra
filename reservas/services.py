@@ -563,7 +563,7 @@ def _construir_mis_reservas(codigo_usuario, fecha, ahora, administrador=False):
             "reserva": reserva,
             "puede_modificar": administrador or _puede_modificar_reserva(reserva, ahora),
             "puede_cancelar": administrador or _puede_cancelar_reserva(reserva, ahora),
-            "genera_sancion": _cancelacion_es_tardia(reserva, ahora),
+            "genera_sancion": not administrador and _cancelacion_es_tardia(reserva, ahora),
         }
         for reserva in reservas
     ]
@@ -576,9 +576,12 @@ def _obtener_reservas_de_hoy(fecha):
     return {reserva.sala_horario_id: reserva for reserva in reservas}
 
 
-def _construir_columnas_salas(ahora, reservas_hoy):
+def _construir_columnas_salas(ahora, reservas_hoy, fecha=None):
+    fecha = fecha or ahora.date()
     columnas = {}
-    sala_horarios = SalaHorario.objects.filter(sala__estado_sala=True).select_related(
+    sala_horarios = SalaHorario.objects.filter(sala__estado_sala=True).exclude(
+        estado_sala_horario=SalaHorario.ESTADO_RETIRADO
+    ).select_related(
         "sala", "horario"
     ).order_by(
         "sala__nombre_sala", "horario__hora_inicio"
@@ -589,11 +592,11 @@ def _construir_columnas_salas(ahora, reservas_hoy):
             sala_horario.sala_id,
             {"sala": sala_horario.sala, "bloques": []},
         )
-        if sala_horario.horario.hora_fin <= ahora.time():
+        if fecha == ahora.date() and sala_horario.horario.hora_fin <= ahora.time():
             continue
         reserva = reservas_hoy.get(sala_horario.pk)
         columna["bloques"].append(
-            _construir_bloque_panel(sala_horario, reserva, ahora.date())
+            _construir_bloque_panel(sala_horario, reserva, fecha)
         )
 
     return list(columnas.values())
@@ -640,7 +643,7 @@ def get_reservation_modification_panel_for_actor(codigo_actor, id_reserva):
     reservas_fecha.pop(reserva.sala_horario_id, None)
     return {
         "reserva": reserva,
-        "columnas": _construir_columnas_salas(ahora, reservas_fecha),
+        "columnas": _construir_columnas_salas(ahora, reservas_fecha, reserva.fecha),
     }
 
 
@@ -667,7 +670,9 @@ class MaintenanceAlreadyStartedError(Exception):
 # --- Lecturas para mostrar el estado del sistema ----------------------------
 
 def get_sala_horarios():
-    return SalaHorario.objects.select_related("sala", "horario").order_by(
+    return SalaHorario.objects.exclude(
+        estado_sala_horario=SalaHorario.ESTADO_RETIRADO
+    ).select_related("sala", "horario").order_by(
         "id_sala_horario"
     )
 

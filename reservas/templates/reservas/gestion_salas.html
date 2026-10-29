@@ -19,13 +19,13 @@
     <aside class="menu-admin"><nav aria-label="Administración">
         <a href="{% url 'student_panel' %}">Salas y horarios</a>
         <a href="{% url 'block_room' %}">Mantenimiento</a>
-        <a href="{% url 'admin_cancellations' %}">Gestionar cancelaciones</a>
+        <a href="{% url 'admin_cancellations' %}">Gestionar reservas</a>
         <a href="{% url 'sanctions_admin' %}">Sanciones</a>
         <a href="{% url 'gestion_salas' %}" aria-current="page">Gestión de salas y horarios</a>
     </nav></aside>
     <main class="contenido-admin">
         <h1>Gestión de salas y horarios</h1>
-        <p class="descripcion">Crea salas de estudio y asigna horarios sin superposiciones.</p>
+        <p class="descripcion">Crea salas de estudio, asigna horarios y retira los que ya no se usarán.</p>
         {% if messages %}<div class="avisos-gestion" aria-live="polite">{% for message in messages %}<p class="aviso {{ message.tags }}">{{ message }}</p>{% endfor %}</div>{% endif %}
 
         <div class="formularios-gestion">
@@ -70,12 +70,13 @@
             <section class="tarjeta">
                 <h2>Horarios asignados</h2>
                 <div class="tabla-scroll"><table>
-                    <thead><tr><th>Sala</th><th>Horario</th><th>Estado</th></tr></thead>
+                    <thead><tr><th>Sala</th><th>Horario</th><th>Estado</th><th>Acción</th></tr></thead>
                     <tbody>{% for asignacion in asignaciones %}<tr>
                         <th scope="row">{{ asignacion.sala.nombre_sala }}</th>
                         <td>{{ asignacion.horario.hora_inicio|time:"H:i" }} – {{ asignacion.horario.hora_fin|time:"H:i" }}</td>
                         <td><span class="estado {% if asignacion.estado_sala_horario == 'MANTENIMIENTO' %}mantenimiento{% endif %}">{{ asignacion.estado_sala_horario|title }}</span></td>
-                    </tr>{% empty %}<tr><td colspan="3">Todavía no hay horarios asignados.</td></tr>{% endfor %}</tbody>
+                        <td>{% if asignacion.estado_sala_horario == 'DISPONIBLE' %}<form method="post" action="{% url 'gestion_salas' %}" onsubmit="return confirm('¿Retirar este horario de la sala? Las reservas anteriores permanecerán en el historial.')">{% csrf_token %}<input type="hidden" name="accion" value="retirar_horario"><input type="hidden" name="id_sala_horario" value="{{ asignacion.pk }}"><button class="boton-retirar" type="submit">Retirar</button></form>{% else %}—{% endif %}</td>
+                    </tr>{% empty %}<tr><td colspan="4">Todavía no hay horarios asignados.</td></tr>{% endfor %}</tbody>
                 </table></div>
             </section>
         </div>

@@ -4,7 +4,9 @@ from functools import wraps
 from urllib.parse import urlencode
 
 from django.contrib import messages
+from django.conf import settings
 from django.db import IntegrityError, OperationalError, ProgrammingError
+from django.http import Http404
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -57,13 +59,18 @@ def student_panel_view(request):
 @handle_db_errors
 @login_required
 def modify_reservation_view(request, id_reserva):
-    """Muestra y procesa el cambio de sala y horario de una reserva propia."""
+    """Muestra y procesa el cambio de una reserva propia o gestionada por el administrador."""
     if request.method == "POST":
         reserva = _intentar_modificar_reserva(request, id_reserva)
         if reserva is not None:
             messages.success(
                 request, f"Reserva #{reserva.pk} modificada correctamente."
             )
+            if (
+                usuario_tiene_rol(request.usuario.pk, Rol.Nombre.ADMINISTRADOR)
+                and reserva.usuario_id != request.usuario.pk
+            ):
+                return redirect("admin_cancellations")
             return redirect("student_panel")
         return redirect("modify_reservation", id_reserva=id_reserva)
 
@@ -73,14 +80,16 @@ def modify_reservation_view(request, id_reserva):
         )
     except services.ReservationError as exc:
         messages.error(request, str(exc))
+        if usuario_tiene_rol(request.usuario.pk, Rol.Nombre.ADMINISTRADOR):
+            return redirect("admin_cancellations")
         return redirect("student_panel")
 
+    es_admin = usuario_tiene_rol(request.usuario.pk, Rol.Nombre.ADMINISTRADOR)
     contexto.update(
         {
             "usuario": request.usuario,
-            "es_admin": usuario_tiene_rol(
-                request.usuario.pk, "Administrador"
-            ),
+            "es_admin": es_admin,
+            "gestion_admin": es_admin and contexto["reserva"].usuario_id != request.usuario.pk,
         }
     )
     return render(request, "reservas/modificar_reserva.html", contexto)
@@ -115,7 +124,7 @@ def mark_notification_read_view(request, id_notificacion):
 @handle_db_errors
 @admin_login_required
 def admin_cancellations_view(request):
-    """Muestra las reservas confirmadas que el administrador puede cancelar."""
+    """Muestra las reservas confirmadas que el administrador puede gestionar."""
     reservas = services.get_admin_cancellable_reservations(request.usuario.pk)
     return render(
         request,
@@ -515,7 +524,9 @@ def operator_unblock_room_view(request, id_sala_horario):
 @handle_db_errors
 @admin_login_required
 def gestion_salas_view(request):
-    """Página exclusiva del Administrador para dar de alta salas y horarios."""
+    """Página exclusiva del Administrador para gestionar salas y horarios."""
+    if not settings.GESTION_SALAS_HABILITADA:
+        raise Http404("La gestión de salas y horarios está deshabilitada.")
     if request.method == "POST":
         _procesar_alta_sala_o_horario(request)
         return redirect("gestion_salas")
@@ -542,6 +553,13 @@ def _procesar_alta_sala_o_horario(request):
             messages.success(
                 request, f"Horario {asignacion.horario} asignado a {asignacion.sala}."
             )
+        elif accion == "retirar_horario":
+            asignacion = gestion_salas.remove_room_schedule(
+                request.usuario.pk, request.POST.get("id_sala_horario", "")
+            )
+            messages.success(
+                request, f"Horario {asignacion.horario} retirado de {asignacion.sala}."
+            )
         else:
             messages.error(request, "Acción no reconocida.")
     except gestion_salas.GestionSalasError as exc:
@@ -555,7 +573,9 @@ def _contexto_gestion_salas(request):
         "nombre_completo": request.session.get("nombre_completo"),
         "salas": Sala.objects.all().order_by("nombre_sala"),
         "salas_activas": Sala.objects.filter(estado_sala=True).order_by("nombre_sala"),
-        "asignaciones": SalaHorario.objects.select_related("sala", "horario").order_by(
+        "asignaciones": SalaHorario.objects.exclude(
+            estado_sala_horario=SalaHorario.ESTADO_RETIRADO
+        ).select_related("sala", "horario").order_by(
             "sala__nombre_sala", "horario__hora_inicio"
         ),
     }

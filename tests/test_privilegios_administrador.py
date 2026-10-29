@@ -1,4 +1,4 @@
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -124,3 +124,55 @@ def test_panel_admin_muestra_acciones_de_reserva_iniciada(escenario):
     assert reverse("modify_reservation", args=[reserva.pk]) in panel.content.decode()
     assert reverse("cancel_reservation", args=[reserva.pk]) in panel.content.decode()
     assert reverse("admin_cancel_reservation", args=[reserva.pk]) in cancelaciones.content.decode()
+
+
+def test_panel_admin_no_advierte_sancion_al_cancelar_reserva_propia(escenario):
+    client, admin, _, _, a, _, ahora = escenario
+    reserva = Reserva.objects.create(
+        usuario=admin, sala_horario=a[0], fecha=ahora.date(), tipo_actividad="Tarea"
+    )
+    client.post(reverse("login"), {"identificador": str(admin.pk), "password": "clave-admin"})
+    with patch("reservas.services.timezone.localtime", return_value=ahora.replace(hour=8, minute=30)):
+        panel = client.get(reverse("student_panel"))
+    contenido = panel.content.decode()
+    assert reverse("cancel_reservation", args=[reserva.pk]) in contenido
+    assert "vas a recibir una sanción" not in contenido
+
+
+@pytest.mark.parametrize("destino", [0, 1])
+def test_admin_mueve_reserva_ajena_ya_iniciada_desde_la_interfaz(escenario, destino):
+    client, admin, estudiante, _, a, b, ahora = escenario
+    reserva = Reserva.objects.create(
+        usuario=estudiante, sala_horario=a[0], fecha=ahora.date(), tipo_actividad="Tarea"
+    )
+    client.post(reverse("login"), {"identificador": str(admin.pk), "password": "clave-admin"})
+    tarde = ahora.replace(hour=9, minute=30)
+    with patch("reservas.services.timezone.localtime", return_value=tarde):
+        listado = client.get(reverse("admin_cancellations"))
+        assert reverse("modify_reservation", args=[reserva.pk]) in listado.content.decode()
+        formulario = client.get(reverse("modify_reservation", args=[reserva.pk]))
+        assert formulario.status_code == 200
+        assert estudiante.nombre in formulario.content.decode()
+        assert f'value="{b[destino].pk}"' in formulario.content.decode()
+        respuesta = client.post(
+            reverse("modify_reservation", args=[reserva.pk]),
+            {"id_sala_horario": b[destino].pk},
+        )
+    assert respuesta.url == reverse("admin_cancellations")
+    reserva.refresh_from_db()
+    assert reserva.sala_horario == b[destino]
+    assert reserva.usuario == estudiante
+    assert Auditoria.objects.get(reserva=reserva, accion="MODIFICAR").actor == admin
+
+
+def test_formulario_admin_muestra_todos_los_bloques_de_reserva_futura(escenario):
+    client, admin, estudiante, _, a, b, ahora = escenario
+    reserva = Reserva.objects.create(
+        usuario=estudiante, sala_horario=a[1],
+        fecha=ahora.date() + timedelta(days=1), tipo_actividad="Tarea",
+    )
+    client.post(reverse("login"), {"identificador": str(admin.pk), "password": "clave-admin"})
+    with patch("reservas.services.timezone.localtime", return_value=ahora.replace(hour=12)):
+        respuesta = client.get(reverse("modify_reservation", args=[reserva.pk]))
+    assert respuesta.status_code == 200
+    assert f'value="{b[0].pk}"' in respuesta.content.decode()

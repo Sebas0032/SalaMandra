@@ -20,6 +20,7 @@
     {% if messages %}<div class="avisos" aria-live="polite">{% for message in messages %}<p class="aviso {{ message.tags }}">{{ message }}</p>{% endfor %}</div>{% endif %}
     <section class="formulario formulario-modificacion">
         <h1>Modificar reserva #{{ reserva.pk }}</h1>
+        <p>Reserva de <strong>{{ reserva.usuario }}</strong> (código {{ reserva.usuario_id }}) para el {{ reserva.fecha|date:"d/m/Y" }}.</p>
         <div class="reserva-actual">
             <span>Reserva actual</span>
             <strong>{{ reserva.sala_horario.sala.nombre_sala }}</strong>
@@ -41,7 +42,7 @@
                 {% endfor %}
             </select>
             <button class="confirmar" type="submit">Confirmar modificación</button>
-            <a class="cancelar" href="{% url 'student_panel' %}">Volver sin modificar</a>
+            <a class="cancelar" href="{% if gestion_admin %}{% url 'admin_cancellations' %}{% else %}{% url 'student_panel' %}{% endif %}">Volver sin modificar</a>
         </form>
     </section>
 </main>

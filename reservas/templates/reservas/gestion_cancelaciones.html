@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Gestionar cancelaciones — SalaMandra</title>
+    <title>Gestionar reservas — SalaMandra</title>
     <link rel="stylesheet" href="{% static 'reservas/css/panel_solicitante.css' %}">
     <link rel="stylesheet" href="{% static 'reservas/css/mantenimiento.css' %}">
 </head>
@@ -18,13 +18,12 @@
     <aside class="menu-admin"><nav aria-label="Administración">
         <a href="{% url 'student_panel' %}">Salas y horarios</a>
         <a href="{% url 'block_room' %}">Mantenimiento</a>
-        <a href="{% url 'admin_cancellations' %}" aria-current="page">Gestionar cancelaciones</a>
+        <a href="{% url 'admin_cancellations' %}" aria-current="page">Gestionar reservas</a>
         <a href="{% url 'sanctions_admin' %}">Sanciones</a>
-        <a href="{% url 'gestion_salas' %}">Gestión de salas y horarios</a>
     </nav></aside>
     <main class="contenido-admin">
-        <h1>Gestionar cancelaciones</h1>
-        <p class="descripcion">Cancela reservas confirmadas, incluso si ya comenzaron. Las cancelaciones administrativas no generan sanciones.</p>
+        <h1>Gestionar reservas</h1>
+        <p class="descripcion">Modifica la sala u horario, o cancela reservas confirmadas, incluso si ya comenzaron. Las cancelaciones administrativas no generan sanciones.</p>
         {% if messages %}<div aria-live="polite">{% for message in messages %}<p class="aviso {{ message.tags }}">{{ message }}</p>{% endfor %}</div>{% endif %}
         <section class="tarjeta">
             <h2>Reservas confirmadas <small>{{ reservas|length }}</small></h2>
@@ -39,7 +38,7 @@
                         <td>{{ reserva.sala_horario.sala }}</td>
                         <td>{{ reserva.sala_horario.horario }}</td>
                         <td>{{ reserva.tipo_actividad }}</td>
-                        <td><form method="post" action="{% url 'admin_cancel_reservation' reserva.pk %}" onsubmit="return confirm('¿Cancelar esta reserva sin sancionar al solicitante?')">{% csrf_token %}<button class="boton-habilitar" type="submit">Cancelar</button></form></td>
+                        <td><a class="boton-habilitar" href="{% url 'modify_reservation' reserva.pk %}">Modificar</a> <form method="post" action="{% url 'admin_cancel_reservation' reserva.pk %}" onsubmit="return confirm('¿Cancelar esta reserva sin sancionar al solicitante?')">{% csrf_token %}<button class="boton-habilitar" type="submit">Cancelar</button></form></td>
                     </tr>
                 {% empty %}
                     <tr><td colspan="7">No hay reservas confirmadas para hoy o fechas posteriores.</td></tr>

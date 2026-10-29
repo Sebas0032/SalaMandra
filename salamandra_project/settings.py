@@ -72,6 +72,8 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
+        # Mantiene USE_TZ=True, pero guarda los DateTimeField en hora de La Paz.
+        "TIME_ZONE": "America/La_Paz",
     }
 }
 
@@ -111,3 +113,6 @@ DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 # Fechas del calendario universitario, en formato YYYY-MM-DD.
 # Completar con los feriados confirmados por la universidad.
 RESERVAS_FERIADOS = []
+
+# Esta entrega trabaja con las salas y horarios precargados.
+GESTION_SALAS_HABILITADA = False
