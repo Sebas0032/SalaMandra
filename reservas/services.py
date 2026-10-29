@@ -27,12 +27,14 @@ from django.db.models import F
 from django.utils import timezone
 
 from cuentas.services import ROL_ADMINISTRADOR, ROL_OPERANTE
+from .gestion_sanciones import contar_faltas, sanciones_vigentes
 
 from .models import (
     Auditoria,
     Bloqueo,
     Desbloqueo,
     Horario,
+    Notificacion,
     Reserva,
     Rol,
     SalaHorario,
@@ -155,7 +157,31 @@ def cancel_reservation(codigo_usuario_actor, id_reserva):
         reserva=reserva, actor=actor, accion=Auditoria.Accion.CANCELAR,
         fecha_accion=ahora,
     )
+    _notificar_cancelacion_de_gestion(actor, reserva, ahora)
     return {"reserva": reserva, "sancion": sancion}
+
+
+def _notificar_cancelacion_de_gestion(actor, reserva, ahora):
+    """Avisa al titular si otra persona autorizada canceló su reserva."""
+    if actor.pk == reserva.usuario_id:
+        return None
+    if actor.rol.nombre_rol not in [Rol.Nombre.ADMINISTRADOR, Rol.Nombre.OPERANTE]:
+        return None
+
+    horario = reserva.sala_horario.horario
+    return Notificacion.objects.create(
+        usuario_id=reserva.usuario_id,
+        reserva=reserva,
+        actor=actor,
+        tipo=Notificacion.Tipo.CANCELACION_GESTION,
+        mensaje=(
+            f"Tu reserva #{reserva.pk} de {reserva.sala_horario.sala.nombre_sala} "
+            f"para el {reserva.fecha:%d/%m/%Y}, "
+            f"{horario.hora_inicio:%H:%M}-{horario.hora_fin:%H:%M}, "
+            f"fue cancelada por un {actor.rol.nombre_rol}."
+        ),
+        fecha=ahora,
+    )
 
 
 def get_admin_cancellable_reservations(codigo_usuario_admin, now=None):
@@ -279,17 +305,18 @@ def _obtener_reserva_para_cancelar(actor, id_reserva):
 
 def _registrar_sancion_por_cancelacion(codigo_usuario, ahora):
     usuario = Usuario.objects.select_for_update().get(pk=codigo_usuario)
-    faltas_previas = Sancion.objects.filter(
-        usuario=usuario,
-        tipo_sancion__nombre_sancion__startswith="Cancelación tardía",
-    ).count()
+    faltas_previas = contar_faltas(usuario, ahora)
     nombre, horas = ESCALA_SANCIONES_CANCELACION[
         min(faltas_previas, len(ESCALA_SANCIONES_CANCELACION) - 1)
     ]
-    tipo_sancion, _ = TipoSancion.objects.get_or_create(
-        nombre_sancion=nombre,
-        defaults={"duracion": horas},
-    )
+    try:
+        tipo_sancion = TipoSancion.objects.get(
+            pk=TipoSancion.ID_POR_DURACION[horas], duracion=horas
+        )
+    except TipoSancion.DoesNotExist as exc:
+        raise ReservationError(
+            "El catálogo de sanciones está incompleto. Contacta al administrador."
+        ) from exc
     return Sancion.objects.create(
         usuario=usuario,
         origen=Sancion.Origen.AUTOMATICA,
@@ -347,8 +374,8 @@ def _es_dia_habilitado(fecha):
 
 
 def _validar_sin_sancion(usuario, ahora):
-    sancion = Sancion.objects.filter(
-        usuario=usuario, fecha_inicio__lte=ahora, fecha_fin__gt=ahora
+    sancion = sanciones_vigentes(ahora).filter(
+        usuario=usuario
     ).order_by("-fecha_fin").first()
     if sancion:
         minutos = int((sancion.fecha_fin - ahora).total_seconds() / 60) + 1
@@ -425,7 +452,36 @@ def get_student_panel(codigo_usuario=None):
         "mis_reservas": _construir_mis_reservas(
             codigo_usuario, fecha, ahora
         ),
+        **_construir_notificaciones(codigo_usuario),
     }
+
+
+def _construir_notificaciones(codigo_usuario):
+    if codigo_usuario is None:
+        return {"notificaciones": [], "notificaciones_no_leidas": 0}
+
+    notificaciones = Notificacion.objects.filter(
+        usuario_id=codigo_usuario, leida=False
+    ).select_related("actor", "reserva")
+    return {
+        "notificaciones": list(notificaciones[:5]),
+        "notificaciones_no_leidas": notificaciones.count(),
+    }
+
+
+def mark_notification_as_read(codigo_usuario, id_notificacion):
+    """Marca un aviso propio como leído sin eliminarlo del historial."""
+    try:
+        notificacion = Notificacion.objects.get(
+            pk=id_notificacion, usuario_id=codigo_usuario
+        )
+    except Notificacion.DoesNotExist as exc:
+        raise ReservationError("La notificación no existe o no te pertenece.") from exc
+
+    if not notificacion.leida:
+        notificacion.leida = True
+        notificacion.save(update_fields=["leida"])
+    return notificacion
 
 
 def get_operator_student(codigo_usuario):
@@ -443,15 +499,10 @@ def get_operator_student_summary(codigo_usuario):
     ).select_related(
         "sala_horario__sala", "sala_horario__horario"
     ).order_by("sala_horario__horario__hora_inicio", "id_reserva")
-    sancion_activa = Sancion.objects.filter(
+    sancion_activa = sanciones_vigentes(ahora).filter(
         usuario=solicitante,
-        fecha_inicio__lte=ahora,
-        fecha_fin__gt=ahora,
     ).order_by("-fecha_fin").first()
-    faltas = Sancion.objects.filter(
-        usuario=solicitante,
-        tipo_sancion__nombre_sancion__startswith="Cancelación tardía",
-    ).count()
+    faltas = contar_faltas(solicitante, ahora)
     return {
         "solicitante": solicitante,
         "reservas_solicitante": [
@@ -692,6 +743,23 @@ def block_room_schedule_for_maintenance(codigo_usuario_admin, id_sala_horario, m
         Auditoria(
             reserva=reserva, actor_id=codigo_usuario_admin,
             accion=Auditoria.Accion.CANCELAR,
+        )
+        for reserva in reservas_canceladas
+    ])
+    Notificacion.objects.bulk_create([
+        Notificacion(
+            usuario_id=reserva.usuario_id,
+            reserva=reserva,
+            actor_id=codigo_usuario_admin,
+            tipo=Notificacion.Tipo.MANTENIMIENTO,
+            mensaje=(
+                f"Tu reserva #{reserva.pk} de {sala_horario.sala.nombre_sala} "
+                f"para el {reserva.fecha:%d/%m/%Y}, "
+                f"{sala_horario.horario.hora_inicio:%H:%M}-"
+                f"{sala_horario.horario.hora_fin:%H:%M}, fue cancelada por "
+                f"mantenimiento. Motivo: {motivo}"
+            ),
+            fecha=ahora,
         )
         for reserva in reservas_canceladas
     ])

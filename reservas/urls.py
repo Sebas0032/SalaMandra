@@ -11,6 +11,11 @@ urlpatterns = [
     ),
     path("salas/", views.student_panel_view, name="student_panel"),
     path(
+        "notificaciones/<int:id_notificacion>/leer/",
+        views.mark_notification_read_view,
+        name="mark_notification_read",
+    ),
+    path(
         "reservas/<int:id_reserva>/modificar/",
         views.modify_reservation_view,
         name="modify_reservation",
@@ -52,6 +57,11 @@ urlpatterns = [
         "administracion/sanciones/reiniciar/",
         views.clear_sanctions_view,
         name="clear_sanctions",
+    ),
+    path(
+        "administracion/sanciones/<int:id_sancion>/retirar/",
+        views.withdraw_sanction_view,
+        name="withdraw_sanction",
     ),
     path(
         "administracion/solicitantes/<int:codigo_usuario>/estado/",

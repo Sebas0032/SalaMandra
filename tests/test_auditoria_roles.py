@@ -103,7 +103,7 @@ def test_solicitante_no_puede_sancionar_manualmente(escenario_auditoria):
 @pytest.mark.parametrize("origen,con_actor", [("MANUAL", False), ("AUTOMATICA", True), ("OTRO", False)])
 def test_bd_rechaza_origen_aplicador_incoherentes(escenario_auditoria, origen, con_actor):
     ana, admin, _, ahora = escenario_auditoria
-    tipo = TipoSancion.objects.create(nombre_sancion="Prueba", duracion=24)
+    tipo = TipoSancion.objects.get(pk=TipoSancion.ID_24_HORAS)
     with pytest.raises(IntegrityError), transaction.atomic():
         Sancion.objects.create(
             usuario=ana, tipo_sancion=tipo, origen=origen,
@@ -114,7 +114,7 @@ def test_bd_rechaza_origen_aplicador_incoherentes(escenario_auditoria, origen, c
 
 def test_modelo_valida_rol_del_aplicador(escenario_auditoria):
     ana, _, _, ahora = escenario_auditoria
-    tipo = TipoSancion.objects.create(nombre_sancion="Manual", duracion=24)
+    tipo = TipoSancion.objects.get(pk=TipoSancion.ID_24_HORAS)
     sancion = Sancion(
         usuario=ana, aplicada_por=ana, origen="MANUAL", tipo_sancion=tipo,
         motivo="Motivo", fecha_inicio=ahora, fecha_fin=ahora + timedelta(hours=24),
@@ -134,6 +134,11 @@ def test_rol_unico_y_catalogo_restringido(escenario_auditoria):
     for nombre in ("Solicitante", "Estudiante", "Operador", "Otro"):
         with pytest.raises(IntegrityError), transaction.atomic():
             Rol.objects.create(nombre_rol=nombre)
+    assert set(TipoSancion.objects.values_list("pk", flat=True)) == {74, 75, 76, 77}
+    with pytest.raises(IntegrityError), transaction.atomic():
+        TipoSancion.objects.create(pk=78, nombre_sancion="Otro", duracion=168)
+    with pytest.raises(IntegrityError), transaction.atomic():
+        TipoSancion.objects.filter(pk=74).update(duracion=48)
 
 
 def test_registro_no_cambia_rol_de_administrador(escenario_auditoria):

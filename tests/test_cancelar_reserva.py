@@ -79,7 +79,9 @@ def test_cancelacion_tardia_aplica_sancion_escalar(
     ahora = ahora.replace(hour=13, minute=30)
     for indice in range(faltas_previas):
         nombre, horas = services.ESCALA_SANCIONES_CANCELACION[indice]
-        tipo = TipoSancion.objects.create(nombre_sancion=nombre, duracion=horas)
+        tipo = TipoSancion.objects.get(
+            pk=TipoSancion.ID_POR_DURACION[horas]
+        )
         Sancion.objects.create(
         origen=Sancion.Origen.AUTOMATICA,
             usuario=usuario,
