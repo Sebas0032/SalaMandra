@@ -115,7 +115,7 @@ def mark_notification_read_view(request, id_notificacion):
 @handle_db_errors
 @admin_login_required
 def admin_cancellations_view(request):
-    """Muestra las reservas activas que el administrador todavía puede cancelar."""
+    """Muestra las reservas confirmadas que el administrador puede cancelar."""
     reservas = services.get_admin_cancellable_reservations(request.usuario.pk)
     return render(
         request,
@@ -244,8 +244,9 @@ def _construir_contexto_mantenimiento(request):
     combinaciones = list(services.get_sala_horarios())
     ahora = timezone.localtime()
     for combinacion in combinaciones:
-        combinacion.puede_bloquear = services.can_block_maintenance(
-            combinacion, ahora
+        combinacion.puede_bloquear = (
+            request.usuario.rol.nombre_rol == Rol.Nombre.ADMINISTRADOR
+            or services.can_block_maintenance(combinacion, ahora)
         )
     horarios = sorted({sh.horario_id: sh.horario for sh in combinaciones}.values(), key=lambda h: h.hora_inicio)
     ocupados = set(services.get_reservas().filter(

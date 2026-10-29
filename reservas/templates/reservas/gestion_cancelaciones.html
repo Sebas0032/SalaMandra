@@ -24,10 +24,10 @@
     </nav></aside>
     <main class="contenido-admin">
         <h1>Gestionar cancelaciones</h1>
-        <p class="descripcion">Cancela reservas activas antes de su inicio. Las cancelaciones administrativas no generan sanciones.</p>
+        <p class="descripcion">Cancela reservas confirmadas, incluso si ya comenzaron. Las cancelaciones administrativas no generan sanciones.</p>
         {% if messages %}<div aria-live="polite">{% for message in messages %}<p class="aviso {{ message.tags }}">{{ message }}</p>{% endfor %}</div>{% endif %}
         <section class="tarjeta">
-            <h2>Reservas pendientes <small>{{ reservas|length }}</small></h2>
+            <h2>Reservas confirmadas <small>{{ reservas|length }}</small></h2>
             <div class="tabla-scroll"><table>
                 <thead><tr><th>Solicitante</th><th>Código</th><th>Fecha</th><th>Sala</th><th>Horario</th><th>Actividad</th><th>Acción</th></tr></thead>
                 <tbody>
@@ -42,7 +42,7 @@
                         <td><form method="post" action="{% url 'admin_cancel_reservation' reserva.pk %}" onsubmit="return confirm('¿Cancelar esta reserva sin sancionar al solicitante?')">{% csrf_token %}<button class="boton-habilitar" type="submit">Cancelar</button></form></td>
                     </tr>
                 {% empty %}
-                    <tr><td colspan="7">No hay reservas activas pendientes de inicio.</td></tr>
+                    <tr><td colspan="7">No hay reservas confirmadas para hoy o fechas posteriores.</td></tr>
                 {% endfor %}
                 </tbody>
             </table></div>
