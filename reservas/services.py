@@ -79,12 +79,18 @@ def create_reservation(
     """Crea una reserva para un solicitante y audita al usuario que la ejecuta."""
     _bloquear_sala_horario(id_sala_horario)
     actor = _obtener_usuario_reservante(codigo_actor)
-    solicitante = _obtener_solicitante(codigo_solicitante)
+    admin_propio = _es_administrador(actor) and actor.pk == codigo_solicitante
+    solicitante = _obtener_solicitante(
+        codigo_solicitante, permitir_admin_propio=admin_propio
+    )
     _validar_actor_sobre_solicitante(actor, solicitante)
     ahora = timezone.localtime()
     hoy = ahora.date()
     sala_horario = _obtener_sala_horario(id_sala_horario)
-    _validar_reglas_reserva(solicitante, sala_horario, actividad, hoy, ahora)
+    _validar_reglas_reserva(
+        solicitante, sala_horario, actividad, hoy, ahora,
+        permitir_consecutivos=admin_propio,
+    )
 
     reserva = Reserva.objects.create(
         usuario=solicitante, sala_horario=sala_horario, fecha=hoy,
@@ -111,7 +117,8 @@ def modify_reservation(codigo_actor, id_reserva, id_sala_horario):
     _validar_acceso_reserva(actor, reserva)
     solicitante = reserva.usuario
     ahora = timezone.localtime()
-    _validar_plazo_modificacion(reserva, ahora)
+    if not _es_administrador(actor):
+        _validar_plazo_modificacion(reserva, ahora)
 
     _bloquear_sala_horario(id_sala_horario)
     nuevo_sala_horario = _obtener_sala_horario(id_sala_horario)
@@ -122,6 +129,7 @@ def modify_reservation(codigo_actor, id_reserva, id_sala_horario):
         reserva.fecha,
         ahora,
         reserva_excluida_id=reserva.pk,
+        permitir_consecutivos=_es_administrador(actor) and actor.pk == solicitante.pk,
     )
 
     # El cambio se guarda únicamente después de superar todas las validaciones.
@@ -141,7 +149,7 @@ def cancel_reservation(codigo_usuario_actor, id_reserva):
     reserva = _obtener_reserva_para_cancelar(actor, id_reserva)
     ahora = timezone.localtime()
     inicio = _inicio_de_reserva(reserva)
-    if ahora >= inicio:
+    if ahora >= inicio and not _es_administrador(actor):
         raise ReservationError("La reserva ya comenzó y no se puede cancelar.")
 
     reserva.estado_reserva = Reserva.ESTADO_CANCELADA
@@ -149,7 +157,7 @@ def cancel_reservation(codigo_usuario_actor, id_reserva):
 
     sancion = None
     if (
-        actor.rol.nombre_rol != Rol.Nombre.ADMINISTRADOR
+        not _es_administrador(actor)
         and _cancelacion_es_tardia(reserva, ahora)
     ):
         sancion = _registrar_sancion_por_cancelacion(reserva.usuario_id, ahora)
@@ -185,7 +193,7 @@ def _notificar_cancelacion_de_gestion(actor, reserva, ahora):
 
 
 def get_admin_cancellable_reservations(codigo_usuario_admin, now=None):
-    """Lista reservas confirmadas que todavía no comenzaron para el administrador."""
+    """Lista reservas confirmadas de hoy en adelante para el administrador."""
     actor = _obtener_usuario_reservante(codigo_usuario_admin)
     if actor.rol.nombre_rol != Rol.Nombre.ADMINISTRADOR:
         raise ReservationError("Solo un administrador puede gestionar cancelaciones.")
@@ -199,7 +207,7 @@ def get_admin_cancellable_reservations(codigo_usuario_admin, now=None):
     ).order_by(
         "fecha", "sala_horario__horario__hora_inicio", "id_reserva"
     )
-    return [reserva for reserva in reservas if _inicio_de_reserva(reserva) > now]
+    return list(reservas)
 
 
 def _validar_reglas_reserva(
@@ -209,6 +217,7 @@ def _validar_reglas_reserva(
     fecha,
     ahora,
     reserva_excluida_id=None,
+    permitir_consecutivos=False,
 ):
     """Aplica las reglas compartidas por la creación y la modificación."""
     _validar_dia_habil(fecha)
@@ -220,7 +229,8 @@ def _validar_reglas_reserva(
     if reserva_excluida_id is not None:
         reservas_activas = reservas_activas.exclude(pk=reserva_excluida_id)
     _validar_bloque_no_reservado(sala_horario, reservas_activas)
-    _validar_sin_bloques_consecutivos(usuario, sala_horario, reservas_activas)
+    if not permitir_consecutivos:
+        _validar_sin_bloques_consecutivos(usuario, sala_horario, reservas_activas)
     _validar_intervalo_limpieza(sala_horario, fecha, reservas_activas)
 
 
@@ -241,11 +251,18 @@ def _obtener_usuario_reservante(codigo_usuario):
     return usuario
 
 
-def _obtener_solicitante(codigo_usuario):
+def _es_administrador(usuario):
+    return usuario.rol.nombre_rol == Rol.Nombre.ADMINISTRADOR
+
+
+def _obtener_solicitante(codigo_usuario, permitir_admin_propio=False):
+    roles = [Rol.Nombre.SOLICITANTE]
+    if permitir_admin_propio:
+        roles.append(Rol.Nombre.ADMINISTRADOR)
     solicitante = Usuario.objects.filter(
         pk=codigo_usuario,
         estado_usuario=True,
-        rol__nombre_rol=Rol.Nombre.SOLICITANTE,
+        rol__nombre_rol__in=roles,
     ).first()
     if solicitante is None:
         raise ReservationError("No existe un solicitante activo con ese código.")
@@ -443,6 +460,12 @@ def get_student_panel(codigo_usuario=None):
     fecha = ahora.date()
     reservas_hoy = _obtener_reservas_de_hoy(fecha)
     columnas = _construir_columnas_salas(ahora, reservas_hoy)
+    administrador = (
+        codigo_usuario is not None
+        and Usuario.objects.filter(
+            pk=codigo_usuario, rol__nombre_rol=Rol.Nombre.ADMINISTRADOR
+        ).exists()
+    )
 
     return {
         "columnas": columnas,
@@ -450,7 +473,7 @@ def get_student_panel(codigo_usuario=None):
         "actividades": ACTIVIDADES,
         "dia_habilitado": _es_dia_habilitado(fecha),
         "mis_reservas": _construir_mis_reservas(
-            codigo_usuario, fecha, ahora
+            codigo_usuario, fecha, ahora, administrador
         ),
         **_construir_notificaciones(codigo_usuario),
     }
@@ -525,7 +548,7 @@ def get_operator_availability(codigo_usuario):
     return contexto
 
 
-def _construir_mis_reservas(codigo_usuario, fecha, ahora):
+def _construir_mis_reservas(codigo_usuario, fecha, ahora, administrador=False):
     if codigo_usuario is None:
         return []
     reservas = Reserva.objects.filter(
@@ -538,8 +561,8 @@ def _construir_mis_reservas(codigo_usuario, fecha, ahora):
     return [
         {
             "reserva": reserva,
-            "puede_modificar": _puede_modificar_reserva(reserva, ahora),
-            "puede_cancelar": _puede_cancelar_reserva(reserva, ahora),
+            "puede_modificar": administrador or _puede_modificar_reserva(reserva, ahora),
+            "puede_cancelar": administrador or _puede_cancelar_reserva(reserva, ahora),
             "genera_sancion": _cancelacion_es_tardia(reserva, ahora),
         }
         for reserva in reservas
@@ -610,7 +633,8 @@ def get_reservation_modification_panel_for_actor(codigo_actor, id_reserva):
     reserva = _obtener_reserva_confirmada(id_reserva)
     _validar_acceso_reserva(actor, reserva)
     ahora = timezone.localtime()
-    _validar_plazo_modificacion(reserva, ahora)
+    if not _es_administrador(actor):
+        _validar_plazo_modificacion(reserva, ahora)
 
     reservas_fecha = _obtener_reservas_de_hoy(reserva.fecha)
     reservas_fecha.pop(reserva.sala_horario_id, None)
@@ -717,7 +741,10 @@ def block_room_schedule_for_maintenance(codigo_usuario_admin, id_sala_horario, m
         )
 
     ahora = timezone.localtime()
-    if not can_block_maintenance(sala_horario, ahora):
+    actor_es_admin = Usuario.objects.filter(
+        pk=codigo_usuario_admin, rol__nombre_rol=Rol.Nombre.ADMINISTRADOR
+    ).exists()
+    if not actor_es_admin and not can_block_maintenance(sala_horario, ahora):
         raise MaintenanceAlreadyStartedError(
             "El horario ya comenzó y no puede bloquearse por mantenimiento."
         )

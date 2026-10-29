@@ -211,7 +211,7 @@ def test_administrador_lista_y_cancela_reservas_sin_sancion(
         assert reverse("admin_cancel_reservation", args=[reserva.pk]) in panel.content.decode()
         assert reverse(
             "admin_cancel_reservation", args=[reserva_iniciada.pk]
-        ) not in panel.content.decode()
+        ) in panel.content.decode()
         respuesta = client.post(
             reverse("admin_cancel_reservation", args=[reserva.pk]), follow=True
         )

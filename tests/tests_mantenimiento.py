@@ -97,7 +97,7 @@ class TestBloqueoMantenimiento:
         assert reserva.estado_reserva == Reserva.ESTADO_POR_MANTENIMIENTO
         assert Sancion.objects.filter(usuario=estudiante).exists() is False
 
-    def test_no_permite_bloquear_un_horario_que_ya_comenzo(
+    def test_administrador_puede_bloquear_un_horario_que_ya_comenzo(
         self, admin, sh_a_manana, reserva
     ):
         despues_del_inicio = timezone.make_aware(
@@ -108,16 +108,15 @@ class TestBloqueoMantenimiento:
             "reservas.services.timezone.localtime",
             return_value=despues_del_inicio,
         ):
-            with pytest.raises(services.MaintenanceAlreadyStartedError):
-                services.block_room_schedule_for_maintenance(
-                    admin.codigo_usuario, sh_a_manana.pk, MOTIVO
-                )
+            services.block_room_schedule_for_maintenance(
+                admin.codigo_usuario, sh_a_manana.pk, MOTIVO
+            )
 
         sh_a_manana.refresh_from_db()
         reserva.refresh_from_db()
-        assert sh_a_manana.estado_sala_horario == SalaHorario.ESTADO_DISPONIBLE
-        assert reserva.estado_reserva == Reserva.ESTADO_CONFIRMADA
-        assert not Bloqueo.objects.exists()
+        assert sh_a_manana.estado_sala_horario == SalaHorario.ESTADO_MANTENIMIENTO
+        assert reserva.estado_reserva == Reserva.ESTADO_POR_MANTENIMIENTO
+        assert Bloqueo.objects.exists()
 
     def test_registra_bitacora_de_bloqueo(self, admin, sh_a_manana):
         """Auditoría: Guarda el responsable, motivo y fecha exacta en la bitácora."""
