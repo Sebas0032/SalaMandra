@@ -69,19 +69,22 @@ def test_cancela_exactamente_60_minutos_antes_sin_sancion(
 
 
 @pytest.mark.parametrize(
-    ("faltas_previas", "horas_esperadas"),
-    [(0, 24), (1, 48), (2, 168), (3, 9999)],
+    ("faltas_previas", "tipo_esperado", "duracion_esperada"),
+    [
+        (0, TipoSancion.ID_24_HORAS, 24),
+        (1, TipoSancion.ID_48_HORAS, 48),
+        (2, TipoSancion.ID_1_SEMANA, 168),
+        (3, TipoSancion.ID_SEMESTRE, None),
+    ],
 )
 def test_cancelacion_tardia_aplica_sancion_escalar(
-    escenario_cancelacion, faltas_previas, horas_esperadas
+    escenario_cancelacion, faltas_previas, tipo_esperado, duracion_esperada
 ):
     usuario, _, reserva, ahora = escenario_cancelacion
     ahora = ahora.replace(hour=13, minute=30)
     for indice in range(faltas_previas):
-        nombre, horas = services.ESCALA_SANCIONES_CANCELACION[indice]
-        tipo = TipoSancion.objects.get(
-            pk=TipoSancion.ID_POR_DURACION[horas]
-        )
+        nombre, tipo_id = services.ESCALA_SANCIONES_CANCELACION[indice]
+        tipo = TipoSancion.objects.get(pk=tipo_id)
         Sancion.objects.create(
         origen=Sancion.Origen.AUTOMATICA,
             usuario=usuario,
@@ -97,8 +100,12 @@ def test_cancelacion_tardia_aplica_sancion_escalar(
     sancion = resultado["sancion"]
     assert sancion.origen == Sancion.Origen.AUTOMATICA
     assert sancion.aplicada_por_id is None
-    assert sancion.tipo_sancion.duracion == horas_esperadas
-    assert sancion.fecha_fin == ahora + timedelta(hours=horas_esperadas)
+    assert sancion.tipo_sancion_id == tipo_esperado
+    assert sancion.tipo_sancion.duracion == duracion_esperada
+    if tipo_esperado == TipoSancion.ID_SEMESTRE:
+        assert sancion.fecha_fin == timezone.make_aware(datetime(2027, 1, 1))
+    else:
+        assert sancion.fecha_fin == ahora + timedelta(hours=duracion_esperada)
     assert Sancion.objects.filter(usuario=usuario).count() == faltas_previas + 1
     reserva.refresh_from_db()
     assert reserva.estado_reserva == Reserva.ESTADO_CANCELADA

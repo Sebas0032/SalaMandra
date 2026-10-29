@@ -72,6 +72,34 @@ def test_aplica_sancion_manual_con_motivo_y_duracion(usuarios_sanciones):
     assert sancion.fecha_fin == ahora + timedelta(hours=168)
 
 
+@pytest.mark.parametrize(
+    ("aplicacion", "finalizacion"),
+    [
+        (datetime(2026, 5, 15, 9), datetime(2026, 7, 1)),
+        (datetime(2026, 10, 15, 9), datetime(2027, 1, 1)),
+    ],
+)
+def test_sancion_manual_de_semestre_termina_en_el_proximo_corte(
+    usuarios_sanciones, aplicacion, finalizacion
+):
+    admin, estudiante = usuarios_sanciones
+    ahora = timezone.make_aware(aplicacion)
+    with patch(
+        "reservas.gestion_sanciones.timezone.localtime",
+        return_value=ahora,
+    ):
+        sancion = gestion_sanciones.apply_manual_sanction(
+            admin.pk,
+            estudiante.pk,
+            "semestre",
+            "Sanción por el resto del semestre",
+        )
+
+    assert sancion.tipo_sancion_id == TipoSancion.ID_SEMESTRE
+    assert sancion.tipo_sancion.duracion is None
+    assert sancion.fecha_fin == timezone.make_aware(finalizacion)
+
+
 def test_listado_muestra_solo_la_sancion_vigente(usuarios_sanciones):
     admin, estudiante = usuarios_sanciones
     ahora = timezone.make_aware(datetime(2026, 10, 27, 9))

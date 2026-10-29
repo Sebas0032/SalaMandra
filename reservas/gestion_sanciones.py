@@ -14,15 +14,14 @@ from .models import ReinicioSanciones, Sancion, TipoSancion, Usuario
 ROLES_SOLICITANTE = ("Solicitante",)
 
 OPCIONES_DURACION = (
-    ("24_horas", "24 horas", 24),
-    ("48_horas", "48 horas", 48),
-    ("1_semana", "1 semana", 168),
-    ("semestre", "Semestre completo", 9999),
+    ("24_horas", "24 horas", TipoSancion.ID_24_HORAS),
+    ("48_horas", "48 horas", TipoSancion.ID_48_HORAS),
+    ("1_semana", "1 semana", TipoSancion.ID_1_SEMANA),
+    ("semestre", "Semestre completo", TipoSancion.ID_SEMESTRE),
 )
 
 _TIPOS_POR_CODIGO = {
-    codigo: (etiqueta, horas, TipoSancion.ID_POR_DURACION[horas])
-    for codigo, etiqueta, horas in OPCIONES_DURACION
+    codigo: tipo_id for codigo, _, tipo_id in OPCIONES_DURACION
 }
 
 
@@ -35,6 +34,23 @@ def inicio_semestre(ahora):
     local = timezone.localtime(ahora)
     mes = 1 if local.month < 7 else 7
     return timezone.make_aware(datetime(local.year, mes, 1))
+
+
+def fin_semestre(ahora):
+    """Devuelve el inicio del próximo semestre en la zona horaria local."""
+    local = timezone.localtime(ahora)
+    if local.month < 7:
+        limite = datetime(local.year, 7, 1)
+    else:
+        limite = datetime(local.year + 1, 1, 1)
+    return timezone.make_aware(limite)
+
+
+def calcular_fecha_fin_sancion(ahora, tipo_sancion):
+    """Calcula una duración fija o el límite real del semestre."""
+    if tipo_sancion.pk == TipoSancion.ID_SEMESTRE:
+        return fin_semestre(ahora)
+    return ahora + timedelta(hours=tipo_sancion.duracion)
 
 
 def contar_faltas(usuario, ahora):
@@ -115,7 +131,7 @@ def apply_manual_sanction(
     solicitante = _obtener_solicitante(codigo_solicitante, bloquear=True)
 
     try:
-        _, horas, tipo_id = _TIPOS_POR_CODIGO[codigo_duracion]
+        tipo_id = _TIPOS_POR_CODIGO[codigo_duracion]
     except KeyError as exc:
         raise GestionSancionesError(
             "Selecciona una duración de sanción válida."
@@ -131,7 +147,7 @@ def apply_manual_sanction(
 
     ahora = timezone.localtime()
     try:
-        tipo_sancion = TipoSancion.objects.get(pk=tipo_id, duracion=horas)
+        tipo_sancion = TipoSancion.objects.get(pk=tipo_id)
     except TipoSancion.DoesNotExist as exc:
         raise GestionSancionesError(
             "El catálogo de sanciones está incompleto. Ejecuta las migraciones."
@@ -143,7 +159,7 @@ def apply_manual_sanction(
         tipo_sancion=tipo_sancion,
         motivo=motivo,
         fecha_inicio=ahora,
-        fecha_fin=ahora + timedelta(hours=horas),
+        fecha_fin=calcular_fecha_fin_sancion(ahora, tipo_sancion),
     )
 
 
