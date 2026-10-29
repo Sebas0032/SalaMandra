@@ -181,7 +181,8 @@ db.sqlite3                     Se crea al ejecutar migrate (no se sube a git)
 
 - Hay pruebas automatizadas de reservas, mantenimiento, sanciones y auditoría.
 - Las cancelaciones tardías generan sanciones escalares y el Administrador
-  puede aplicar sanciones manuales o reiniciar el historial semestral.
+  puede aplicar sanciones manuales, retirarlas o reiniciar los contadores.
+  El historial de sanciones se conserva siempre en estas operaciones.
 - Solo hay un Administrador (creado por `seed_data`); no hay pantalla para
   crear más usuarios o roles.
 - No se notifica a los estudiantes cuando su reserva pasa a
@@ -189,3 +190,32 @@ db.sqlite3                     Se crea al ejecutar migrate (no se sube a git)
 - El Administrador puede sacar un horario de mantenimiento desde la interfaz;
   el registro del bloqueo se conserva como historial y las reservas que ya
   pasaron a `POR_MANTENIMIENTO` no se restauran automáticamente.
+
+### Reinicio de sanciones y semestres
+
+El 1 de enero y el 1 de julio a las 00:00 (America/La_Paz), los contadores
+comienzan en cero y las sanciones del semestre anterior dejan de bloquear.
+Se calcula por fecha en cada consulta; no requiere un proceso programado ni
+tener el servidor encendido a medianoche. Los registros anteriores, su origen,
+responsable y fechas originales permanecen en la base de datos.
+
+El botón **Reiniciar sanciones y contadores** registra un corte manual en
+`reinicios_sanciones` (fecha y administrador). Retira las sanciones vigentes
+guardando `fecha_retiro` y `retirada_por`; no cambia `fecha_fin` ni borra filas.
+Las faltas anteriores al corte dejan de contar para la escala automática.
+**Retirar sanción** hace lo mismo para una sanción individual, pero no reinicia
+el contador de faltas. El retiro automático por cambio de semestre no rellena
+esos dos campos, reservados para retiros manuales.
+
+Las nuevas sanciones manuales ofrecen las cuatro duraciones: 24 horas,
+48 horas, una semana y semestre completo. Las sanciones históricas se conservan.
+Una sanción deja de bloquear al terminar su plazo, al retirarse manualmente
+o al comenzar el siguiente semestre, lo que suceda primero.
+
+`tipo_sancion` es un catálogo fijo y no crece al aplicar sanciones: ID 74
+(24 horas), 75 (48 horas), 76 (168 horas) y 77 (semestre completo, 9999
+horas). Tanto las sanciones automáticas como las manuales referencian uno de
+esos cuatro registros. La base de datos rechaza cualquier ID o duración fuera
+de esa correspondencia.
+
+Para actualizar una instalación existente: `python manage.py migrate`.

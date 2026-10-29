@@ -55,6 +55,9 @@
                         <td><span class="estado-cuenta {% if not fila.usuario.estado_usuario %}inactiva{% endif %}">{% if fila.usuario.estado_usuario %}Activa{% else %}Inactiva{% endif %}</span></td>
                         <td class="acciones-solicitante">
                             <a href="?codigo={{ fila.usuario.pk }}#form-sancion">Sancionar</a>
+                            {% if fila.sancion %}<form method="post" action="{% url 'withdraw_sanction' fila.sancion.pk %}">
+                                {% csrf_token %}<button type="submit">Retirar sanción</button>
+                            </form>{% endif %}
                             <form method="post" action="{% url 'change_student_status' fila.usuario.pk %}" {% if fila.usuario.estado_usuario %}onsubmit="return confirm('¿Desactivar esta cuenta? El estudiante dejará de iniciar sesión y reservar.')"{% endif %}>
                                 {% csrf_token %}
                                 <input type="hidden" name="nuevo_estado" value="{% if fila.usuario.estado_usuario %}0{% else %}1{% endif %}">
@@ -65,10 +68,10 @@
                     {% empty %}<tr><td colspan="5">No se encontraron solicitantes.</td></tr>{% endfor %}
                     </tbody>
                 </table></div>
-                <form class="reinicio-semestre" method="post" action="{% url 'clear_sanctions' %}" onsubmit="return confirm('¿Eliminar todas las sanciones? Esta acción reinicia el historial de todos los estudiantes para el nuevo semestre.')">
+                <form class="reinicio-semestre" method="post" action="{% url 'clear_sanctions' %}" onsubmit="return confirm('¿Reiniciar los contadores y retirar las sanciones vigentes de todos? El historial se conservará.')">
                     {% csrf_token %}
-                    <p><strong>Inicio de semestre:</strong> esta acción elimina todas las sanciones y reinicia la escala de faltas.</p>
-                    <button type="submit">Eliminar todas las sanciones</button>
+                    <p><strong>Reinicio general:</strong> retira las sanciones vigentes y pone los contadores en cero sin borrar el historial. Los contadores también se reinician automáticamente el 1 de enero y el 1 de julio.</p>
+                    <button type="submit">Reiniciar sanciones y contadores</button>
                 </form>
             </section>
 

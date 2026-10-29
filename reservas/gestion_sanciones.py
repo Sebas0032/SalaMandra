@@ -1,6 +1,6 @@
 """Reglas administrativas para sanciones y estado de los solicitantes."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.db import transaction
 from django.db.models import Prefetch, Q
@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from cuentas.services import ROL_ADMINISTRADOR
 
-from .models import Sancion, TipoSancion, Usuario
+from .models import ReinicioSanciones, Sancion, TipoSancion, Usuario
 
 
 ROLES_SOLICITANTE = ("Solicitante",)
@@ -17,12 +17,11 @@ OPCIONES_DURACION = (
     ("24_horas", "24 horas", 24),
     ("48_horas", "48 horas", 48),
     ("1_semana", "1 semana", 168),
-    ("1_mes", "1 mes", 720),
     ("semestre", "Semestre completo", 9999),
 )
 
-_DURACIONES_POR_CODIGO = {
-    codigo: (etiqueta, horas)
+_TIPOS_POR_CODIGO = {
+    codigo: (etiqueta, horas, TipoSancion.ID_POR_DURACION[horas])
     for codigo, etiqueta, horas in OPCIONES_DURACION
 }
 
@@ -31,13 +30,43 @@ class GestionSancionesError(Exception):
     """Rechazo esperado de una operación administrativa de sanciones."""
 
 
+def inicio_semestre(ahora):
+    """Corte automático a medianoche local del 1 de enero o del 1 de julio."""
+    local = timezone.localtime(ahora)
+    mes = 1 if local.month < 7 else 7
+    return timezone.make_aware(datetime(local.year, mes, 1))
+
+
+def contar_faltas(usuario, ahora):
+    """Cuenta faltas automáticas desde el semestre o el último reinicio manual."""
+    corte = inicio_semestre(ahora)
+    reinicio = ReinicioSanciones.objects.filter(
+        fecha__gte=corte, fecha__lte=ahora
+    ).order_by("-fecha", "-pk").first()
+    faltas = Sancion.objects.filter(
+        usuario=usuario, origen=Sancion.Origen.AUTOMATICA,
+        fecha_inicio__gte=corte, fecha_inicio__lte=ahora,
+    )
+    if reinicio:
+        faltas = faltas.filter(fecha_inicio__gt=reinicio.fecha)
+    return faltas.count()
+
+
+def sanciones_vigentes(ahora):
+    """Las sanciones de semestres anteriores ya no bloquean, sin borrarlas."""
+    return Sancion.objects.filter(
+        fecha_retiro__isnull=True,
+        fecha_inicio__gte=inicio_semestre(ahora),
+        fecha_inicio__lte=ahora, fecha_fin__gt=ahora,
+    )
+
+
 def get_solicitantes(termino="", filtro="todos", ahora=None):
     """Devuelve solicitantes con su sanción vigente y estado de cuenta."""
     ahora = ahora or timezone.localtime()
-    sanciones_activas = Sancion.objects.filter(
-        fecha_inicio__lte=ahora,
-        fecha_fin__gt=ahora,
-    ).select_related("tipo_sancion").order_by("-fecha_fin")
+    sanciones_activas = sanciones_vigentes(ahora).select_related(
+        "tipo_sancion"
+    ).order_by("-fecha_fin")
 
     usuarios = Usuario.objects.filter(
         rol__nombre_rol__in=ROLES_SOLICITANTE
@@ -86,7 +115,7 @@ def apply_manual_sanction(
     solicitante = _obtener_solicitante(codigo_solicitante, bloquear=True)
 
     try:
-        etiqueta, horas = _DURACIONES_POR_CODIGO[codigo_duracion]
+        _, horas, tipo_id = _TIPOS_POR_CODIGO[codigo_duracion]
     except KeyError as exc:
         raise GestionSancionesError(
             "Selecciona una duración de sanción válida."
@@ -101,10 +130,12 @@ def apply_manual_sanction(
         )
 
     ahora = timezone.localtime()
-    tipo_sancion, _ = TipoSancion.objects.get_or_create(
-        nombre_sancion=f"Sanción manual ({etiqueta})",
-        duracion=horas,
-    )
+    try:
+        tipo_sancion = TipoSancion.objects.get(pk=tipo_id, duracion=horas)
+    except TipoSancion.DoesNotExist as exc:
+        raise GestionSancionesError(
+            "El catálogo de sanciones está incompleto. Ejecuta las migraciones."
+        ) from exc
     return Sancion.objects.create(
         usuario=solicitante,
         origen=Sancion.Origen.MANUAL,
@@ -118,10 +149,26 @@ def apply_manual_sanction(
 
 @transaction.atomic
 def clear_all_sanctions(codigo_admin):
-    """Elimina el historial completo al iniciar un nuevo semestre."""
-    _obtener_administrador(codigo_admin)
-    cantidad, _ = Sancion.objects.all().delete()
+    """Reinicia contadores y retira sanciones vigentes conservando el historial."""
+    administrador = _obtener_administrador(codigo_admin)
+    ahora = timezone.localtime()
+    ReinicioSanciones.objects.create(fecha=ahora, administrador=administrador)
+    cantidad = sanciones_vigentes(ahora).update(
+        fecha_retiro=ahora, retirada_por=administrador
+    )
     return cantidad
+
+
+@transaction.atomic
+def withdraw_sanction(codigo_admin, id_sancion):
+    """Retira una sanción vigente; conserva sus fechas originales y su falta."""
+    administrador = _obtener_administrador(codigo_admin)
+    ahora = timezone.localtime()
+    actualizadas = sanciones_vigentes(ahora).filter(pk=id_sancion).update(
+        fecha_retiro=ahora, retirada_por=administrador
+    )
+    if not actualizadas:
+        raise GestionSancionesError("La sanción no existe o ya no está vigente.")
 
 
 @transaction.atomic

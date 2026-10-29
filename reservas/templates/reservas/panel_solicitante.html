@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Reservar una sala — SalaMandra</title>
-    <link rel="stylesheet" href="{% static 'reservas/css/panel_solicitante.css' %}">
+    <link rel="stylesheet" href="{% static 'reservas/css/panel_solicitante.css' %}?v=2">
     {% if dia_habilitado %}<script src="{% static 'reservas/js/panel_solicitante.js' %}" defer></script>{% endif %}
 </head>
 <body>
@@ -19,6 +19,29 @@
 </header>
 <main>
     {% if messages %}<div class="avisos" aria-live="polite">{% for message in messages %}<p class="aviso {{ message.tags }}">{{ message }}</p>{% endfor %}</div>{% endif %}
+    {% if notificaciones %}
+    <aside class="notificaciones-popup" aria-label="Notificaciones" aria-live="polite">
+        {% for notificacion in notificaciones %}
+        <article class="notificacion-popup">
+            <span class="icono-notificacion" aria-hidden="true">!</span>
+            <div class="contenido-notificacion">
+                <div class="titulo-notificacion">
+                    <strong>{% if notificacion.tipo == "MANTENIMIENTO" %}Cambio por mantenimiento{% else %}Reserva cancelada{% endif %}</strong>
+                    <small>{{ notificacion.fecha|date:"d/m/Y H:i" }}</small>
+                </div>
+                <p>{{ notificacion.mensaje }}</p>
+                <form method="post" action="{% url 'mark_notification_read' notificacion.pk %}">
+                    {% csrf_token %}
+                    <button type="submit">Entendido</button>
+                </form>
+            </div>
+        </article>
+        {% endfor %}
+        {% if notificaciones_no_leidas > 5 %}
+        <p class="avisos-restantes">Tienes {{ notificaciones_no_leidas|add:"-5" }} notificaciones más.</p>
+        {% endif %}
+    </aside>
+    {% endif %}
     {% if not dia_habilitado %}
     <section class="calendario">
         <h1>{{ hoy|date:"l · j \d\e F"|capfirst }}</h1>

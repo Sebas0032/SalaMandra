@@ -101,6 +101,18 @@ def cancel_reservation_view(request, id_reserva):
 
 
 @handle_db_errors
+@login_required
+@require_POST
+def mark_notification_read_view(request, id_notificacion):
+    """Permite que el estudiante reconozca un aviso sin borrarlo."""
+    try:
+        services.mark_notification_as_read(request.usuario.pk, id_notificacion)
+    except services.ReservationError as exc:
+        messages.error(request, str(exc))
+    return redirect("student_panel")
+
+
+@handle_db_errors
 @admin_login_required
 def admin_cancellations_view(request):
     """Muestra las reservas activas que el administrador todavía puede cancelar."""
@@ -607,8 +619,22 @@ def clear_sanctions_view(request):
     else:
         messages.success(
             request,
-            f"Reinicio semestral completado: {cantidad} sanción(es) eliminada(s).",
+            f"Contadores reiniciados y {cantidad} sanción(es) retirada(s). "
+            "Se conservó todo el historial.",
         )
+    return redirect("sanctions_admin")
+
+
+@handle_db_errors
+@admin_login_required
+@require_POST
+def withdraw_sanction_view(request, id_sancion):
+    try:
+        gestion_sanciones.withdraw_sanction(request.usuario.pk, id_sancion)
+    except gestion_sanciones.GestionSancionesError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, "Sanción retirada. Se conservó su historial.")
     return redirect("sanctions_admin")
 
 

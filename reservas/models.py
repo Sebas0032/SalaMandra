@@ -66,12 +66,36 @@ class Usuario(models.Model):
 
 
 class TipoSancion(models.Model):
+    ID_24_HORAS = 74
+    ID_48_HORAS = 75
+    ID_1_SEMANA = 76
+    ID_SEMESTRE = 77
+
+    CATALOGO = (
+        (ID_24_HORAS, "Cancelación tardía (1ra vez)", 24),
+        (ID_48_HORAS, "Cancelación tardía (2da vez)", 48),
+        (ID_1_SEMANA, "Cancelación tardía (3ra vez)", 168),
+        (ID_SEMESTRE, "Cancelación tardía (4ta vez, todo el semestre)", 9999),
+    )
+    ID_POR_DURACION = {duracion: tipo_id for tipo_id, _, duracion in CATALOGO}
+
     id_tipo_sancion = models.AutoField(primary_key=True)
     nombre_sancion = models.CharField(max_length=200)
     duracion = models.IntegerField()  # en horas
 
     class Meta:
         db_table = "tipo_sancion"
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(id_tipo_sancion=74, duracion=24)
+                    | models.Q(id_tipo_sancion=75, duracion=48)
+                    | models.Q(id_tipo_sancion=76, duracion=168)
+                    | models.Q(id_tipo_sancion=77, duracion=9999)
+                ),
+                name="tipo_sancion_catalogo_fijo",
+            ),
+        ]
 
     def __str__(self):
         return self.nombre_sancion
@@ -97,6 +121,11 @@ class Sancion(models.Model):
     motivo = models.CharField(max_length=255)
     fecha_inicio = models.DateTimeField()
     fecha_fin = models.DateTimeField()
+    fecha_retiro = models.DateTimeField(null=True, blank=True)
+    retirada_por = models.ForeignKey(
+        Usuario, on_delete=models.PROTECT, db_column="retirada_por",
+        related_name="sanciones_retiradas", null=True, blank=True,
+    )
 
     class Meta:
         db_table = "sanciones"
@@ -115,6 +144,18 @@ class Sancion(models.Model):
         if self.origen == self.Origen.MANUAL and self.aplicada_por_id:
             if self.aplicada_por.rol.nombre_rol != Rol.Nombre.ADMINISTRADOR:
                 raise ValidationError({"aplicada_por": "Debe ser un administrador."})
+
+
+class ReinicioSanciones(models.Model):
+    """Conserva la fecha de corte y el responsable de cada reinicio manual."""
+
+    fecha = models.DateTimeField(default=timezone.now)
+    administrador = models.ForeignKey(
+        Usuario, on_delete=models.PROTECT, related_name="reinicios_sanciones"
+    )
+
+    class Meta:
+        db_table = "reinicios_sanciones"
 
 
 class Horario(models.Model):
@@ -189,6 +230,57 @@ class Reserva(models.Model):
                 fields=["sala_horario", "fecha"],
                 condition=models.Q(estado_reserva__in=["CONFIRMADA", "EN_USO"]),
                 name="uq_reserva_activa_horario_fecha",
+            ),
+        ]
+
+
+class Notificacion(models.Model):
+    """Aviso persistente que un estudiante puede consultar en su panel."""
+
+    class Tipo(models.TextChoices):
+        MANTENIMIENTO = "MANTENIMIENTO", "Reserva afectada por mantenimiento"
+        CANCELACION_GESTION = (
+            "CANCELACION_GESTION",
+            "Reserva cancelada por administración u operación",
+        )
+
+    id_notificacion = models.AutoField(primary_key=True)
+    usuario = models.ForeignKey(
+        Usuario,
+        on_delete=models.PROTECT,
+        db_column="codigo_usuario",
+        related_name="notificaciones",
+    )
+    reserva = models.ForeignKey(
+        Reserva,
+        on_delete=models.PROTECT,
+        db_column="id_reserva",
+        related_name="notificaciones",
+    )
+    actor = models.ForeignKey(
+        Usuario,
+        on_delete=models.PROTECT,
+        db_column="codigo_actor",
+        related_name="notificaciones_generadas",
+    )
+    tipo = models.CharField(max_length=50, choices=Tipo.choices)
+    mensaje = models.TextField()
+    fecha = models.DateTimeField(default=timezone.now)
+    leida = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "notificaciones"
+        ordering = ["-fecha", "-id_notificacion"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reserva", "tipo"],
+                name="uq_notificacion_reserva_tipo",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    tipo__in=["MANTENIMIENTO", "CANCELACION_GESTION"]
+                ),
+                name="notificacion_tipo_permitido",
             ),
         ]
 

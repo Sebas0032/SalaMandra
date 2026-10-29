@@ -113,14 +113,10 @@ class Command(BaseCommand):
         )
 
         # --- tipo_sancion (catálogo de RES-RF-02) ----------------------------
-        for nombre, horas in (
-            ("Cancelación tardía (1ra vez)", 24),
-            ("Cancelación tardía (2da vez)", 48),
-            ("Cancelación tardía (3ra vez)", 168),
-            ("Cancelación tardía (4ta vez, todo el semestre)", 9999),
-        ):
-            TipoSancion.objects.get_or_create(
-                nombre_sancion=nombre, defaults={"duracion": horas}
+        for tipo_id, nombre, horas in TipoSancion.CATALOGO:
+            TipoSancion.objects.update_or_create(
+                pk=tipo_id,
+                defaults={"nombre_sancion": nombre, "duracion": horas},
             )
 
         # --- salas ---------------------------------------------------------

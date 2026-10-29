@@ -79,7 +79,7 @@ def test_restriccion_bd_por_fecha_y_estado(escenario):
 
 def test_sancion_permite_consultar_pero_no_reservar(client, escenario):
     usuario, bloques, ahora = escenario
-    tipo = TipoSancion.objects.create(nombre_sancion="Falta", duracion=24)
+    tipo = TipoSancion.objects.get(pk=TipoSancion.ID_24_HORAS)
     Sancion.objects.create(origen=Sancion.Origen.AUTOMATICA, usuario=usuario, tipo_sancion=tipo, motivo="Cancelación", fecha_inicio=ahora-timedelta(hours=1), fecha_fin=ahora+timedelta(hours=23))
     assert client.get(reverse("student_panel")).status_code == 200
     with pytest.raises(services.ReservationError, match="Sanción activa"):

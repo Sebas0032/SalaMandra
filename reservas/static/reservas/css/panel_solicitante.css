@@ -56,6 +56,19 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 .aviso { background: white; border-left: 5px solid var(--azul); border-radius: 8px; padding: 13px 16px; margin: 0 0 16px; }
 .aviso.error { border-color: #b3261e; }
 .aviso.success { border-color: #214486; }
+.notificaciones-popup { position: fixed; top: 128px; right: 24px; z-index: 1000; display: grid; gap: 12px; width: min(430px, calc(100vw - 32px)); }
+.notificacion-popup { display: flex; gap: 13px; padding: 16px; border: 1px solid #d8dee3; border-left: 6px solid var(--amarillo); border-radius: 14px; background: white; box-shadow: 0 12px 35px rgba(16, 46, 92, .22); animation: aparecer-notificacion .25s ease-out; }
+.icono-notificacion { flex: 0 0 34px; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--amarillo); color: var(--marino); font-size: 22px; font-weight: 800; }
+.contenido-notificacion { min-width: 0; flex: 1; }
+.titulo-notificacion { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+.titulo-notificacion strong { font-size: 16px; }
+.titulo-notificacion small { color: #6f7984; white-space: nowrap; }
+.contenido-notificacion p { margin: 7px 0 12px; color: #34475c; line-height: 1.45; }
+.contenido-notificacion form { display: flex; justify-content: flex-end; }
+.contenido-notificacion button { border: 0; border-radius: 8px; padding: 8px 14px; background: var(--azul); color: white; font: inherit; font-weight: 700; cursor: pointer; }
+.contenido-notificacion button:hover { background: var(--marino); }
+.avisos-restantes { margin: 0; padding: 9px 12px; border-radius: 9px; background: var(--marino); color: white; text-align: center; font-size: 13px; }
+@keyframes aparecer-notificacion { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 .vacio { color: #6f7984; font-size: 14px; line-height: 1.5; }
 [hidden] { display: none !important; }
-@media (max-width: 800px) { .distribucion { grid-template-columns: 1fr; } .cabecera { flex-wrap: wrap; min-height: 90px; } .emblema { width: 54px; height: 54px; font-size: 38px; } .columnas { max-height: 55vh; } }
+@media (max-width: 800px) { .distribucion { grid-template-columns: 1fr; } .cabecera { flex-wrap: wrap; min-height: 90px; } .emblema { width: 54px; height: 54px; font-size: 38px; } .columnas { max-height: 55vh; } .notificaciones-popup { top: 100px; right: 16px; } .titulo-notificacion { flex-direction: column; gap: 2px; } }
