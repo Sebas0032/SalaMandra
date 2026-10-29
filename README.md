@@ -235,9 +235,10 @@ Una sanción deja de bloquear al terminar su plazo, al retirarse manualmente
 o al comenzar el siguiente semestre, lo que suceda primero.
 
 `tipo_sancion` es un catálogo fijo y no crece al aplicar sanciones: ID 74
-(24 horas), 75 (48 horas), 76 (168 horas) y 77 (semestre completo, 9999
-horas). Tanto las sanciones automáticas como las manuales referencian uno de
-esos cuatro registros. La base de datos rechaza cualquier ID o duración fuera
-de esa correspondencia.
+(24 horas), 75 (48 horas), 76 (168 horas) y 77 (semestre completo, duración
+en horas `NULL`). Para semestre completo, `fecha_fin` se calcula como el
+próximo 1 de enero o 1 de julio. Tanto las sanciones automáticas como las
+manuales referencian uno de esos cuatro registros. La base de datos rechaza
+cualquier ID o duración fuera de esa correspondencia.
 
 Para actualizar una instalación existente: `python manage.py migrate`.

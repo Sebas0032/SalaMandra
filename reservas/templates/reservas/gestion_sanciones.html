@@ -83,7 +83,7 @@
                     <fieldset>
                         <legend>Tiempo de sanción</legend>
                         <div class="duraciones">
-                            {% for codigo, etiqueta, horas in opciones_duracion %}
+                            {% for codigo, etiqueta, tipo_id in opciones_duracion %}
                             <label><input type="radio" name="duracion" value="{{ codigo }}" required><span>{{ etiqueta }}</span></label>
                             {% endfor %}
                         </div>

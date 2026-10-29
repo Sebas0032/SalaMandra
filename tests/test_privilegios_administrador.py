@@ -79,6 +79,34 @@ def test_admin_modifica_reserva_iniciada_a_otro_bloque_y_operante_no(escenario):
     assert Auditoria.objects.get(reserva=reserva, accion="MODIFICAR").actor == admin
 
 
+def test_admin_mueve_reserva_ajena_a_bloque_consecutivo_y_queda_como_actor(escenario):
+    _, admin, estudiante, _, a, b, ahora = escenario
+    reserva_a = Reserva.objects.create(
+        usuario=estudiante,
+        sala_horario=a[0],
+        fecha=ahora.date(),
+        tipo_actividad="Tarea",
+    )
+    reserva_c = Reserva.objects.create(
+        usuario=estudiante,
+        sala_horario=a[2],
+        fecha=ahora.date(),
+        tipo_actividad="Proyecto",
+    )
+
+    with patch("reservas.services.timezone.localtime", return_value=ahora):
+        services.modify_reservation(admin.pk, reserva_c.pk, b[1].pk)
+
+    reserva_c.refresh_from_db()
+    assert reserva_a.sala_horario == a[0]
+    assert reserva_c.sala_horario == b[1]
+    assert reserva_c.usuario == estudiante
+    assert Auditoria.objects.get(
+        reserva=reserva_c,
+        accion=Auditoria.Accion.MODIFICAR,
+    ).actor == admin
+
+
 def test_admin_cancela_reserva_iniciada_sin_sancion_y_notifica(escenario):
     _, admin, estudiante, operante, a, _, ahora = escenario
     reserva = Reserva.objects.create(

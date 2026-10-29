@@ -75,13 +75,12 @@ class TipoSancion(models.Model):
         (ID_24_HORAS, "Cancelación tardía (1ra vez)", 24),
         (ID_48_HORAS, "Cancelación tardía (2da vez)", 48),
         (ID_1_SEMANA, "Cancelación tardía (3ra vez)", 168),
-        (ID_SEMESTRE, "Cancelación tardía (4ta vez, todo el semestre)", 9999),
+        (ID_SEMESTRE, "Cancelación tardía (4ta vez, todo el semestre)", None),
     )
-    ID_POR_DURACION = {duracion: tipo_id for tipo_id, _, duracion in CATALOGO}
 
     id_tipo_sancion = models.AutoField(primary_key=True)
     nombre_sancion = models.CharField(max_length=200)
-    duracion = models.IntegerField()  # en horas
+    duracion = models.IntegerField(null=True, blank=True)  # en horas; NULL = semestre
 
     class Meta:
         db_table = "tipo_sancion"
@@ -91,7 +90,7 @@ class TipoSancion(models.Model):
                     models.Q(id_tipo_sancion=74, duracion=24)
                     | models.Q(id_tipo_sancion=75, duracion=48)
                     | models.Q(id_tipo_sancion=76, duracion=168)
-                    | models.Q(id_tipo_sancion=77, duracion=9999)
+                    | models.Q(id_tipo_sancion=77, duracion__isnull=True)
                 ),
                 name="tipo_sancion_catalogo_fijo",
             ),

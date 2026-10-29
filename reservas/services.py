@@ -27,7 +27,11 @@ from django.db.models import F
 from django.utils import timezone
 
 from cuentas.services import ROL_ADMINISTRADOR, ROL_OPERANTE
-from .gestion_sanciones import contar_faltas, sanciones_vigentes
+from .gestion_sanciones import (
+    calcular_fecha_fin_sancion,
+    contar_faltas,
+    sanciones_vigentes,
+)
 
 from .models import (
     Auditoria,
@@ -50,10 +54,10 @@ ANTICIPACION_CANCELACION_SIN_SANCION = timedelta(hours=1)
 RESTRINGIR_BLOQUEO_TRAS_INICIO = True
 RESTRINGIR_DESBLOQUEO_TRAS_INICIO = True
 ESCALA_SANCIONES_CANCELACION = (
-    ("Cancelación tardía (1ra vez)", 24),
-    ("Cancelación tardía (2da vez)", 48),
-    ("Cancelación tardía (3ra vez)", 168),
-    ("Cancelación tardía (4ta vez, todo el semestre)", 9999),
+    ("Cancelación tardía (1ra vez)", TipoSancion.ID_24_HORAS),
+    ("Cancelación tardía (2da vez)", TipoSancion.ID_48_HORAS),
+    ("Cancelación tardía (3ra vez)", TipoSancion.ID_1_SEMANA),
+    ("Cancelación tardía (4ta vez, todo el semestre)", TipoSancion.ID_SEMESTRE),
 )
 
 
@@ -129,7 +133,7 @@ def modify_reservation(codigo_actor, id_reserva, id_sala_horario):
         reserva.fecha,
         ahora,
         reserva_excluida_id=reserva.pk,
-        permitir_consecutivos=_es_administrador(actor) and actor.pk == solicitante.pk,
+        permitir_consecutivos=_es_administrador(actor),
     )
 
     # El cambio se guarda únicamente después de superar todas las validaciones.
@@ -323,13 +327,11 @@ def _obtener_reserva_para_cancelar(actor, id_reserva):
 def _registrar_sancion_por_cancelacion(codigo_usuario, ahora):
     usuario = Usuario.objects.select_for_update().get(pk=codigo_usuario)
     faltas_previas = contar_faltas(usuario, ahora)
-    nombre, horas = ESCALA_SANCIONES_CANCELACION[
+    nombre, tipo_id = ESCALA_SANCIONES_CANCELACION[
         min(faltas_previas, len(ESCALA_SANCIONES_CANCELACION) - 1)
     ]
     try:
-        tipo_sancion = TipoSancion.objects.get(
-            pk=TipoSancion.ID_POR_DURACION[horas], duracion=horas
-        )
+        tipo_sancion = TipoSancion.objects.get(pk=tipo_id)
     except TipoSancion.DoesNotExist as exc:
         raise ReservationError(
             "El catálogo de sanciones está incompleto. Contacta al administrador."
@@ -341,7 +343,7 @@ def _registrar_sancion_por_cancelacion(codigo_usuario, ahora):
         tipo_sancion=tipo_sancion,
         motivo=nombre,
         fecha_inicio=ahora,
-        fecha_fin=ahora + timedelta(hours=tipo_sancion.duracion),
+        fecha_fin=calcular_fecha_fin_sancion(ahora, tipo_sancion),
     )
 
 
