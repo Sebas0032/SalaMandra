@@ -29,6 +29,16 @@ urlpatterns = [
     ),
     path("gestion/salas/", views.gestion_salas_view, name="gestion_salas"),
     path(
+        "administracion/cancelaciones/",
+        views.admin_cancellations_view,
+        name="admin_cancellations",
+    ),
+    path(
+        "administracion/cancelaciones/<int:id_reserva>/cancelar/",
+        views.admin_cancel_reservation_view,
+        name="admin_cancel_reservation",
+    ),
+    path(
         "administracion/sanciones/",
         views.sanctions_admin_view,
         name="sanctions_admin",

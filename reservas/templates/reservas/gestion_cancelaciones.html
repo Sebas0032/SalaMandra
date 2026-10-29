@@ -1,0 +1,53 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gestionar cancelaciones — SalaMandra</title>
+    <link rel="stylesheet" href="{% static 'reservas/css/panel_solicitante.css' %}">
+    <link rel="stylesheet" href="{% static 'reservas/css/mantenimiento.css' %}">
+</head>
+<body>
+<header class="cabecera">
+    <a class="marca" href="{% url 'dashboard' %}"><span class="emblema" aria-hidden="true">S</span><span>Sala<strong>Mandra</strong></span></a>
+    <span class="administracion">| Administración</span>
+    <nav aria-label="Cuenta"><span>{{ nombre_completo }}</span><a href="{% url 'logout' %}">Salir ↗</a></nav>
+</header>
+<div class="estructura-admin">
+    <aside class="menu-admin"><nav aria-label="Administración">
+        <a href="{% url 'student_panel' %}">Salas y horarios</a>
+        <a href="{% url 'block_room' %}">Mantenimiento</a>
+        <a href="{% url 'admin_cancellations' %}" aria-current="page">Gestionar cancelaciones</a>
+        <a href="{% url 'sanctions_admin' %}">Sanciones</a>
+        <a href="{% url 'gestion_salas' %}">Gestión de salas y horarios</a>
+    </nav></aside>
+    <main class="contenido-admin">
+        <h1>Gestionar cancelaciones</h1>
+        <p class="descripcion">Cancela reservas activas antes de su inicio. Las cancelaciones administrativas no generan sanciones.</p>
+        {% if messages %}<div aria-live="polite">{% for message in messages %}<p class="aviso {{ message.tags }}">{{ message }}</p>{% endfor %}</div>{% endif %}
+        <section class="tarjeta">
+            <h2>Reservas pendientes <small>{{ reservas|length }}</small></h2>
+            <div class="tabla-scroll"><table>
+                <thead><tr><th>Solicitante</th><th>Código</th><th>Fecha</th><th>Sala</th><th>Horario</th><th>Actividad</th><th>Acción</th></tr></thead>
+                <tbody>
+                {% for reserva in reservas %}
+                    <tr>
+                        <th scope="row">{{ reserva.usuario }}</th>
+                        <td>{{ reserva.usuario_id }}</td>
+                        <td>{{ reserva.fecha|date:"d/m/Y" }}</td>
+                        <td>{{ reserva.sala_horario.sala }}</td>
+                        <td>{{ reserva.sala_horario.horario }}</td>
+                        <td>{{ reserva.tipo_actividad }}</td>
+                        <td><form method="post" action="{% url 'admin_cancel_reservation' reserva.pk %}" onsubmit="return confirm('¿Cancelar esta reserva sin sancionar al solicitante?')">{% csrf_token %}<button class="boton-habilitar" type="submit">Cancelar</button></form></td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="7">No hay reservas activas pendientes de inicio.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table></div>
+        </section>
+    </main>
+</div>
+</body>
+</html>
