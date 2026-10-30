@@ -6,7 +6,7 @@ from cuentas import views
 from reservas.models import Rol, Usuario
 
 
-pytestmark = pytest.mark.django_db
+pytestmark = [pytest.mark.django_db, pytest.mark.e2e]
 
 
 def test_login_y_logout_del_administrador(client):

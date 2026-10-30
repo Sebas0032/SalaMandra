@@ -27,6 +27,7 @@ def escenario(client):
         yield usuario, bloques, ahora
 
 
+@pytest.mark.e2e
 def test_panel_y_reserva_usan_la_identidad_de_la_sesion(client, escenario):
     usuario, bloques, ahora = escenario
     response = client.get(reverse("student_panel"))
@@ -123,22 +124,30 @@ def test_anonimo_no_puede_reservar(client):
     assert client.post(reverse("student_panel"), {}).url == reverse("login")
 
 
-@pytest.mark.parametrize("dias,feriado", [(5, False), (6, False), (0, True)])
-def test_dia_no_habilitado_oculta_salas_y_formulario(client, escenario, settings, dias, feriado):
+def test_dia_no_habilitado_oculta_salas_y_formulario(
+    client, escenario, settings
+):
     _, bloques, ahora = escenario
-    fecha = ahora + timedelta(days=dias)
-    settings.RESERVAS_FERIADOS = [fecha.date().isoformat()] if feriado else []
-    with patch("reservas.services.timezone.localtime", return_value=fecha):
-        response = client.get(reverse("student_panel"))
-        assert response.status_code == 200
-        assert "Hoy no se muestran salas" in response.content.decode()
-        assert b"Sala A" not in response.content
-        assert b"<form" not in response.content
-        assert b"Confirmar reserva" not in response.content
-        client.post(reverse("student_panel"), {
-            "id_sala_horario": bloques[0].pk, "actividad": "Tarea",
-        })
-        assert not Reserva.objects.exists()
+    for dias, feriado in ((5, False), (6, False), (0, True)):
+        fecha = ahora + timedelta(days=dias)
+        settings.RESERVAS_FERIADOS = (
+            [fecha.date().isoformat()] if feriado else []
+        )
+        with patch("reservas.services.timezone.localtime", return_value=fecha):
+            response = client.get(reverse("student_panel"))
+            assert response.status_code == 200
+            assert "Hoy no se muestran salas" in response.content.decode()
+            assert b"Sala A" not in response.content
+            assert b"<form" not in response.content
+            assert b"Confirmar reserva" not in response.content
+            client.post(
+                reverse("student_panel"),
+                {
+                    "id_sala_horario": bloques[0].pk,
+                    "actividad": "Tarea",
+                },
+            )
+            assert not Reserva.objects.exists()
 
 
 def test_modificar_reserva_cambia_sala_y_conserva_la_misma_fila(client, escenario):

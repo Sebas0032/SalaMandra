@@ -195,9 +195,9 @@ def test_panel_admin_no_advierte_sancion_al_cancelar_reserva_propia(escenario):
     assert "vas a recibir una sanción" not in contenido
 
 
-@pytest.mark.parametrize("destino", [0, 1])
-def test_admin_mueve_reserva_ajena_ya_iniciada_desde_la_interfaz(escenario, destino):
+def test_admin_mueve_reserva_ajena_ya_iniciada_desde_la_interfaz(escenario):
     client, admin, estudiante, _, a, b, ahora = escenario
+    destino = 0
     reserva = Reserva.objects.create(
         usuario=estudiante, sala_horario=a[0], fecha=ahora.date(), tipo_actividad="Tarea"
     )

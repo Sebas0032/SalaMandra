@@ -64,39 +64,40 @@ def test_login_operante_llega_a_su_panel(client, escenario_operante):
     assert "Crear horario" not in contenido
 
 
-@pytest.mark.parametrize(
-    ("accion", "titulo"),
-    [
+def test_panel_renderiza_cada_apartado(client, escenario_operante):
+    _, solicitante, bloques, _ = escenario_operante
+    apartados = [
         ("reservar", "Reservar para un solicitante"),
         ("modificar", "Modificar una reserva"),
         ("cancelar", "Cancelar una reserva"),
         ("mantenimiento", "Mantenimiento"),
-    ],
-)
-def test_panel_renderiza_cada_apartado(
-    client, escenario_operante, accion, titulo
-):
-    _, solicitante, bloques, _ = escenario_operante
-    parametros = {"accion": accion}
-    if accion != "mantenimiento":
-        parametros["codigo"] = solicitante.pk
-    response = client.get(reverse("operator_panel"), parametros)
-    assert response.status_code == 200
-    assert titulo in response.content.decode()
-
-    if accion in {"modificar", "cancelar"}:
-        reserva = Reserva.objects.create(
-            usuario=solicitante,
-            sala_horario=bloques[0],
-            fecha=timezone.localdate(),
-            tipo_actividad="Tarea",
-        )
-        response = client.get(
-            reverse("operator_panel"),
-            {"accion": accion, "codigo": solicitante.pk, "reserva": reserva.pk},
-        )
+    ]
+    for accion, titulo in apartados:
+        parametros = {"accion": accion}
+        if accion != "mantenimiento":
+            parametros["codigo"] = solicitante.pk
+        response = client.get(reverse("operator_panel"), parametros)
         assert response.status_code == 200
-        assert f'value="{reserva.pk}"' in response.content.decode()
+        assert titulo in response.content.decode()
+
+        if accion in {"modificar", "cancelar"}:
+            reserva = Reserva.objects.create(
+                usuario=solicitante,
+                sala_horario=bloques[0],
+                fecha=timezone.localdate(),
+                tipo_actividad="Tarea",
+            )
+            response = client.get(
+                reverse("operator_panel"),
+                {
+                    "accion": accion,
+                    "codigo": solicitante.pk,
+                    "reserva": reserva.pk,
+                },
+            )
+            assert response.status_code == 200
+            assert f'value="{reserva.pk}"' in response.content.decode()
+            reserva.delete()
 
 
 def test_operante_reserva_para_solicitante_y_audita_actor(client, escenario_operante):
@@ -118,6 +119,7 @@ def test_operante_reserva_para_solicitante_y_audita_actor(client, escenario_oper
     assert auditoria.accion == Auditoria.Accion.CREAR
 
 
+@pytest.mark.e2e
 def test_operante_modifica_y_cancela_reserva_ajena(client, escenario_operante):
     operante, solicitante, bloques, ahora = escenario_operante
     reserva = services.create_reservation(

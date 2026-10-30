@@ -72,32 +72,30 @@ def test_aplica_sancion_manual_con_motivo_y_duracion(usuarios_sanciones):
     assert sancion.fecha_fin == ahora + timedelta(hours=168)
 
 
-@pytest.mark.parametrize(
-    ("aplicacion", "finalizacion"),
-    [
-        (datetime(2026, 5, 15, 9), datetime(2026, 7, 1)),
-        (datetime(2026, 10, 15, 9), datetime(2027, 1, 1)),
-    ],
-)
 def test_sancion_manual_de_semestre_termina_en_el_proximo_corte(
-    usuarios_sanciones, aplicacion, finalizacion
+    usuarios_sanciones,
 ):
     admin, estudiante = usuarios_sanciones
-    ahora = timezone.make_aware(aplicacion)
-    with patch(
-        "reservas.gestion_sanciones.timezone.localtime",
-        return_value=ahora,
-    ):
-        sancion = gestion_sanciones.apply_manual_sanction(
-            admin.pk,
-            estudiante.pk,
-            "semestre",
-            "Sanción por el resto del semestre",
-        )
+    casos = [
+        (datetime(2026, 5, 15, 9), datetime(2026, 7, 1)),
+        (datetime(2026, 10, 15, 9), datetime(2027, 1, 1)),
+    ]
+    for aplicacion, finalizacion in casos:
+        ahora = timezone.make_aware(aplicacion)
+        with patch(
+            "reservas.gestion_sanciones.timezone.localtime",
+            return_value=ahora,
+        ):
+            sancion = gestion_sanciones.apply_manual_sanction(
+                admin.pk,
+                estudiante.pk,
+                "semestre",
+                "Sanción por el resto del semestre",
+            )
 
-    assert sancion.tipo_sancion_id == TipoSancion.ID_SEMESTRE
-    assert sancion.tipo_sancion.duracion is None
-    assert sancion.fecha_fin == timezone.make_aware(finalizacion)
+        assert sancion.tipo_sancion_id == TipoSancion.ID_SEMESTRE
+        assert sancion.tipo_sancion.duracion is None
+        assert sancion.fecha_fin == timezone.make_aware(finalizacion)
 
 
 def test_listado_muestra_solo_la_sancion_vigente(usuarios_sanciones):
@@ -162,6 +160,7 @@ def test_sancion_manual_nueva_reemplaza_la_vigente_sin_borrar_historial(
     ) == [segunda.pk]
 
 
+@pytest.mark.integration
 def test_sancion_automatica_nueva_reemplaza_cualquier_sancion_vigente(
     usuarios_sanciones,
 ):
@@ -290,25 +289,30 @@ def test_solicitante_no_puede_administrar_sanciones(
     assert client.post(reverse("clear_sanctions")).status_code == 403
 
 
-@pytest.mark.parametrize("cambio", [datetime(2027, 1, 1), datetime(2027, 7, 1)])
-def test_semestre_libera_y_reinicia_sin_borrar(usuarios_sanciones, cambio):
+def test_semestre_libera_y_reinicia_sin_borrar(usuarios_sanciones):
     _, estudiante = usuarios_sanciones
-    frontera = timezone.make_aware(cambio)
-    anterior = frontera - timedelta(seconds=1)
-    sancion = services._registrar_sancion_por_cancelacion(estudiante.pk, anterior)
-    assert gestion_sanciones.contar_faltas(estudiante, anterior) == 1
-    assert gestion_sanciones.sanciones_vigentes(anterior).exists()
-    assert gestion_sanciones.contar_faltas(estudiante, frontera) == 0
-    assert not gestion_sanciones.sanciones_vigentes(frontera).exists()
-    services._validar_sin_sancion(estudiante, frontera)
-    sancion.refresh_from_db()
-    assert sancion.fecha_retiro is None
-    assert sancion.retirada_por is None
-    assert sancion.fecha_fin == anterior + timedelta(hours=24)
-    nueva = services._registrar_sancion_por_cancelacion(estudiante.pk, frontera)
-    assert nueva.tipo_sancion.duracion == 24
-    assert gestion_sanciones.contar_faltas(estudiante, frontera) == 1
-    assert Sancion.objects.count() == 2
+    for cambio in (datetime(2027, 1, 1), datetime(2027, 7, 1)):
+        Sancion.objects.all().delete()
+        frontera = timezone.make_aware(cambio)
+        anterior = frontera - timedelta(seconds=1)
+        sancion = services._registrar_sancion_por_cancelacion(
+            estudiante.pk, anterior
+        )
+        assert gestion_sanciones.contar_faltas(estudiante, anterior) == 1
+        assert gestion_sanciones.sanciones_vigentes(anterior).exists()
+        assert gestion_sanciones.contar_faltas(estudiante, frontera) == 0
+        assert not gestion_sanciones.sanciones_vigentes(frontera).exists()
+        services._validar_sin_sancion(estudiante, frontera)
+        sancion.refresh_from_db()
+        assert sancion.fecha_retiro is None
+        assert sancion.retirada_por is None
+        assert sancion.fecha_fin == anterior + timedelta(hours=24)
+        nueva = services._registrar_sancion_por_cancelacion(
+            estudiante.pk, frontera
+        )
+        assert nueva.tipo_sancion.duracion == 24
+        assert gestion_sanciones.contar_faltas(estudiante, frontera) == 1
+        assert Sancion.objects.count() == 2
 
 
 def test_reinicio_manual_corta_contador_sin_perder_faltas_vencidas(usuarios_sanciones):

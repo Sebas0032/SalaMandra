@@ -6,6 +6,9 @@ from django.db.migrations.executor import MigrationExecutor
 from django.utils import timezone
 
 
+pytestmark = pytest.mark.integration
+
+
 ANTERIOR = ("reservas", "0004_unicidad_salas_y_horarios")
 NUEVA = ("reservas", "0005_rol_unico_sanciones_auditoria")
 

@@ -7,6 +7,9 @@ from reservas.management.commands.convert_legacy_utc import _a_hora_local
 from reservas.models import Rol, Usuario
 
 
+pytestmark = pytest.mark.integration
+
+
 def test_conversion_utc_a_la_paz_conserva_microsegundos_y_cambia_dia():
     assert _a_hora_local("2026-01-01 02:15:30.123456") == (
         "2025-12-31 22:15:30.123456"

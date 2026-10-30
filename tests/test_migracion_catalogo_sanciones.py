@@ -12,7 +12,7 @@ NUEVA = ("reservas", "0009_tiposancion_tipo_sancion_catalogo_fijo")
 ANTERIOR_SEMESTRE = ("reservas", "0010_notificacion")
 NUEVA_SEMESTRE = ("reservas", "0011_duracion_semestre_variable")
 
-pytestmark = pytest.mark.django_db
+pytestmark = [pytest.mark.django_db, pytest.mark.integration]
 
 
 def test_migracion_consolida_tipos_sin_borrar_sanciones(
