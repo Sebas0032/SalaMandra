@@ -122,7 +122,7 @@
                 <h2>Cancelar reserva</h2>
                 {% if reserva_seleccionada %}
                 <p class="reserva-elegida"><small>Reserva seleccionada</small><strong>{{ reserva_seleccionada.sala_horario.sala }} · {{ reserva_seleccionada.sala_horario.horario }}</strong><span>{{ reserva_seleccionada.tipo_actividad }} · {{ solicitante }}</span></p>
-                <p class="nota-operante">Si faltan menos de 60 minutos, el sistema aplicará automáticamente la sanción al solicitante. El operante quedará registrado como actor de la cancelación.</p>
+                <p class="nota-operante">La cancelación quedará registrada y se notificará al solicitante. Esta operación no genera una sanción.</p>
                 <form method="post" action="{% url 'operator_panel' %}">{% csrf_token %}<input type="hidden" name="accion" value="cancelar"><input type="hidden" name="codigo_solicitante" value="{{ solicitante.pk }}"><input type="hidden" name="id_reserva" value="{{ reserva_seleccionada.pk }}"><button class="boton-principal" type="submit">Cancelar reserva</button></form>
                 {% else %}<p class="vacio-panel">Selecciona una reserva cancelable en la tabla.</p>{% endif %}
             </section>
