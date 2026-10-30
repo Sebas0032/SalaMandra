@@ -12,6 +12,7 @@ from reservas.models import Horario, Rol, Sala, SalaHorario, Usuario
 
 
 @pytest.mark.django_db
+# Test 23: verifica que la interfaz de salas deshabilitada no sea accesible.
 def test_administrador_no_puede_abrir_ni_enviar_la_gestion_de_salas(client):
     admin = Usuario.objects.create(
         codigo_usuario=900100,
@@ -37,6 +38,7 @@ def test_administrador_no_puede_abrir_ni_enviar_la_gestion_de_salas(client):
 
 
 @pytest.mark.django_db
+# Test 24: verifica que los servicios de salas también queden deshabilitados.
 def test_servicios_de_gestion_tambien_rechazan_las_altas_y_retiros():
     for operacion, argumentos in (
         (create_room, (900100, "Sala nueva")),

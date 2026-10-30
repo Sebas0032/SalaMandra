@@ -15,6 +15,7 @@ NUEVA_SEMESTRE = ("reservas", "0011_duracion_semestre_variable")
 pytestmark = [pytest.mark.django_db, pytest.mark.integration]
 
 
+# Test 38: verifica la consolidación del catálogo sin borrar sanciones.
 def test_migracion_consolida_tipos_sin_borrar_sanciones(
     tmp_path, settings, django_db_blocker
 ):
@@ -70,6 +71,7 @@ def test_migracion_consolida_tipos_sin_borrar_sanciones(
             del connections.databases[alias]
 
 
+# Test 39: verifica la corrección de sanciones semestrales antiguas.
 def test_migracion_corrige_duracion_y_fecha_fin_del_semestre(
     tmp_path, settings, django_db_blocker
 ):

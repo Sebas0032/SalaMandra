@@ -53,6 +53,7 @@ def escenario_operante(client):
         yield operante, solicitante, bloques, ahora
 
 
+# Test 47: verifica que el Operante llegue a su panel.
 def test_login_operante_llega_a_su_panel(client, escenario_operante):
     response = client.get(reverse("dashboard"))
     assert response.url == reverse("operator_panel")
@@ -64,6 +65,7 @@ def test_login_operante_llega_a_su_panel(client, escenario_operante):
     assert "Crear horario" not in contenido
 
 
+# Test 48: verifica todos los apartados del panel del Operante.
 def test_panel_renderiza_cada_apartado(client, escenario_operante):
     _, solicitante, bloques, _ = escenario_operante
     apartados = [
@@ -100,6 +102,7 @@ def test_panel_renderiza_cada_apartado(client, escenario_operante):
             reserva.delete()
 
 
+# Test 49: verifica la reserva asistida y su actor auditado.
 def test_operante_reserva_para_solicitante_y_audita_actor(client, escenario_operante):
     operante, solicitante, bloques, _ = escenario_operante
     response = client.post(
@@ -120,6 +123,7 @@ def test_operante_reserva_para_solicitante_y_audita_actor(client, escenario_oper
 
 
 @pytest.mark.e2e
+# Test 50: verifica modificar y cancelar como Operante.
 def test_operante_modifica_y_cancela_reserva_ajena(client, escenario_operante):
     operante, solicitante, bloques, ahora = escenario_operante
     reserva = services.create_reservation(
@@ -161,6 +165,7 @@ def test_operante_modifica_y_cancela_reserva_ajena(client, escenario_operante):
     ).usuario == solicitante
 
 
+# Test 51: verifica mantenimiento del Operante sin sanciones.
 def test_operante_gestiona_mantenimiento_sin_sancionar(client, escenario_operante):
     operante, solicitante, bloques, _ = escenario_operante
     reserva = services.create_reservation(
@@ -187,12 +192,14 @@ def test_operante_gestiona_mantenimiento_sin_sancionar(client, escenario_operant
     assert Desbloqueo.objects.get().desbloqueado_por == operante
 
 
+# Test 52: verifica las restricciones administrativas del Operante.
 def test_operante_no_accede_a_sanciones_ni_gestion_de_horarios(client, escenario_operante):
     assert client.get(reverse("sanctions_admin")).status_code == 403
     assert client.post(reverse("apply_sanction"), {}).status_code == 403
     assert client.get(reverse("gestion_salas")).status_code == 403
 
 
+# Test 53: verifica que el Solicitante no entre al panel Operante.
 def test_solicitante_no_accede_al_panel_operante(client, escenario_operante):
     _, solicitante, _, _ = escenario_operante
     solicitante.password_hash = make_password("clave-segura")

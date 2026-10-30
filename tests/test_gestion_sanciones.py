@@ -47,6 +47,7 @@ def usuarios_sanciones(client):
     return admin, estudiante
 
 
+# Test 25: verifica una sanción manual con motivo y duración.
 def test_aplica_sancion_manual_con_motivo_y_duracion(usuarios_sanciones):
     admin, estudiante = usuarios_sanciones
     ahora = timezone.make_aware(datetime(2026, 10, 27, 9))
@@ -72,6 +73,7 @@ def test_aplica_sancion_manual_con_motivo_y_duracion(usuarios_sanciones):
     assert sancion.fecha_fin == ahora + timedelta(hours=168)
 
 
+# Test 26: verifica el vencimiento en el próximo corte semestral.
 def test_sancion_manual_de_semestre_termina_en_el_proximo_corte(
     usuarios_sanciones,
 ):
@@ -98,6 +100,7 @@ def test_sancion_manual_de_semestre_termina_en_el_proximo_corte(
         assert sancion.fecha_fin == timezone.make_aware(finalizacion)
 
 
+# Test 27: verifica que el listado muestre solo la sanción vigente.
 def test_listado_muestra_solo_la_sancion_vigente(usuarios_sanciones):
     admin, estudiante = usuarios_sanciones
     ahora = timezone.make_aware(datetime(2026, 10, 27, 9))
@@ -127,6 +130,7 @@ def test_listado_muestra_solo_la_sancion_vigente(usuarios_sanciones):
     assert filas[0]["sancion"] == vigente
 
 
+# Test 28: verifica el reemplazo manual conservando el historial.
 def test_sancion_manual_nueva_reemplaza_la_vigente_sin_borrar_historial(
     usuarios_sanciones,
 ):
@@ -161,6 +165,7 @@ def test_sancion_manual_nueva_reemplaza_la_vigente_sin_borrar_historial(
 
 
 @pytest.mark.integration
+# Test 29: verifica el reemplazo automático de la sanción vigente.
 def test_sancion_automatica_nueva_reemplaza_cualquier_sancion_vigente(
     usuarios_sanciones,
 ):
@@ -196,6 +201,7 @@ def test_sancion_automatica_nueva_reemplaza_cualquier_sancion_vigente(
     ) == [segunda_automatica.pk]
 
 
+# Test 30: verifica el reinicio manual con historial y retiro.
 def test_reinicio_manual_conserva_historial_y_registra_retiro(usuarios_sanciones):
     admin, estudiante = usuarios_sanciones
     ahora = timezone.localtime()
@@ -220,6 +226,7 @@ def test_reinicio_manual_conserva_historial_y_registra_retiro(usuarios_sanciones
     assert TipoSancion.objects.filter(pk=tipo.pk).exists()
 
 
+# Test 31: verifica que desactivar una cuenta impida usarla.
 def test_desactivar_cuenta_cierra_sesion_e_impide_login(
     client, usuarios_sanciones
 ):
@@ -245,6 +252,7 @@ def test_desactivar_cuenta_cierra_sesion_e_impide_login(
     assert authenticate_user(str(estudiante.pk), "clave-segura") == estudiante
 
 
+# Test 32: verifica las acciones de la pantalla administrativa.
 def test_pantalla_administrativa_procesa_sancion_estado_y_reinicio(
     client, usuarios_sanciones
 ):
@@ -276,6 +284,7 @@ def test_pantalla_administrativa_procesa_sancion_estado_y_reinicio(
     assert Sancion.objects.get().fecha_retiro is not None
 
 
+# Test 33: verifica que el Solicitante no administre sanciones.
 def test_solicitante_no_puede_administrar_sanciones(
     client, usuarios_sanciones
 ):
@@ -289,6 +298,7 @@ def test_solicitante_no_puede_administrar_sanciones(
     assert client.post(reverse("clear_sanctions")).status_code == 403
 
 
+# Test 34: verifica el corte semestral sin borrar historial.
 def test_semestre_libera_y_reinicia_sin_borrar(usuarios_sanciones):
     _, estudiante = usuarios_sanciones
     for cambio in (datetime(2027, 1, 1), datetime(2027, 7, 1)):
@@ -315,6 +325,7 @@ def test_semestre_libera_y_reinicia_sin_borrar(usuarios_sanciones):
         assert Sancion.objects.count() == 2
 
 
+# Test 35: verifica que el reinicio corte el contador sin perder faltas.
 def test_reinicio_manual_corta_contador_sin_perder_faltas_vencidas(usuarios_sanciones):
     admin, estudiante = usuarios_sanciones
     ahora = timezone.make_aware(datetime(2026, 10, 28, 12))
@@ -342,6 +353,7 @@ def test_reinicio_manual_corta_contador_sin_perder_faltas_vencidas(usuarios_sanc
     assert Sancion.objects.count() == 3
 
 
+# Test 36: verifica el retiro individual y evita repetirlo.
 def test_retiro_individual_preserva_contador_y_rechaza_repeticion(usuarios_sanciones):
     admin, estudiante = usuarios_sanciones
     ahora = timezone.localtime()
@@ -358,6 +370,7 @@ def test_retiro_individual_preserva_contador_y_rechaza_repeticion(usuarios_sanci
         gestion_sanciones.withdraw_sanction(admin.pk, sancion.pk)
 
 
+# Test 37: verifica que el retiro exija POST y conserve el registro.
 def test_retiro_exige_post_y_conserva_registro(client, usuarios_sanciones):
     admin, estudiante = usuarios_sanciones
     sancion = gestion_sanciones.apply_manual_sanction(

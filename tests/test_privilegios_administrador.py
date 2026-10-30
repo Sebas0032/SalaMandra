@@ -45,6 +45,7 @@ def escenario(client):
     return client, admin, estudiante, operante, bloques_a, bloques_b, ahora
 
 
+# Test 69: verifica las excepciones de reserva propia del Administrador.
 def test_admin_reserva_para_si_mismo_bloques_consecutivos_y_mismo_bloque(escenario):
     _, admin, estudiante, _, a, b, ahora = escenario
     with patch("reservas.services.timezone.localtime", return_value=ahora):
@@ -61,6 +62,7 @@ def test_admin_reserva_para_si_mismo_bloques_consecutivos_y_mismo_bloque(escenar
     assert Auditoria.objects.filter(actor=admin, accion="CREAR").count() == 3
 
 
+# Test 70: verifica la excepción administrativa de modificación tardía.
 def test_admin_modifica_reserva_iniciada_a_otro_bloque_y_operante_no(escenario):
     client, admin, estudiante, operante, a, b, ahora = escenario
     reserva = Reserva.objects.create(
@@ -86,6 +88,7 @@ def test_admin_modifica_reserva_iniciada_a_otro_bloque_y_operante_no(escenario):
     ).usuario == estudiante
 
 
+# Test 71: verifica el rechazo de una modificación sin cambios.
 def test_modificacion_identica_se_rechaza_sin_auditoria_ni_aviso(escenario):
     _, admin, estudiante, _, a, _, ahora = escenario
     reserva = Reserva.objects.create(
@@ -107,6 +110,7 @@ def test_modificacion_identica_se_rechaza_sin_auditoria_ni_aviso(escenario):
     assert not Notificacion.objects.filter(reserva=reserva).exists()
 
 
+# Test 72: verifica consecutividad administrativa y actor auditado.
 def test_admin_mueve_reserva_ajena_a_bloque_consecutivo_y_queda_como_actor(escenario):
     _, admin, estudiante, _, a, b, ahora = escenario
     reserva_a = Reserva.objects.create(
@@ -135,6 +139,7 @@ def test_admin_mueve_reserva_ajena_a_bloque_consecutivo_y_queda_como_actor(escen
     ).actor == admin
 
 
+# Test 73: verifica cancelar una reserva iniciada sin sanción.
 def test_admin_cancela_reserva_iniciada_sin_sancion_y_notifica(escenario):
     _, admin, estudiante, operante, a, _, ahora = escenario
     reserva = Reserva.objects.create(
@@ -152,6 +157,7 @@ def test_admin_cancela_reserva_iniciada_sin_sancion_y_notifica(escenario):
     assert Notificacion.objects.get(reserva=reserva).usuario == estudiante
 
 
+# Test 74: verifica mantenimiento tardío solo para el Administrador.
 def test_admin_mantenimiento_tras_inicio_y_operante_restringido(escenario):
     _, admin, estudiante, operante, a, b, ahora = escenario
     reserva = Reserva.objects.create(
@@ -167,6 +173,7 @@ def test_admin_mantenimiento_tras_inicio_y_operante_restringido(escenario):
     assert Notificacion.objects.get(reserva=reserva).usuario == estudiante
 
 
+# Test 75: verifica acciones administrativas sobre reservas iniciadas.
 def test_panel_admin_muestra_acciones_de_reserva_iniciada(escenario):
     client, admin, _, _, a, _, ahora = escenario
     reserva = Reserva.objects.create(
@@ -182,6 +189,7 @@ def test_panel_admin_muestra_acciones_de_reserva_iniciada(escenario):
     assert reverse("admin_cancel_reservation", args=[reserva.pk]) in cancelaciones.content.decode()
 
 
+# Test 76: verifica que el Administrador no reciba advertencia de sanción.
 def test_panel_admin_no_advierte_sancion_al_cancelar_reserva_propia(escenario):
     client, admin, _, _, a, _, ahora = escenario
     reserva = Reserva.objects.create(
@@ -195,6 +203,7 @@ def test_panel_admin_no_advierte_sancion_al_cancelar_reserva_propia(escenario):
     assert "vas a recibir una sanción" not in contenido
 
 
+# Test 77: verifica modificar una reserva iniciada desde la interfaz.
 def test_admin_mueve_reserva_ajena_ya_iniciada_desde_la_interfaz(escenario):
     client, admin, estudiante, _, a, b, ahora = escenario
     destino = 0
@@ -221,6 +230,7 @@ def test_admin_mueve_reserva_ajena_ya_iniciada_desde_la_interfaz(escenario):
     assert Auditoria.objects.get(reserva=reserva, accion="MODIFICAR").actor == admin
 
 
+# Test 78: verifica los destinos mostrados al Administrador.
 def test_formulario_admin_muestra_todos_los_bloques_de_reserva_futura(escenario):
     client, admin, estudiante, _, a, b, ahora = escenario
     reserva = Reserva.objects.create(

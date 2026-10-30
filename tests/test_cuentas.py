@@ -9,6 +9,7 @@ from reservas.models import Rol, Usuario
 pytestmark = [pytest.mark.django_db, pytest.mark.e2e]
 
 
+# Test 20: verifica el login y logout del Administrador.
 def test_login_y_logout_del_administrador(client):
     admin = Usuario.objects.create(
         rol=Rol.objects.get_or_create(nombre_rol="Administrador")[0],
@@ -33,6 +34,7 @@ def test_login_y_logout_del_administrador(client):
     assert client.get(reverse("dashboard")).url == reverse("login")
 
 
+# Test 21: verifica el login y permisos del Solicitante.
 def test_login_solicitante_y_acceso_restringido(client):
     usuario = Usuario.objects.create(
         rol=Rol.objects.get_or_create(nombre_rol="Solicitante")[0],
@@ -55,6 +57,7 @@ def test_login_solicitante_y_acceso_restringido(client):
     assert client.post(reverse("block_room")).status_code == 403
 
 
+# Test 22: verifica validaciones y evita reemplazar contraseñas.
 def test_registro_conserva_validacion_y_no_reemplaza_contrasena(client):
     usuario = Usuario.objects.create(
         rol=Rol.objects.get_or_create(nombre_rol="Solicitante")[0],

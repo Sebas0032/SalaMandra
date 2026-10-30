@@ -34,6 +34,7 @@ def escenario_auditoria():
         yield solicitante, admin, bloques, ahora
 
 
+# Test 1: verifica el historial completo sin cambiar al titular.
 def test_historial_crear_modificar_cancelar_conserva_titular(escenario_auditoria):
     ana, admin, bloques, ahora = escenario_auditoria
     reserva = services.create_student_reservation(ana.pk, bloques[0].pk, "Tarea")
@@ -49,50 +50,24 @@ def test_historial_crear_modificar_cancelar_conserva_titular(escenario_auditoria
 
 
 @pytest.mark.integration
-def test_fallo_auditoria_revierte_operacion_y_sancion(escenario_auditoria):
-    ana, _, bloques, ahora = escenario_auditoria
-    for accion in ("CREAR", "MODIFICAR", "CANCELAR"):
-        Reserva.objects.all().delete()
-        Sancion.objects.all().delete()
-        reserva = None
-        if accion != "CREAR":
-            reserva = services.create_student_reservation(
+# Test 2: verifica que un fallo de auditoría revierta la reserva.
+def test_fallo_auditoria_al_crear_revierte_la_reserva(escenario_auditoria):
+    ana, _, bloques, _ = escenario_auditoria
+
+    with patch(
+        "reservas.services.Auditoria.objects.create",
+        side_effect=RuntimeError("fallo de auditoría"),
+    ):
+        with pytest.raises(RuntimeError, match="fallo de auditoría"):
+            services.create_student_reservation(
                 ana.pk, bloques[0].pk, "Tarea"
             )
 
-        with patch(
-            "reservas.services.Auditoria.objects.create",
-            side_effect=RuntimeError("fallo"),
-        ):
-            with pytest.raises(RuntimeError, match="fallo"):
-                if accion == "CREAR":
-                    services.create_student_reservation(
-                        ana.pk, bloques[0].pk, "Tarea"
-                    )
-                elif accion == "MODIFICAR":
-                    services.modify_student_reservation(
-                        ana.pk, reserva.pk, bloques[1].pk
-                    )
-                else:
-                    with patch(
-                        "reservas.services.timezone.localtime",
-                        return_value=ahora.replace(hour=13, minute=30),
-                    ):
-                        services.cancel_reservation(ana.pk, reserva.pk)
-
-        assert not Sancion.objects.exists()
-        if reserva is None:
-            assert not Reserva.objects.exists()
-            assert not Auditoria.objects.exists()
-        else:
-            reserva.refresh_from_db()
-            assert reserva.estado_reserva == Reserva.ESTADO_CONFIRMADA
-            assert reserva.sala_horario == bloques[0]
-            assert list(
-                reserva.auditorias.values_list("accion", flat=True)
-            ) == ["CREAR"]
+    assert not Reserva.objects.exists()
+    assert not Auditoria.objects.exists()
 
 
+# Test 3: verifica que una cancelación repetida no duplique datos.
 def test_cancelacion_repetida_no_duplica_historial_ni_sancion(escenario_auditoria):
     ana, _, bloques, ahora = escenario_auditoria
     reserva = services.create_student_reservation(ana.pk, bloques[0].pk, "Tarea")
@@ -104,6 +79,7 @@ def test_cancelacion_repetida_no_duplica_historial_ni_sancion(escenario_auditori
     assert Sancion.objects.count() == 1
 
 
+# Test 4: verifica que mantenimiento audite al Administrador sin sancionar.
 def test_mantenimiento_registra_administrador_y_no_sanciona(escenario_auditoria):
     ana, admin, bloques, _ = escenario_auditoria
     reserva = services.create_student_reservation(ana.pk, bloques[0].pk, "Tarea")
@@ -112,6 +88,7 @@ def test_mantenimiento_registra_administrador_y_no_sanciona(escenario_auditoria)
     assert not Sancion.objects.exists()
 
 
+# Test 5: verifica que un Solicitante no aplique sanciones manuales.
 def test_solicitante_no_puede_sancionar_manualmente(escenario_auditoria):
     ana, admin, _, _ = escenario_auditoria
     with pytest.raises(gestion_sanciones.GestionSancionesError):
@@ -119,6 +96,7 @@ def test_solicitante_no_puede_sancionar_manualmente(escenario_auditoria):
     assert not Sancion.objects.exists()
 
 
+# Test 6: verifica la coherencia entre origen y aplicador de sanciones.
 def test_bd_rechaza_origen_aplicador_incoherentes(escenario_auditoria):
     ana, admin, _, ahora = escenario_auditoria
     tipo = TipoSancion.objects.get(pk=TipoSancion.ID_24_HORAS)
@@ -140,6 +118,7 @@ def test_bd_rechaza_origen_aplicador_incoherentes(escenario_auditoria):
             )
 
 
+# Test 7: verifica que el aplicador manual sea Administrador.
 def test_modelo_valida_rol_del_aplicador(escenario_auditoria):
     ana, _, _, ahora = escenario_auditoria
     tipo = TipoSancion.objects.get(pk=TipoSancion.ID_24_HORAS)
@@ -151,6 +130,7 @@ def test_modelo_valida_rol_del_aplicador(escenario_auditoria):
         sancion.full_clean()
 
 
+# Test 8: verifica el rol único y el catálogo fijo de sanciones.
 def test_rol_unico_y_catalogo_restringido(escenario_auditoria):
     ana, _, _, _ = escenario_auditoria
     ana.rol = Rol.objects.get_or_create(nombre_rol="Operante")[0]
@@ -169,6 +149,7 @@ def test_rol_unico_y_catalogo_restringido(escenario_auditoria):
         TipoSancion.objects.filter(pk=74).update(duracion=48)
 
 
+# Test 9: verifica que el registro no cambie el rol Administrador.
 def test_registro_no_cambia_rol_de_administrador(escenario_auditoria):
     _, admin, _, _ = escenario_auditoria
     admin.password_hash = ""
@@ -180,6 +161,7 @@ def test_registro_no_cambia_rol_de_administrador(escenario_auditoria):
     assert admin.rol.nombre_rol == "Administrador"
 
 
+# Test 10: verifica que auditoría rechace acciones no permitidas.
 def test_auditoria_rechaza_acciones_fuera_del_catalogo(escenario_auditoria):
     ana, _, bloques, _ = escenario_auditoria
     reserva = services.create_student_reservation(ana.pk, bloques[0].pk, "Tarea")

@@ -52,6 +52,7 @@ def escenario_cancelacion(client):
     return usuario, bloque, reserva, ahora
 
 
+# Test 11: verifica la cancelación exacta a 60 minutos sin sanción.
 def test_cancela_exactamente_60_minutos_antes_sin_sancion(
     escenario_cancelacion,
 ):
@@ -77,6 +78,7 @@ def test_cancela_exactamente_60_minutos_antes_sin_sancion(
         (3, TipoSancion.ID_SEMESTRE, None),
     ],
 )
+# Tests 12-14: verifican la escala de sanciones por faltas acumuladas.
 def test_cancelacion_tardia_aplica_sancion_escalar(
     escenario_cancelacion, faltas_previas, tipo_esperado, duracion_esperada
 ):
@@ -111,6 +113,7 @@ def test_cancelacion_tardia_aplica_sancion_escalar(
     assert reserva.estado_reserva == Reserva.ESTADO_CANCELADA
 
 
+# Test 15: verifica que una reserva iniciada no pueda cancelarse.
 def test_no_cancela_una_reserva_que_ya_comenzo(escenario_cancelacion):
     usuario, _, reserva, ahora = escenario_cancelacion
     ahora = ahora.replace(hour=14)
@@ -123,6 +126,7 @@ def test_no_cancela_una_reserva_que_ya_comenzo(escenario_cancelacion):
     assert not Sancion.objects.exists()
 
 
+# Test 16: verifica que no se cancelen reservas ajenas.
 def test_solicitante_no_puede_cancelar_reserva_ajena(escenario_cancelacion):
     _, _, reserva, ahora = escenario_cancelacion
     otro = Usuario.objects.create(
@@ -142,6 +146,7 @@ def test_solicitante_no_puede_cancelar_reserva_ajena(escenario_cancelacion):
 
 
 @pytest.mark.integration
+# Test 17: verifica que el Operante cancele sin sancionar y notifique.
 def test_operador_cancela_sin_sancionar_y_notifica_al_titular(
     escenario_cancelacion,
 ):
@@ -168,6 +173,7 @@ def test_operador_cancela_sin_sancionar_y_notifica_al_titular(
     assert aviso.actor == operador
 
 
+# Test 18: verifica el resultado mostrado por el panel al cancelar.
 def test_cancelacion_desde_el_panel_muestra_resultado(
     client, escenario_cancelacion
 ):
@@ -187,6 +193,7 @@ def test_cancelacion_desde_el_panel_muestra_resultado(
     assert reserva.estado_reserva == Reserva.ESTADO_CANCELADA
 
 
+# Test 19: verifica la cancelación administrativa sin sanción.
 def test_administrador_lista_y_cancela_reservas_sin_sancion(
     client, escenario_cancelacion
 ):
