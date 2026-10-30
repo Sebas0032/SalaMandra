@@ -10,34 +10,36 @@
 
 | ID | Pregunta | Respuesta o hallazgo | Fuente | Estado |
 |---|---|---|---|---|
-| ENT-01 | ¿Hasta cuánto tiempo antes se permite modificar una reserva? | Se permite modificar una reserva únicamente si falta al menos una hora para su inicio. Si falta menos de una hora o el horario ya comenzó, no se permite modificarla. | Sergio | Confirmado |
-| ENT-02 | ¿Puede un estudiante cancelar una reserva sin penalización? | Se puede cancelar en cualquier momento antes de entrar en uso. Si se cancela con menos de 1 hora de anticipación, aplica penalización. La sanción es escalar: 1ra vez = bloqueo por 24 horas; 2da vez = 48 horas; 3ra vez = 1 semana; 4ta vez = todo el semestre. | Sergio | Confirmado |
-| ENT-03 | ¿Se puede bloquear una sala para mantenimiento aunque haya reservas confirmadas y quién tiene ese permiso? | El Administrador y el Operante pueden bloquear un horario por mantenimiento únicamente antes de que empiece el turno. Si existen reservas confirmadas afectadas, se cancelan sin sanción y se notifica dentro del sistema. No se permite bloquear un turno ya iniciado. | Sergio | Confirmado |
-| ENT-04 | ¿Todas las salas tienen los mismos horarios disponibles o cada sala puede tener horarios diferentes? | Los bloques A, B, C, D, E y F son la configuración inicial de referencia. El Administrador puede crear y configurar horarios, respetando una duración mínima de 2 horas, la separación de 15 minutos y las demás restricciones. | Sergio | Confirmado |
+| ENT-01 | ¿Hasta cuánto tiempo antes se permite modificar una reserva? | El Solicitante y el Operante pueden modificar una reserva únicamente si falta al menos una hora para su inicio. El Administrador puede modificarla sin ese límite temporal, siempre que se cumplan las restantes validaciones. | Sergio | Confirmado |
+| ENT-02 | ¿Puede un estudiante cancelar una reserva sin penalización? | Se puede cancelar en cualquier momento antes de entrar en uso. Si se cancela con menos de 1 hora de anticipación, aplica penalización. La sanción es escalonada: primera falta = bloqueo por 24 horas; segunda falta = 48 horas; tercera falta = una semana; cuarta falta = el resto del semestre. | Sergio | Confirmado |
+| ENT-03 | ¿Se puede bloquear una sala para mantenimiento aunque haya reservas confirmadas y quién tiene ese permiso? | El Operante puede bloquear un horario de sala por mantenimiento antes del inicio del turno. El Administrador puede bloquear el horario sin aplicar la restricción temporal exigida al Operante, incluso después de que el turno haya comenzado o finalizado. El bloqueo se aplica a la asignación de sala y horario, permanece activo hasta un desbloqueo manual autorizado y no termina por el cambio de fecha ni por la finalización del turno. Las reservas confirmadas afectadas pasan a `POR_MANTENIMIENTO` sin sanción y se notifican internamente. | Sergio | Confirmado |
+| ENT-04 | ¿Todas las salas tienen los mismos horarios disponibles o cada sala puede tener horarios diferentes? | Los bloques A, B, C, D, E y F corresponden a los horarios de referencia utilizados por el sistema. Las reservas deben respetar los horarios existentes y los intervalos de 15 minutos para desalojo y limpieza. | Sergio | Confirmado |
 | ENT-05 | ¿Existe un intervalo de tiempo entre reservas para el desalojo? | Se define un intervalo de 15 minutos entre reservas para desalojo y limpieza. | Sergio | Confirmado |
 | ENT-06 | ¿La información del solicitante se autocompleta desde la base de datos o se introduce manualmente? | Se autocompletan los datos del usuario desde la base de datos mediante su código institucional, considerando la incorporación de nuevos estudiantes durante el semestre. | Sergio | Confirmado |
-| ENT-07 | ¿En qué condiciones se puede desbloquear manualmente un mantenimiento? | El Administrador o el Operante puede desbloquear manualmente un horario en mantenimiento **solo si la hora actual es anterior al inicio del bloque**. Una vez iniciado, el sistema rechaza el desbloqueo; no se produce liberación automática al finalizar el turno. Se registran el bloqueo, responsable y fecha de los desbloqueos válidos. | Sergio | Confirmado |
-| ENT-08 | ¿Se pueden reservar horarios continuos? | No se permite reservar bloques horarios consecutivos (por ejemplo, A-B). Sí se permiten combinaciones no consecutivas, como A-C, A-D y C-E. | Sergio | Confirmado |
+| ENT-07 | ¿En qué condiciones se puede desbloquear manualmente un mantenimiento? | El Administrador y el Operante autorizado solo pueden desbloquear manualmente un horario en mantenimiento antes de la hora de inicio del bloque correspondiente a la fecha en que se registró el bloqueo. Una vez alcanzada esa hora, el sistema rechaza el desbloqueo, incluso en días posteriores. Un desbloqueo permitido devuelve el horario a `DISPONIBLE` y registra responsable, fecha y hora. El mantenimiento no vence automáticamente al terminar el turno. | Sergio | Confirmado |
+| ENT-08 | ¿Se pueden reservar horarios continuos? | Un Solicitante no puede reservar bloques consecutivos (A-B); tampoco el Operante al gestionar sus reservas. El Administrador tiene una excepción de consecutividad al modificar reservas y al reservar para sí mismo, sin omitir la validación de ocupación y limpieza. | Sergio | Confirmado |
 | ENT-09 | ¿El Administrador tiene la capacidad de penalizar manualmente a un estudiante? | Sí, el Administrador puede penalizar manualmente a un estudiante si no se presenta en la sala durante el horario reservado. Debe registrar obligatoriamente un comentario descriptivo. | Sergio | Confirmado |
 | ENT-10 | ¿Se elimina el historial de sanciones al comenzar un semestre? | No. El contador de faltas se calcula automáticamente según los períodos semestrales definidos por el sistema. Al cambiar el período, el nuevo conteo parte de cero, sin borrar ni modificar el historial de sanciones, que permanece disponible para auditoría. | Sergio | Confirmado |
 | ENT-11 | Si un estudiante tiene un bloqueo activo, ¿puede consultar las salas disponibles? | Puede consultar la disponibilidad de las salas, pero no puede realizar reservas mientras el bloqueo esté vigente. | Sergio | Confirmado |
 | ENT-12 | ¿Con cuántos días u horas de anticipación un estudiante puede realizar una reserva? | Solo pueden reservarse horarios disponibles del día actual, desde las 00:00 de ese día y antes de la hora de finalización del bloque seleccionado; no se admiten reservas de días futuros ni de bloques ya finalizados. | Sergio | Confirmado |
-| ENT-13 | ¿Qué días está permitido reservar salas? | No se permite realizar reservas los sábados, domingos ni feriados. | Sergio | Confirmado |
-| ENT-14 | ¿Qué estados pueden tener las reservas a lo largo de su ciclo de vida? | Los estados de `Reserva` son `CONFIRMADA`, `CANCELADA` y `POR_MANTENIMIENTO`; los estados de `SalaHorario` son `DISPONIBLE` y `MANTENIMIENTO`. | Sergio | Confirmado |
-| ENT-15 | ¿Qué sucede cuando llega la hora de finalización de una reserva? | Una vez finalizado el horario, la reserva deja de mostrarse en la lista de reservas activas y se pasa al siguiente bloque horario. | Sergio | Confirmado |
-| ENT-16 | ¿Qué información debe registrar el solicitante sobre la actividad que realizará en la sala? | El solicitante debe seleccionar obligatoriamente el tipo de actividad que realizará en la sala mediante una lista desplegable con opciones como tutoría, examen, estudio, tarea o proyecto. No se permite dejar el campo vacío. | Sergio | Confirmado |
+| ENT-13 | ¿Qué días está permitido reservar salas? | No se permite realizar reservas los sábados, domingos ni en fechas incluidas en la configuración de feriados; estas fechas se determinan según el calendario universitario configurado. | Sergio | Confirmado |
+| ENT-14 | ¿Qué estados pueden tener las reservas a lo largo de su ciclo de vida? | Los estados de `Reserva` son `CONFIRMADA`, `CANCELADA` y `POR_MANTENIMIENTO`; los de `SalaHorario` son `DISPONIBLE`, `MANTENIMIENTO` y `RETIRADO`. | Sergio | Confirmado |
+| ENT-15 | ¿Qué sucede cuando llega la hora de finalización de una reserva? | Una vez finalizado el horario, la reserva deja de mostrarse en la lista de reservas activas y el sistema continúa mostrando los bloques horarios siguientes según disponibilidad. | Sergio | Confirmado |
+| ENT-16 | ¿Qué información debe registrar el solicitante sobre la actividad que realizará en la sala? | El solicitante debe seleccionar obligatoriamente el tipo de actividad que realizará en la sala mediante una lista desplegable con las opciones Tutoría, Examen, Tarea y Proyecto. No se permite dejar el campo vacío. | Sergio | Confirmado |
 | ENT-17 | ¿Cada usuario debe tener un único rol o puede tener múltiples roles? | Cada usuario debe tener asignado un único rol dentro del sistema. No se permite asignar múltiples roles a una misma cuenta. | Sergio | Confirmado |
 | ENT-18 | ¿Qué ocurre si un estudiante intenta modificar su reserva a un horario ya ocupado? | El sistema rechaza la modificación. La reserva original no se cancela ni se altera hasta que la modificación se confirme correctamente. Si el usuario desiste o el cambio falla, se conserva la reserva original. | Sergio | Confirmado |
-| ENT-19 | ¿Qué operaciones puede realizar cada rol en el sistema? | **Solicitante:** crear, modificar y cancelar reservas. **Operante:** gestionar reservas en nombre de solicitantes y bloquear por mantenimiento y desbloquear manualmente sin liberación automática por fin de turno. **Administrador:** gestionar reservas, realizar cancelaciones administrativas sin sanción, bloquear/desbloquear por mantenimiento, crear salas y horarios, imponer y retirar sanciones; todas las acciones pertinentes se registran. | Sergio | Confirmado |
-| ENT-20 | ¿Quiénes tienen la condición de solicitante? | Toda persona que cuente con un código institucional de la UPB puede ser solicitante. | Sergio | Confirmado |
+| ENT-19 | ¿Qué operaciones puede realizar cada rol en el sistema? | **Solicitante:** crear, modificar y cancelar reservas. **Operante:** gestionar reservas en nombre de solicitantes, bloquear horarios por mantenimiento antes de su inicio y desbloquearlos únicamente antes del inicio del bloque. **Administrador:** gestionar reservas con las excepciones autorizadas, bloquear horarios por mantenimiento sin la restricción temporal del Operante, incluso después de finalizar el turno, y desbloquearlos únicamente antes del inicio del bloque, además de gestionar sanciones y cuentas. Las acciones pertinentes se registran para auditoría. | Sergio | Confirmado |
+| ENT-20 | ¿Quiénes tienen la condición de solicitante? | Toda persona precargada en el sistema con un código institucional válido y habilitada como Solicitante puede actuar como solicitante. | Sergio | Confirmado |
 | ENT-21 | ¿Las salas de estudio contemplan gestión de capacidad de personas? | No. Actualmente, las salas no tienen un límite ni una restricción de capacidad de personas. Esta característica queda fuera del alcance actual del sistema. | Sergio | Confirmado |
-| ENT-22 | ¿Qué sucede con las reservas cuando una sala se bloquea por mantenimiento? | El bloqueo se registra sobre el horario seleccionado de una sala y mantiene ese horario en estado `MANTENIMIENTO` también en días posteriores, hasta un desbloqueo manual válido. Las reservas confirmadas afectadas pasan a `POR_MANTENIMIENTO` sin sanción y generan una notificación interna persistente con el motivo; no se envían correos. | Sergio | Confirmado |
+| ENT-22 | ¿Qué sucede con las reservas cuando una sala se bloquea por mantenimiento? | El mantenimiento afecta la asignación de horario de una sala y continúa activo en fechas posteriores mientras no se realice un desbloqueo manual autorizado. Las reservas `CONFIRMADA` afectadas pasan a `POR_MANTENIMIENTO` sin sanción y generan una notificación interna persistente con el motivo. El desbloqueo no restablece automáticamente las reservas canceladas y se conserva el historial. | Sergio | Confirmado |
 | ENT-23 | ¿El sistema impide la creación de reservas en salas bloqueadas? | Sí, el sistema impide automáticamente que cualquier usuario realice una reserva en una sala durante los intervalos bloqueados por mantenimiento. | Sergio | Confirmado |
+| ENT-24 | ¿Puede el Administrador cancelar o modificar reservas iniciadas? | El Administrador tiene permisos especiales para cancelar reservas confirmadas ya iniciadas y modificar reservas sin el límite ordinario de 60 minutos, siempre que se superen las demás validaciones. | Reglas funcionales del sistema | Confirmado |
+| ENT-25 | ¿Puede el Administrador reiniciar el conteo de sanciones y administrar cuentas? | El Administrador puede realizar un reinicio general manual del conteo de faltas sin eliminar el historial y activar o desactivar cuentas de solicitantes. | Gestión administrativa del sistema | Confirmado |
 
 ## 2. Alcance del flujo
 
-- Incluye: Validación del tiempo de modificación (mínimo 1 hora antes); control de cancelaciones con penalización según bloque de 1 hora; registro y escala progresiva de sanciones a estudiantes (24h, 48h, 1 semana, todo el semestre); facultad de Administrador y Operante autorizado para bloquear intervalos por mantenimiento y mantenerlos bloqueados hasta su desbloqueo manual, además de gestionar las reservas afectadas, sin sancionar por mantenimiento.
-- No incluye: confirmación de contraseñas en creación de cuentas (fuera del flujo de reservas de Sesión 06); pago o multas monetarias. Envíos de notificaciones por correo electrónico. Las notificaciones por cancelación debida a mantenimiento se muestran dentro de la página web del sistema e indican el motivo de la cancelación.
+- Incluye: Validación del tiempo de modificación (mínimo 1 hora antes); control de cancelaciones con penalización según bloque de 1 hora; registro y escala progresiva de sanciones a estudiantes (24h, 48h, 1 semana, todo el semestre); facultad de Administrador y Operante autorizado para bloquear y desbloquear manualmente horarios por mantenimiento, con persistencia del bloqueo hasta su retiro; cancelación administrativa sin sanciones; reinicio general de sanciones con historial preservado y gestión del estado de cuentas de solicitantes.
+- No incluye: registro y autenticación de cuentas, incluida la confirmación de contraseña (funcionalidad existente que queda fuera del flujo analizado en esta sesión); pagos o multas monetarias; notificaciones por correo electrónico. Las notificaciones por cancelación debida a mantenimiento se muestran dentro de la página web del sistema e indican el motivo de la cancelación.
 
 ## 3. Requisitos
 
@@ -47,15 +49,16 @@
 - **Origen:** ENT-01 y encargo inicial
 - **Prioridad y razón:** Alta, porque garantiza la previsibilidad del uso de las salas y evita modificaciones de último momento.
 - **Estado:** Aprobado por el cliente
-- **Requisito:** El sistema debe permitir modificar una reserva únicamente si la solicitud se realiza con al menos una hora de anticipación respecto a la hora de inicio. Si falta menos de una hora o la reserva ya comenzó, el sistema debe rechazar la modificación y conservar la reserva original sin cambios.
+- **Requisito:** El sistema debe exigir al Solicitante y al Operante una anticipación mínima de una hora para modificar una reserva. El Administrador puede realizar modificaciones sin ese límite temporal, siempre que se verifiquen los permisos, la disponibilidad y las demás reglas aplicables. Una modificación rechazada conserva intacta la reserva original.
 - **Criterio de aceptación o comprobación:**
-  - **Situación inicial:** Existe una reserva confirmada para la sala A-101 a las 14:00.
-  - **Acción:** El usuario intenta modificarla a las 13:15.
+  - **Situación inicial:** Existe una reserva confirmada de un Solicitante para la sala A-101 a las 14:00.
+  - **Acción:** El Solicitante o el Operante que lo representa intenta modificarla a las 13:15.
   - **Resultado esperado:** El sistema rechaza la modificación porque faltan menos de 60 minutos para el inicio. La reserva original permanece confirmada para las 14:00 en la sala A-101.
+  - **Caso administrativo:** Si el Administrador solicita modificar una reserva cuando faltan menos de 60 minutos, el sistema puede permitirlo si supera las restantes validaciones.
 
 ---
 
-### [RES-RF-02 — Cancelación con sistema escalar de penalizaciones]
+### [RES-RF-02 — Cancelación con sistema escalonado de penalizaciones]
 
 - **Tipo:** Funcional
 - **Origen:** ENT-02
@@ -70,21 +73,22 @@
 
 ---
 
-### [RES-RF-03 — Bloqueo y desbloqueo manual de sala por mantenimiento]
+### [RES-RF-03 — Bloqueo persistente y desbloqueo manual por mantenimiento]
 
 - **Tipo:** Funcional
 - **Origen:** ENT-03, ENT-07, ENT-22 y ENT-23.
-- **Prioridad y razón:** Alta, porque impide utilizar horarios bloqueados y asegura la trazabilidad de mantenimiento.
+- **Prioridad y razón:** Alta, porque impide realizar reservas en horarios que no se encuentran habilitados por mantenimiento y permite restablecerlos de manera controlada.
 - **Estado:** Confirmado
-- **Requisito:** El Administrador o el Operante autorizado puede bloquear por mantenimiento un horario de sala **solo antes de la hora de inicio de ese bloque**, registrando el motivo. El bloqueo se asocia al horario seleccionado de la sala y su estado `MANTENIMIENTO` **se mantiene también en días posteriores**, hasta un desbloqueo manual válido: el transcurso del tiempo o la finalización del turno no lo cambia automáticamente a `DISPONIBLE`. El desbloqueo manual **solo se permite cuando la hora actual es anterior a la hora de inicio del bloque**; si el turno ya empezó, se rechaza. Las reservas `CONFIRMADA` afectadas pasan a `POR_MANTENIMIENTO` sin sanción, y se notifica al solicitante dentro de la web con el motivo. Un desbloqueo no reactiva reservas canceladas.
+- **Requisito:** El sistema debe permitir al Administrador y al Operante autorizado bloquear por mantenimiento una asignación de sala y horario, registrando obligatoriamente el motivo, el responsable y la fecha y hora de la operación. El Operante solo puede bloquear antes del inicio del turno; el Administrador puede bloquear sin la restricción temporal del Operante, incluso si el bloque ya comenzó o finalizó. El horario bloqueado pasa a `MANTENIMIENTO` y **permanece en ese estado hasta que se ejecute un desbloqueo manual válido**. Para ambos roles, el desbloqueo solo está permitido antes de la hora de inicio del bloque en la fecha de registro del mantenimiento; a partir de esa hora se rechaza, aunque el turno ya haya finalizado o haya cambiado el día. El fin del turno o el cambio de fecha no lo habilitan automáticamente. Mientras esté bloqueado, no se admiten nuevas reservas para esa asignación. Las reservas `CONFIRMADA` afectadas pasan a `POR_MANTENIMIENTO`, sin sanción para sus titulares, y se genera una notificación interna con el motivo. El desbloqueo no reactiva las reservas canceladas y todas las operaciones quedan registradas para auditoría.
 - **Criterios de aceptación:**
-  - **Bloqueo permitido:** Antes del inicio del turno, el Administrador u Operante selecciona una sala, el horario y el motivo; el sistema registra el bloqueo y el horario pasa a `MANTENIMIENTO`.
-  - **Bloqueo rechazado:** Si la hora actual es igual o posterior al inicio del turno, el sistema rechaza el bloqueo y no modifica estados.
-  - **Desbloqueo permitido:** Si la hora actual es anterior al inicio del bloque, un Administrador u Operante autorizado puede desbloquearlo; se registran responsable, fecha y bloqueo retirado, y vuelve a `DISPONIBLE` si no hay otra restricción.
-  - **Desbloqueo rechazado:** Si el bloque ya comenzó, el sistema rechaza el desbloqueo manual, aunque el turno haya concluido.
-  - **Persistencia:** Al finalizar el turno o cambiar de fecha, el horario sigue en `MANTENIMIENTO` si no se realizó un desbloqueo válido; no se habilita automáticamente.
-  - **Reservas afectadas:** Una reserva confirmada afectada cambia a `POR_MANTENIMIENTO`, se genera aviso interno con el motivo y no se aplica sanción.
-  - **Auditoría:** El bloqueo y cualquier desbloqueo válido se conservan como registros; el desbloqueo no restaura las reservas afectadas.
+  - **Bloqueo permitido:** El Operante bloquea un horario antes de su inicio; el sistema registra el motivo y responsable y cambia `SalaHorario` a `MANTENIMIENTO`.
+  - **Restricción del Operante:** Si el horario ya comenzó, el sistema rechaza un nuevo bloqueo solicitado por el Operante.
+  - **Permiso administrativo:** El Administrador puede bloquear un horario sin aplicar la restricción temporal exigida al Operante, incluso si el horario ya finalizó.
+  - **Persistencia:** Al finalizar el turno o cambiar de fecha, el horario permanece en `MANTENIMIENTO` si no fue desbloqueado.
+  - **Desbloqueo manual permitido:** Antes del inicio del bloque correspondiente a la fecha del bloqueo, un Administrador u Operante autorizado puede retirarlo; el sistema registra quién y cuándo lo hizo y cambia el horario a `DISPONIBLE`.
+  - **Desbloqueo rechazado:** Desde el inicio del bloque, el sistema rechaza el retiro manual incluso después de finalizar el turno o en fechas posteriores; mientras no exista un desbloqueo válido, el horario permanece en `MANTENIMIENTO`.
+  - **Reservas afectadas:** Las reservas confirmadas vinculadas al horario bloqueado cambian a `POR_MANTENIMIENTO`, se notifica el motivo y no se aplica sanción.
+  - **Historial:** El desbloqueo no restaura reservas canceladas ni elimina la evidencia del bloqueo.
 
 ---
 
@@ -106,13 +110,13 @@
 
 - **Tipo:** Funcional
 - **Origen:** ENT-06, ENT-20 
-- **Prioridad y razón:** Alta ya que evita reservas asociadas a personas no registradas y reduce la introducción manual de datos.
+- **Prioridad y razón:** Alta, ya que evita reservas asociadas a personas no registradas y reduce la introducción manual de datos.
 - **Estado:** Aprobado 
 - **Requisito:** El sistema debe permitir identificar al solicitante mediante su código universitario y completar automáticamente sus datos registrados. La validación debe consultar los datos vigentes, considerando que pueden incorporarse nuevos estudiantes durante el semestre.
 - **Criterio de aceptación o comprobación:**
-  - **Situación inicial:** El sistema consulta los datos del usuario.
-  - **Acción:** Intenta crear una nueva reserva en cualquier sala disponible.
-  - **Resultado esperado:** Se muestran los datos asociados al código sin necesidad de introducirlos manualmente.
+  - **Situación inicial:** Existe un solicitante registrado con un código institucional válido.
+  - **Acción:** El usuario autorizado introduce o selecciona ese código durante la creación de una reserva.
+  - **Resultado esperado:** El sistema identifica al solicitante y muestra los datos registrados sin exigir su introducción manual.
 
 ---
 
@@ -120,32 +124,32 @@
 
 - **Tipo:** Funcional
 - **Origen:** ENT-12, ENT-19, ENT-20
-- **Prioridad y razón:** Alta ya que permite realizar la función principal del sistema.
+- **Prioridad y razón:** Alta, ya que permite realizar la función principal del sistema.
 - **Estado:** Aprobado 
 - **Requisito:** El sistema debe permitir que un usuario autorizado cree una reserva para una sala y un bloque horario disponible, respetando las reglas de calendario, disponibilidad, permisos y sanciones vigentes.
 - **Criterio de aceptación o comprobación:**
   - **Situación inicial:** El solicitante está validado y la sala está disponible.
   - **Acción:** Selecciona la sala y el horario permitido y confirma la solicitud.
-  - **Resultado esperado:** El sistema registra la reserva con un identificador y el estado correspondiente.
-Otro caso
+  - **Resultado esperado:** El sistema registra la reserva con un identificador y el estado `CONFIRMADA`.
+  **Caso adicional:**
   - **Situación inicial:** La sala no está disponible.
   - **Acción:** El usuario intenta confirmar la reserva.
   - **Resultado esperado:** El sistema rechaza la solicitud sin generar una reserva duplicada.
 
 ---
 
-### [RES-RF-07 — Creación de disponibilidad]
+### [RES-RF-07 — Consulta de disponibilidad de salas y horarios]
 
 - **Tipo:** Funcional
 - **Origen:** ENT-11, ENT-23
-- **Prioridad y razón:** Alta ya que permite seleccionar horarios utilizables y evita solicitudes sobre bloques ocupados.
+- **Prioridad y razón:** Alta, ya que permite seleccionar horarios utilizables y evita solicitudes sobre bloques ocupados.
 - **Estado:** Aprobado 
-- **Requisito:** El sistema debe permitir consultar la disponibilidad de las salas según la fecha y los bloques horarios permitidos. Los usuarios sancionados podrán consultar las salas y horarios, pero NO realizar operaciones de reserva mientras el bloqueo de ese horario (por mantenimiento) o también por su sanción esté vigente.
+- **Requisito:** El sistema debe permitir consultar la disponibilidad de las salas según la fecha y los bloques horarios permitidos. La consulta muestra los horarios existentes, pero no crea ni habilita horarios. Los usuarios sancionados podrán consultar las salas y horarios, pero no podrán confirmar reservas mientras tengan una sanción vigente o el horario seleccionado se encuentre bloqueado.
 - **Criterio de aceptación o comprobación:**
   - **Situación inicial:** Existen salas disponibles y ocupadas.
   - **Acción:** El usuario consulta la disponibilidad.
   - **Resultado esperado:** El sistema muestra los horarios según su estado.
-Otro caso
+  **Caso adicional:**
   - **Situación inicial:** El usuario tiene una sanción vigente.
   - **Acción:** Consulta las salas e intenta reservar.
   - **Resultado esperado:** Puede consultar la disponibilidad, pero el sistema impide confirmar una reserva.
@@ -158,24 +162,24 @@ Otro caso
 - **Origen:** ENT-04, ENT-05, ENT-08, ENT-13
 - **Prioridad y razón:** Alta, ya que garantiza que las reservas respeten los horarios oficiales de la universidad y evita reservas consecutivas de un mismo solicitante.
 - **Estado:** Confirmado
-- **Requisito:** El sistema debe utilizar los horarios configurados para cada sala; los bloques A, B, C, D, E y F representan la configuración inicial de referencia y pueden ser configurados por el Administrador según RES-RF-20. Debe respetar un intervalo de 15 minutos para desalojo y limpieza entre reservas de una misma sala e impedir reservas los sábados, domingos y feriados. Además, un mismo solicitante no puede reservar bloques horarios consecutivos (A-B, B-C, C-D, etc.), independientemente de que elija la misma sala o salas diferentes. Se permiten bloques no consecutivos (por ejemplo, A-C, B-D o C-E), siempre que exista disponibilidad y se cumplan las demás reglas.
-- **Configuración de feriados:** Las fechas no habilitadas por feriados se definen en la configuración del sistema, mediante `RESERVAS_FERIADOS` en `salamandra_project/settings.py`, usando el formato `AAAA-MM-DD`. El sistema consulta esta lista al validar la fecha de reserva. La configuración debe completarse con los feriados confirmados por la universidad.
+- **Requisito:** El sistema debe utilizar los horarios configurados para cada sala; los bloques A, B, C, D, E y F representan la configuración de horarios de referencia del sistema. Debe respetar un intervalo mínimo de 15 minutos para desalojo y limpieza entre reservas de una misma sala e impedir reservas los sábados, domingos y en los feriados que se hayan configurado. Como regla general, un mismo solicitante no puede reservar bloques horarios consecutivos (A-B, B-C, C-D, etc.), en la misma sala ni en salas diferentes. El Administrador tiene una excepción a la restricción de consecutividad cuando modifica una reserva o crea una reserva para su propia cuenta, sin dispensar las demás validaciones. Se permiten bloques no consecutivos (por ejemplo, A-C, B-D o C-E), siempre que exista disponibilidad y se cumplan las demás reglas.
+- **Configuración de feriados:** Las fechas no habilitadas por feriados se definen en la configuración del sistema, mediante `RESERVAS_FERIADOS` en `salamandra_project/settings.py`, usando el formato `AAAA-MM-DD`. El sistema consulta esta lista al validar la fecha de reserva. Las fechas de feriados deberán mantenerse actualizadas de acuerdo con el calendario universitario aplicable.
 - **Criterios de aceptación:**
 
-  **Caso 1 — Intervalo entre reservas de distintos usuarios en una misma sala**
-  - **Situación inicial:** La reserva de un solicitante en la sala A termina a las 09:45, al finalizar el bloque A.
+  **Caso 1 — Intervalo entre reservas de distintos usuarios en una misma sala (horarios predefinidos)**
+  - **Situación inicial:** En la configuración inicial de bloques, la reserva de un solicitante en la sala A termina a las 09:45, al finalizar el bloque A.
   - **Acción:** Otro solicitante intenta reservar esa misma sala en el bloque B, que comienza a las 10:00.
   - **Resultado esperado:** El sistema puede aceptar la reserva porque existe un intervalo de 15 minutos entre ambos bloques, siempre que se cumplan las demás reglas de disponibilidad.
 
   **Caso 2 — Reserva en sábado, domingo o feriado**
   - **Situación inicial:** La fecha solicitada corresponde a un sábado, domingo o feriado registrado.
   - **Acción:** Un solicitante intenta crear una reserva.
-  - **Resultado esperado:** El sistema rechaza la solicitud.
+  - **Resultado esperado:** El sistema rechaza la solicitud en sábado o domingo; para un feriado, la fecha debe figurar previamente en `RESERVAS_FERIADOS`.
 
   **Caso 3 — Restricción de horarios consecutivos para un mismo solicitante**
-  - **Situación inicial:** Un solicitante tiene una reserva confirmada en la sala A durante el bloque horario A, que finaliza a las 09:45.
+  - **Situación inicial:** En la configuración inicial de bloques, un solicitante tiene una reserva confirmada en la sala A durante el bloque horario A, que finaliza a las 09:45.
   - **Acción:** El mismo solicitante intenta realizar otra reserva para el bloque horario B, que comienza a las 10:00, ya sea en la misma sala o en una diferente.
-  - **Resultado esperado:** El sistema rechaza la solicitud porque el solicitante ya tiene una reserva en el bloque inmediatamente anterior. No se permiten reservas en horarios consecutivos para un mismo solicitante, independientemente de la sala seleccionada. Podrá reservar bloques no consecutivos, como A-C, B-D o C-E, siempre que cumpla los demás requisitos.
+  - **Resultado esperado:** El sistema rechaza la solicitud porque el solicitante ya tiene una reserva en el bloque inmediatamente anterior. No se permiten reservas en horarios consecutivos para un mismo solicitante, independientemente de la sala seleccionada. Podrá reservar bloques no consecutivos, como A-C, B-D o C-E, siempre que cumpla los demás requisitos. Esta restricción se mantiene para operaciones del Operante en nombre de solicitantes.
 
   **Caso 4 — Reserva en bloque no consecutivo**
   - **Situación inicial:** Un solicitante tiene una reserva confirmada en el bloque A de una sala.
@@ -196,52 +200,53 @@ Otro caso
   - **Apertura:** Desde las 00:00, el usuario solicita un horario habilitado del día actual que todavía no ha terminado; el sistema permite continuar con las validaciones.
   - **Bloque finalizado:** El usuario intenta reservar un bloque del día actual cuya hora de finalización ya pasó; el sistema rechaza la solicitud.
   - **Bloque en mantenimiento:** Aunque sea hoy y el bloque no haya terminado, se rechaza si su estado es `MANTENIMIENTO`.
+
 ---
 
 ### [RES-RF-10 — Modificación segura de reservas]
 
 - **Tipo:** Funcional
 - **Origen:** ENT-01, ENT-18, ENT-19  
-- **Prioridad y razón:** Alta ya que evita perder una reserva válida cuando una modificación no puede completarse.
+- **Prioridad y razón:** Alta, ya que evita perder una reserva válida cuando una modificación no puede completarse.
 - **Estado:** Confirmado
 - **Requisito:** El sistema debe permitir modificar una reserva conforme a las restricciones temporales y de permisos. La reserva original debe conservarse hasta que la modificación se valide y confirme correctamente.
 - **Criterios de aceptación:**
   - **Situación inicial:** Un usuario autorizado tiene una reserva confirmada.
   - **Acción:** Solicita cambiar a otra sala u horario disponible.
   - **Resultado esperado:** El sistema confirma el cambio y actualiza la reserva.
-Otro caso:
+  **Caso adicional:**
   - **Situación inicial:** El nuevo horario está ocupado o la modificación no se confirma.
   - **Acción:** El usuario intenta completar el cambio.
   - **Resultado esperado:** El sistema rechaza la modificación y conserva intacta la reserva original.
 
 ---
 
-### [RES-RF-11 — Estados de reservas y de horarios de salas]
+### [RES-RF-11 — Estados de reservas y horarios de salas]
 
 - **Tipo:** Funcional
-- **Origen:** ENT-14 y ENT-15; nomenclatura actual de la base de datos.
-- **Prioridad y razón:** Alta, porque representa correctamente el ciclo de vida de cada entidad.
+- **Origen:** ENT-14, ENT-15 y ENT-22.
+- **Prioridad y razón:** Alta, porque distingue el ciclo de vida de las reservas del estado operativo de los horarios.
 - **Estado:** Confirmado
-- **Requisito:** El sistema debe distinguir los estados de **Reserva** (`CONFIRMADA`, `CANCELADA`, `POR_MANTENIMIENTO`) de los estados de **SalaHorario** (`DISPONIBLE`, `MANTENIMIENTO`). No debe utilizar `RESERVADA` ni `HABILITADO` como nombres de estado, ni incorporar `EN_USO` a los estados definidos. Una reserva finalizada no se muestra como vigente. Un horario en `MANTENIMIENTO` mantiene ese estado hasta su desbloqueo manual, sin habilitación por vencimiento del turno.
+- **Requisito:** Las reservas utilizan los estados `CONFIRMADA`, `CANCELADA` y `POR_MANTENIMIENTO`. Las asignaciones `SalaHorario` utilizan los estados `DISPONIBLE`, `MANTENIMIENTO` y `RETIRADO`. Un horario en `MANTENIMIENTO` conserva ese estado mientras no exista un desbloqueo manual válido, aunque finalice el turno o cambie la fecha. Un horario `RETIRADO` no puede ofertarse para reservas. Una reserva cuyo turno ya finalizó deja de mostrarse como vigente, sin necesidad de agregar un estado `EN_USO`.
 - **Criterios de aceptación:**
-  - Al confirmar una reserva, su estado es `CONFIRMADA`.
-  - Al cancelar ordinariamente una reserva, su estado es `CANCELADA`.
-  - Si la reserva se cancela debido al mantenimiento, pasa a `POR_MANTENIMIENTO`.
-  - Un horario sin mantenimiento está en `DISPONIBLE`, sujeto a las demás reglas de ocupación.
-  - Al bloquearlo por mantenimiento, pasa a `MANTENIMIENTO` y permanece así hasta que un Administrador u Operante lo desbloquee explícitamente.
-  - Cuando termina el horario de una reserva, deja de mostrarse como reserva vigente, pero no se agrega un estado `EN_USO`.
+  - Una nueva reserva se registra como `CONFIRMADA` y una cancelación ordinaria cambia su estado a `CANCELADA`.
+  - Una reserva afectada por mantenimiento pasa a `POR_MANTENIMIENTO` y no se restaura automáticamente.
+  - Al bloquear un horario, su estado cambia a `MANTENIMIENTO` y continúa así en días posteriores si no existe un desbloqueo manual.
+  - Si el bloqueo se desbloquea antes del inicio del bloque en su fecha de registro, el horario vuelve a `DISPONIBLE` si se cumplen las demás condiciones; una vez iniciado el bloque, no se permite desbloquearlo.
+  - Un horario `RETIRADO` no se ofrece para nuevas reservas y mantiene sus antecedentes registrados.
+
 ---
 
 ### [RES-RF-12 — Registro de la actividad prevista en la reserva]
 
 - **Tipo:** Funcional
 - **Origen:** ENT-16
-- **Prioridad y razón:** Media porque permite identificar el propósito de uso de la sala.
+- **Prioridad y razón:** Media, porque permite identificar el propósito de uso de la sala.
 - **Estado:** Confirmado
-- **Requisito:** El sistema debe exigir que el solicitante seleccione el tipo de actividad que realizará durante la reserva mediante una lista desplegable con opciones como tutoría, examen, estudio, tarea o proyecto. La selección es obligatoria y no se permite confirmar la reserva si el campo está vacío.
+- **Requisito:** El sistema debe exigir que el solicitante seleccione el tipo de actividad que realizará durante la reserva mediante una lista desplegable con las opciones Tutoría, Examen, Tarea y Proyecto. La selección es obligatoria y no se permite confirmar la reserva si el campo está vacío.
 - **Criterios de aceptación:**
   - **Situación inicial:** El usuario completa una solicitud de reserva.
-  - **Acción:** Selecciona una actividad de la lista desplegable.
+  - **Acción:** Selecciona Tutoría, Examen, Tarea o Proyecto de la lista desplegable.
   - **Resultado esperado:** El sistema permite continuar si se cumplen las demás reglas de reserva.
   - **Situación inicial:** El usuario completa una solicitud de reserva sin seleccionar una actividad.
   - **Acción:** Intenta confirmar la reserva con el campo de actividad vacío.
@@ -252,23 +257,17 @@ Otro caso:
 ### [RES-RF-13 — Administración de permisos y roles]
 
 - **Tipo:** Funcional
-- **Origen:** ENT-03, ENT-17, ENT-19, ENT-20 
-- **Prioridad y razón:** Alta ya que limita las operaciones según las responsabilidades de cada usuario.
+- **Origen:** ENT-03, ENT-17, ENT-19 y ENT-20
+- **Prioridad y razón:** Alta, porque limita las operaciones según la responsabilidad de cada usuario.
 - **Estado:** Confirmado
-- **Requisito:** El sistema debe asignar un único rol a cada usuario y autorizar exclusivamente las operaciones correspondientes a ese rol. El Operante puede crear, modificar y cancelar reservas en nombre de solicitantes identificados por su código institucional, así como bloquear horarios por mantenimiento y desbloquearlos manualmente conforme a sus permisos; nunca se desbloquean automáticamente por fin de turno. Las validaciones temporales, de sanciones y de disponibilidad también se aplican a las operaciones iniciadas por el Operante.
+- **Requisito:** El sistema debe asignar un único rol a cada usuario y permitir exclusivamente las operaciones correspondientes a él. El Operante puede crear, modificar y cancelar reservas en nombre de solicitantes identificados por su código institucional; también puede bloquear horarios por mantenimiento antes de su inicio y desbloquearlos únicamente antes del inicio del bloque correspondiente a la fecha del bloqueo. El Administrador dispone de las excepciones autorizadas para reservas y puede bloquear un horario por mantenimiento incluso después de que el turno haya finalizado. Ningún mantenimiento se libera automáticamente al terminar el turno. Las validaciones de sanciones, disponibilidad y permisos se aplican también a operaciones iniciadas por el Operante. El Administrador puede activar o desactivar cuentas de solicitantes, conservando su historial.
 - **Criterios de aceptación:**
-  - **Situación inicial:** Un usuario tiene rol de Solicitante.
-  - **Acción:** Intenta bloquear una sala por mantenimiento.
-  - **Resultado esperado:** El sistema rechaza la operación.
-  - **Situación inicial:** Un usuario tiene rol de Administrador u Operante autorizado.
-  - **Acción:** Bloquea una sala por mantenimiento.
-  - **Resultado esperado:** El sistema permite la operación si se cumplen las demás validaciones, registra quién la realizó y cancela sin sanción las reservas afectadas.
-  - **Situación inicial:** Existe un intervalo bloqueado por mantenimiento.
-  - **Acción:** Un Administrador u Operante autorizado solicita desbloquearlo manualmente.
-  - **Resultado esperado:** El sistema permite el desbloqueo únicamente si todavía no inició el bloque; registra al responsable y habilita el horario si no existe otra restricción. Si el bloque ya inició, rechaza la operación.
-  - **Situación inicial:** Una cuenta ya tiene asignado el rol Operante.
-  - **Acción:** Se intenta asignarle además el rol Administrador.
-  - **Resultado esperado:** El sistema rechaza la asignación simultánea y mantiene un único rol para la cuenta.
+  - Un Solicitante intenta bloquear un horario por mantenimiento: el sistema rechaza la operación.
+  - El Operante intenta bloquear un horario iniciado: el sistema rechaza la operación.
+  - El Administrador solicita bloquear un horario que ya comenzó o finalizó: la operación no se rechaza por el tiempo transcurrido, y se registran las reservas confirmadas afectadas sin sanción, siempre que se cumplan las demás validaciones.
+  - Un Administrador u Operante autorizado solicita desbloquear antes del inicio del bloque en la fecha de registro del bloqueo: se registra el responsable y el horario vuelve a `DISPONIBLE` si no existen otras restricciones. Después de esa hora, se rechaza la acción.
+  - Una cuenta con rol Operante intenta recibir simultáneamente el rol Administrador: el sistema rechaza la asignación adicional.
+  - El Administrador desactiva o reactiva una cuenta de Solicitante sin eliminar sus datos históricos.
 
 ---
 
@@ -278,34 +277,37 @@ Otro caso:
 - **Origen:** ENT-09 y ENT-19; aclaración del cliente.
 - **Prioridad y razón:** Alta, porque permite aplicar sanciones y conservar su trazabilidad.
 - **Estado:** Confirmado
-- **Requisito:** El Administrador puede aplicar manualmente una sanción mediante una lista de opciones: **24 horas, 48 horas, una semana o semestre completo**, sin opción de un mes. Debe registrar un motivo obligatorio. Se conservan solicitante, duración, motivo, fecha y administrador responsable para auditoría.
+- **Requisito:** El Administrador puede aplicar manualmente una sanción mediante una lista de opciones: **24 horas, 48 horas, una semana o semestre completo**, sin opción de un mes. Debe registrar un motivo obligatorio. Se conservan el solicitante, el tipo de sanción, la fecha de inicio, la fecha de finalización, el motivo y el Administrador responsable para auditoría. Para la sanción de semestre completo no existe una duración fija en horas; su fecha de finalización corresponde al siguiente corte semestral (1 de enero o 1 de julio).
 - **Criterios de aceptación:**
   - El Administrador selecciona «1 semana», introduce el motivo y confirma; la sanción queda registrada y bloquea reservas durante su vigencia.
-  - El Administrador puede elegir también 24 horas, 48 horas o semestre completo.
+  - El Administrador puede elegir también 24 horas, 48 horas o semestre completo; en este último caso, el bloqueo termina en el siguiente corte semestral y no se representa como una cantidad fija de horas.
   - Si no introduce motivo, la operación se rechaza sin generar sanción.
   - No se presenta la opción «un mes».
+
 ---
 
 ### [RES-RF-15 — Conteo de sanciones por semestre y conservación del historial]
 
 - **Tipo:** Funcional
-- **Origen:** ENT-10; aclaración del cliente.
+- **Origen:** ENT-10 y ENT-25.
 - **Prioridad y razón:** Alta, porque la escala debe calcularse para el semestre vigente sin perder los antecedentes.
 - **Estado:** Confirmado
-- **Requisito:** El sistema debe **calcular automáticamente el contador de faltas de cada solicitante según los períodos semestrales definidos por el sistema**. Al comenzar un nuevo semestre, el conteo correspondiente al nuevo período es cero y solo considera las faltas registradas dentro de las fechas del período correspondiente. **No se eliminan, reinician ni modifican los registros históricos de sanciones**: se conservan sus fechas, motivos, responsables, duraciones y retiros para trazabilidad, consultas y auditorías. El cálculo no requiere una tarea programada de reinicio ni una acción manual del Administrador.
+- **Requisito:** El sistema debe **calcular automáticamente el contador de faltas de cada solicitante según semestres de calendario**: del 1 de enero al 30 de junio y del 1 de julio al 31 de diciembre. El Administrador también puede realizar un reinicio manual general del conteo de faltas, registrando la operación y retirando las sanciones vigentes sin borrar el historial. Al comenzar un nuevo semestre, el conteo correspondiente al nuevo período es cero y solo considera las faltas registradas dentro de las fechas del período correspondiente. **No se eliminan los registros históricos de sanciones**: sus datos originales se conservan y cualquier retiro o reinicio administrativo queda registrado para trazabilidad, consultas y auditorías. El cambio semestral no requiere una tarea programada ni una acción manual; el reinicio administrativo es una operación extraordinaria y explícita.
 - **Criterios de aceptación:**
   - **Situación inicial:** Un estudiante acumula tres faltas durante un período semestral definido por el sistema.
   - **Acción:** Comienza el siguiente semestre y el sistema consulta el contador del estudiante.
   - **Resultado esperado:** El contador del nuevo semestre comienza en cero y solo considera las faltas de ese período; las tres faltas anteriores no se contabilizan nuevamente.
-  - El historial de sanciones de los semestres anteriores permanece conservado, consultable y sin alteraciones, incluyendo sus datos necesarios para auditoría.
-  - La consulta del contador no elimina ni retira sanciones previas ni ejecuta una tarea de reinicio de base de datos.
+  - El historial de sanciones de los semestres anteriores permanece conservado en la base de datos, sin borrar los datos originales necesarios para auditoría.
+  - La consulta del contador no elimina sanciones previas ni ejecuta una tarea de reinicio de base de datos.
+  - Si el Administrador realiza un reinicio general manual, el sistema registra fecha y responsable, fija el nuevo corte de conteo y retira las sanciones vigentes; el historial se conserva para auditoría.
+
 ---
 
 ### [RES-RF-16 — Prevención de reservas simultáneas incompatibles]
 
 - **Tipo:** Funcional
 - **Origen:** ENT-18, ENT-23 
-- **Prioridad y razón:** Alta ya que evita que dos usuarios obtengan la misma sala para intervalos incompatibles.
+- **Prioridad y razón:** Alta, ya que evita que dos usuarios obtengan la misma sala para intervalos incompatibles.
 - **Estado:** Confirmado
 - **Requisito:** El sistema debe garantizar que dos solicitudes simultáneas incompatibles no puedan confirmar reservas para la misma sala y el mismo intervalo de tiempo.
 - **Criterios de aceptación:**
@@ -318,89 +320,82 @@ Otro caso:
 ### [RES-RF-17 — Gestión de reservas afectadas por mantenimiento]
 
 - **Tipo:** Funcional
-- **Origen:** ENT-03, ENT-22, ENT-23.
-- **Prioridad y razón:** Alta, para proteger las reservas afectadas y comunicar su cancelación.
+- **Origen:** ENT-03, ENT-22 y ENT-23.
+- **Prioridad y razón:** Alta, porque protege a los titulares de reservas canceladas por mantenimiento y asegura su notificación.
 - **Estado:** Confirmado
-- **Requisito:** Cuando un Administrador u Operante bloquea **antes de su inicio** un horario de sala por mantenimiento, este pasa a `MANTENIMIENTO` y permanece bloqueado **hasta un desbloqueo manual**, sin liberarse automáticamente al terminar el turno. Las reservas `CONFIRMADA` afectadas pasan a `POR_MANTENIMIENTO`, sin sanción para sus titulares. Cada titular recibe una notificación dentro de la página web con el motivo del bloqueo, sin correo electrónico.
+- **Requisito:** Al registrar un bloqueo por mantenimiento, el sistema debe identificar las reservas `CONFIRMADA` asociadas a la asignación de sala y horario bloqueada, cambiar su estado a `POR_MANTENIMIENTO` sin sancionar a sus titulares y crear una notificación interna persistente que indique el motivo. El horario permanece en `MANTENIMIENTO` hasta su desbloqueo manual, incluso en días posteriores. El desbloqueo no restablece automáticamente las reservas afectadas ni elimina sus notificaciones o el historial.
 - **Criterios de aceptación:**
-  - Bloquear un horario con reserva confirmada modifica la reserva a `POR_MANTENIMIENTO` y crea la notificación interna con el motivo.
-  - Durante y después del turno, si no ha ocurrido un desbloqueo manual, el horario sigue en `MANTENIMIENTO`.
-  - Solo se permite desbloquear antes de la hora de inicio del bloque; una vez iniciado, se rechaza. Un desbloqueo autorizado registra actor, fecha y bloqueo específico y nunca reactiva automáticamente las reservas afectadas.
+  - Al bloquear una asignación de sala y horario con reservas confirmadas, estas pasan a `POR_MANTENIMIENTO` y sus titulares reciben una notificación con el motivo.
+  - El bloqueo impide realizar nuevas reservas en ese horario mientras permanezca en `MANTENIMIENTO`.
+  - Al finalizar el turno, el mantenimiento permanece activo si nadie lo desbloquea.
+  - Tras el desbloqueo manual, las reservas afectadas continúan en `POR_MANTENIMIENTO` y las notificaciones se conservan.
 
 ---
 
 ### [RES-RF-18 — Operaciones asistidas por el Operante mediante código institucional]
 
 - **Tipo:** Funcional
-- **Origen:** ENT-06, ENT-19
+- **Origen:** ENT-06 y ENT-19
 - **Prioridad:** Alta
 - **Estado:** Confirmado
-- **Requisito:** El Operante debe autenticarse con su propia cuenta. Al elegir Crear, Modificar o Cancelar reserva, debe introducir el código institucional del solicitante; el sistema valida que exista, muestra sus datos y permite seleccionar la reserva o el horario pertinente. El código ingresado identifica al solicitante afectado, no sustituye la identidad autenticada del Operante. El sistema debe registrar la identidad del Operante responsable de cada operación realizada en nombre de un solicitante, junto con la fecha y hora de ejecución. Para bloquear por mantenimiento se seleccionan sala, intervalo y motivo, sin pedir código de solicitante. Para desbloquear se selecciona el horario bloqueado y se confirma la acción únicamente si todavía no ha llegado la hora de inicio del bloque. Si el bloque ya comenzó, se rechaza el desbloqueo.
+- **Requisito:** El Operante debe autenticarse con su propia cuenta. Para crear, modificar o cancelar reservas en nombre de un solicitante, introduce el código institucional de este; el sistema comprueba su existencia, muestra sus datos y permite seleccionar la reserva o el horario aplicable. La identidad del Operante permanece diferenciada de la del solicitante y se registra junto con la fecha y hora de cada operación. Para bloquear por mantenimiento se selecciona sala, horario y motivo, sin requerir código de solicitante. Para desbloquear se selecciona el bloqueo activo y se confirma su retiro por un usuario autorizado, siempre que la hora actual sea anterior al inicio del bloque correspondiente a la fecha del bloqueo. Los bloqueos no vencen automáticamente.
 - **Criterios de aceptación:**
-  - Dado un código institucional válido, al seleccionar Crear reserva, el sistema autocompleta los datos del solicitante y aplica sus bloqueos y reglas de disponibilidad.
-  - Dado un código inexistente, el sistema rechaza la operación sin alterar datos.
-  - Para modificar o cancelar, el Operante debe seleccionar una reserva del solicitante indicado; no puede modificar una reserva de otra persona por error.
-  - Para el bloqueo por mantenimiento, el sistema solicita sala, intervalo y motivo, y registra el Operante responsable.
-  - Para el desbloqueo manual, el sistema exige que el bloque aún no haya comenzado y registra al responsable y la fecha y hora. Si ya inició, rechaza la solicitud.
-  - Al crear, modificar o cancelar una reserva en nombre de un solicitante, el sistema registra la identidad del Operante y la fecha y hora de la operación.
+  - Con un código institucional válido, el sistema muestra los datos del solicitante y aplica sus restricciones de sanciones y disponibilidad.
+  - Con un código inexistente, la operación se rechaza sin alterar datos.
+  - Para modificar o cancelar, el Operante selecciona una reserva del titular indicado.
+  - Para bloquear por mantenimiento, selecciona sala, horario y motivo; el sistema comprueba los permisos temporales del Operante y registra quién realizó la acción.
+  - Para desbloquear, selecciona un bloqueo activo antes del inicio del bloque en la fecha de registro del bloqueo; el sistema registra responsable y fecha de la operación. Una vez comenzado, rechaza el desbloqueo.
+  - En toda creación, modificación o cancelación asistida se registra la identidad del Operante y el momento de la acción.
+
+---
 
 ### [RES-RF-19 — Advertencia y confirmación de cancelación tardía asistida]
 
 - **Tipo:** Funcional (advertencia de interfaz vinculada a RES-RF-02)
 - **Origen:** ENT-02, ENT-19
 - **Prioridad:** Alta
-- **Estado:** Confirmado
-- **Requisito:** Si el Operante intenta cancelar en nombre de un solicitante una reserva que todavía no comenzó y faltan menos de 60 minutos, el sistema debe mostrar una advertencia explícita de que la operación generará una falta y que se aplicará la sanción conforme a las reglas vigentes. Debe permitir volver sin cancelar o confirmar conscientemente. Al confirmar, el servidor vuelve a validar las condiciones y registra cancelación y sanción de forma consistente. No se permite omitir la sanción por tener rol Operante.
+- **Estado:** Confirmado como requisito
+- **Requisito:** Si el Operante intenta cancelar en nombre de un solicitante una reserva que todavía no comenzó y faltan menos de 60 minutos, el sistema debe mostrar una advertencia explícita de que la operación generará una falta y que se aplicará la sanción conforme a las reglas vigentes. Antes de ejecutar la cancelación, el Operante debe poder revisar la advertencia y decidir si continúa o abandona la operación. Al confirmar, el servidor vuelve a validar las condiciones y registra cancelación y sanción de forma consistente. No se permite omitir la sanción por tener rol Operante.
 - **Criterios de aceptación:**
   - Reserva a las 10:00, cancelación solicitada a las 09:30: se advierte que confirmar la cancelación generará una falta y una sanción conforme a las reglas vigentes, sin exigir que la advertencia detalle una duración exacta.
-  - Si el Operante vuelve atrás, la reserva permanece intacta y no se registra sanción.
-  - Si confirma, se cancela y sanciona al solicitante, registrando al Operante que realizó la acción.
+  - Si el Operante abandona la operación sin enviarla, la reserva permanece intacta y no se registra sanción.
+  - Si el Operante confirma la cancelación desde la pantalla asistida, se cancela y sanciona al solicitante, registrando al Operante que realizó la acción.
   - Si la reserva ya comenzó, la cancelación se rechaza según RES-RF-02.
   - Si intenta modificar faltando menos de una hora, el sistema rechaza el cambio, sin permitir que una advertencia lo habilite.
 
 ---
 
-### [RES-RF-20 — Creación administrativa de horarios con duración mínima y limpieza]
-
-- **Tipo:** Funcional
-- **Origen:** ENT-04, ENT-05 y ENT-19.
-- **Prioridad:** Alta
-- **Estado:** Confirmado
-- **Requisito:** El Administrador puede crear salas y definir horarios para ellas; los bloques A–F son una configuración inicial de referencia y no horarios inmodificables. Cada horario debe durar **como mínimo 2 horas (120 minutos)** y debe existir un intervalo de **al menos 15 minutos** entre horarios sucesivos de una misma sala destinado al desalojo y limpieza. Se impiden horarios duplicados o superpuestos.
-- **Criterios de aceptación:**
-  - El Administrador crea dos horarios de 08:00 a 10:00 y de 10:15 a 12:15 para la misma sala: cumplen duración mínima e intervalo.
-  - Un bloque de 08:00 a 10:30 es válido respecto de la duración mínima de dos horas.
-  - Un bloque de 08:00 a 09:30 se rechaza porque dura menos de dos horas.
-  - Si la separación entre bloques de una misma sala es de 5 minutos, el sistema rechaza la creación.
----
-
-### [RES-RF-21 — Cancelación administrativa con trazabilidad y aviso]
+### [RES-RF-20 — Cancelación administrativa con trazabilidad y aviso]
 
 - **Tipo:** Funcional
 - **Origen:** Gestión administrativa de reservas.
 - **Prioridad:** Alta
 - **Estado:** Confirmado
-- **Requisito:** El Administrador puede consultar y cancelar reservas confirmadas que aún no hayan comenzado sin sancionar al titular por esta cancelación administrativa. El sistema conserva la identidad del responsable y la fecha de la acción en auditoría y genera al titular una notificación visible dentro de la plataforma.
+- **Requisito:** El Administrador puede consultar y cancelar reservas confirmadas incluso si el turno ya comenzó, sin sancionar al titular por esta cancelación administrativa. El sistema conserva la identidad del responsable y la fecha de la acción en auditoría y genera al titular una notificación visible dentro de la plataforma.
 - **Criterios de aceptación:**
   - Ante una reserva confirmada para un turno futuro, el Administrador la cancela: se registra la cancelación sin sanción para el titular y se genera su aviso interno.
-  - Ante una reserva ya comenzada, no se ofrece como cancelable por este flujo.
+  - Ante una reserva confirmada cuyo turno ya comenzó, el Administrador puede cancelarla sin sancionar al titular, registrando la acción.
 
 ---
 
-### [RES-RF-22 — Registro individual y único de desbloqueos]
+### [RES-RF-21 — Desbloqueo manual y conservación del historial de mantenimiento]
 
 - **Tipo:** Funcional
 - **Origen:** ENT-07 y gestión de mantenimiento.
 - **Prioridad:** Alta
 - **Estado:** Confirmado
-- **Requisito:** Cada desbloqueo manual registra el bloqueo específico retirado, quién lo retiró y en qué fecha y hora. Un bloqueo admite como máximo un desbloqueo. Solo el Administrador o el Operante puede ejecutarlo. El horario permanece en `MANTENIMIENTO` hasta que se ejecute un desbloqueo manual válido. El sistema solo permite desbloquear antes del inicio del turno y rechaza la operación desde el momento en que comienza, incluso si el turno ya finalizó. Sin un desbloqueo válido, el estado persiste en días posteriores.
+- **Requisito:** Cada bloqueo por mantenimiento debe quedar asociado a la asignación de sala y horario afectada y conservar su motivo, responsable y fecha de registro. El Administrador o el Operante autorizado puede retirar manualmente un bloqueo activo **solo antes del inicio del bloque correspondiente a la fecha del bloqueo**. Una vez iniciado el bloque, el sistema impide su desbloqueo aunque hayan transcurrido otros días. Cada bloqueo admite **como máximo un registro de desbloqueo**, que identifica al bloqueo retirado, al usuario responsable y el momento de la operación. Si no se realiza un desbloqueo, el horario continúa en `MANTENIMIENTO` sin importar la finalización del turno o el cambio de fecha. Un desbloqueo permitido devuelve el horario a `DISPONIBLE` cuando no exista otra restricción; no recupera las reservas canceladas.
 - **Criterios de aceptación:**
-  - Antes del inicio del bloque, el desbloqueo válido registra bloqueo, actor, fecha y hora; el estado cambia a `DISPONIBLE` si no existe otra restricción. Desde el inicio del bloque, se rechaza.
-  - Intentar desbloquear dos veces el mismo bloqueo no genera un segundo registro.
-  - La finalización del turno no genera ningún registro de desbloqueo ni cambia el estado por sí sola.
+  - Un usuario autorizado desbloquea un horario en `MANTENIMIENTO` antes del inicio del bloque en la fecha de registro del bloqueo: se registra el desbloqueo, responsable y fecha y hora.
+  - Si el bloque ya comenzó o finalizó, el sistema rechaza el desbloqueo, incluso en días posteriores.
+  - Un segundo intento de desbloquear el mismo bloqueo no genera un registro duplicado.
+  - Al terminar el turno, el estado `MANTENIMIENTO` no cambia automáticamente.
+  - Si el horario continúa bloqueado al día siguiente, no permite nuevas reservas y, al haber pasado el inicio del bloque original, el desbloqueo manual se rechaza con la regla actual.
+  - El historial de bloqueos y desbloqueos permanece disponible para auditoría.
+
 ---
 
-### [RES-RF-23 — Gestión persistente de notificaciones internas]
+### [RES-RF-22 — Gestión persistente de notificaciones internas]
 
 - **Tipo:** Funcional
 - **Origen:** ENT-22 y gestión de notificaciones internas.
@@ -413,26 +408,26 @@ Otro caso:
 
 ---
 
-### [RES-RF-24 — Retiro administrativo de sanciones sin eliminación histórica]
+### [RES-RF-23 — Retiro administrativo de sanciones sin eliminación histórica]
 
 - **Tipo:** Funcional
-- **Origen:** Gestión administrativa de sanciones.
+- **Origen:** Gestión administrativa de sanciones y ENT-25.
 - **Prioridad:** Alta
 - **Estado:** Confirmado
-- **Requisito:** El Administrador puede retirar una sanción vigente sin borrar la sanción ni sus datos originales. Se registran la fecha y el usuario que realizó el retiro; la sanción histórica permanece consultable.
+- **Requisito:** El Administrador puede retirar una sanción vigente sin borrar sus datos originales. Se registran la fecha y el usuario que realizó el retiro; la sanción histórica permanece almacenada en la base de datos para trazabilidad y auditoría.
 - **Criterios de aceptación:**
   - Al retirar una sanción vigente, deja de bloquear nuevas reservas y queda registrado el responsable del retiro.
   - No puede retirarse de nuevo una sanción ya retirada ni se elimina su historial.
 
 ---
 
-### [RES-RF-25 — Advertencia de sanción en cancelaciones tardías]
+### [RES-RF-24 — Advertencia de sanción para el Solicitante en cancelaciones tardías]
 
 - **Tipo:** Funcional
 - **Origen:** RES-RF-02 y RES-RF-19.
 - **Prioridad:** Alta
-- **Estado:** Confirmado
-- **Requisito:** Antes de confirmar una cancelación de una reserva no iniciada cuando faltan menos de 60 minutos, el sistema debe mostrar al solicitante o al Operante una advertencia general de que se generará una falta y se aplicará una sanción según las reglas vigentes, sin requerir que el aviso anticipe la duración exacta. Debe permitir **confirmar** o **volver atrás**. Las reglas se vuelven a comprobar al confirmar.
+- **Estado:** Confirmado como requisito
+- **Requisito:** Antes de que el Solicitante confirme la cancelación de una reserva no iniciada cuando faltan menos de 60 minutos, el sistema debe mostrarle una advertencia general de que se generará una falta y se aplicará una sanción según las reglas vigentes, sin requerir que el aviso anticipe la duración exacta. Para cancelaciones asistidas por el Operante se aplica RES-RF-19. Debe permitir **confirmar** o **volver atrás**. Las reglas se vuelven a comprobar al confirmar.
 - **Criterios de aceptación:**
   - Al cancelar 30 minutos antes, aparece una advertencia general de que la operación implicará una falta y una sanción.
   - Si se elige volver atrás, la reserva y el historial de sanciones permanecen intactos.
@@ -446,7 +441,7 @@ Otro caso:
 - Origen: ENT-02, ENT-11, ENT-23
 - Prioridad y razón: Media porque proporciona retroalimentación transparente al usuario sobre por qué no puede realizar la operación.
 - Estado: Aprobado por el cliente
-- Requisito: Ante el rechazo de una operación por penalización o bloqueo de mantenimiento, el sistema debe mostrar un mensaje explicativo detallado con el motivo exacto y la duración del bloqueo.
+- Requisito: Ante el rechazo de una operación por penalización o bloqueo de mantenimiento, el sistema debe mostrar un mensaje explicativo detallado con el motivo del rechazo y, cuando se trate de una sanción temporal, su fecha de finalización o tiempo restante.
 - Criterio de aceptación o comprobación:
   - Situación inicial: Estudiante sancionado intenta realizar una reserva.
   - Acción: Ejecutar la solicitud de reserva desde el sistema.
@@ -472,14 +467,14 @@ Otro caso:
 |---|---|---|---|
 | Normal | RES-RF-01 | Reserva confirmada a las 16:00. Solicitud de modificación enviada a las 14:30 (1 hora y 30 minutos antes). | El sistema aprueba la modificación, siempre que se cumplan las demás reglas, y actualiza el horario de la reserva. |
 | Límite | RES-RF-01 | Reserva confirmada a las 16:00. Solicitud de modificación enviada a las 15:00 (exactamente 1 hora antes). | El sistema permite la modificación porque cumple el límite mínimo de una hora de anticipación. |
-| Rechazo | RES-RF-02 | Reserva confirmada a las 12:00. El estudiante cancela a las 11:30 (30 minutos antes), siendo su primera falta del semestre. | El sistema cancela la reserva, registra la primera falta y bloquea al estudiante para realizar nuevas reservas durante 24 horas. |
+| Cancelación tardía | RES-RF-02 | Reserva confirmada a las 12:00. El estudiante cancela a las 11:30 (30 minutos antes), siendo su primera falta del semestre. | El sistema cancela la reserva, registra la primera falta y bloquea al estudiante para realizar nuevas reservas durante 24 horas. |
 
-Estos escenarios están cubiertos por pruebas automatizadas con `pytest`.
+El proyecto contiene pruebas automatizadas con `pytest` relacionadas con modificaciones, cancelaciones, sanciones y mantenimiento. La ejecución y los resultados de las pruebas deben verificarse en el entorno del proyecto.
 
 ## 5. Participación y asistencia utilizada
 
 - Aportes de cada integrante: 
   - Luciana Soza: Conducción de la entrevista al cliente, formulación de las preguntas sobre modificaciones y mantenimiento, y redacción de los hallazgos `ENT-01` y `ENT-03`.
-  - Sebastian Cruz: Definición de los requisitos funcionales de penalizaciones escalar (`RES-RF-02`) y restricciones de tiempo (`RES-RF-01`), y configuración del Issue.
+  - Sebastian Cruz: Definición de los requisitos funcionales de penalizaciones escalonadas (`RES-RF-02`) y restricciones de tiempo (`RES-RF-01`), y configuración del Issue.
   - Sebastian Soto: Elaboración de criterios de aceptación, diseño de escenarios del flujo y redacción de la restricción técnica `RES-RT-01`.
 - Asistencia de IA, si se utilizó: ChatGPT / Gemini para estructurar las respuestas de la entrevista en la plantilla estándar de la Sesión 6 de GitHub en formato Markdown.
