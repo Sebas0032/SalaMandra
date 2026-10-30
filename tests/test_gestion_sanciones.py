@@ -129,6 +129,74 @@ def test_listado_muestra_solo_la_sancion_vigente(usuarios_sanciones):
     assert filas[0]["sancion"] == vigente
 
 
+def test_sancion_manual_nueva_reemplaza_la_vigente_sin_borrar_historial(
+    usuarios_sanciones,
+):
+    admin, estudiante = usuarios_sanciones
+    primera_fecha = timezone.make_aware(datetime(2026, 10, 27, 9))
+    segunda_fecha = primera_fecha + timedelta(hours=1)
+    with patch(
+        "reservas.gestion_sanciones.timezone.localtime",
+        return_value=primera_fecha,
+    ):
+        primera = gestion_sanciones.apply_manual_sanction(
+            admin.pk, estudiante.pk, "24_horas", "Primera"
+        )
+    with patch(
+        "reservas.gestion_sanciones.timezone.localtime",
+        return_value=segunda_fecha,
+    ):
+        segunda = gestion_sanciones.apply_manual_sanction(
+            admin.pk, estudiante.pk, "48_horas", "Segunda"
+        )
+
+    primera.refresh_from_db()
+    assert primera.fecha_retiro == segunda_fecha
+    assert primera.retirada_por == admin
+    assert segunda.fecha_retiro is None
+    assert Sancion.objects.count() == 2
+    assert list(
+        gestion_sanciones.sanciones_vigentes(segunda_fecha).values_list(
+            "pk", flat=True
+        )
+    ) == [segunda.pk]
+
+
+def test_sancion_automatica_nueva_reemplaza_cualquier_sancion_vigente(
+    usuarios_sanciones,
+):
+    admin, estudiante = usuarios_sanciones
+    inicio = timezone.make_aware(datetime(2026, 10, 27, 9))
+    with patch(
+        "reservas.gestion_sanciones.timezone.localtime",
+        return_value=inicio,
+    ):
+        manual = gestion_sanciones.apply_manual_sanction(
+            admin.pk, estudiante.pk, "semestre", "Manual"
+        )
+
+    primera_automatica = services._registrar_sancion_por_cancelacion(
+        estudiante.pk, inicio + timedelta(minutes=1)
+    )
+    segunda_automatica = services._registrar_sancion_por_cancelacion(
+        estudiante.pk, inicio + timedelta(minutes=2)
+    )
+
+    manual.refresh_from_db()
+    primera_automatica.refresh_from_db()
+    assert manual.fecha_retiro == inicio + timedelta(minutes=1)
+    assert manual.retirada_por is None
+    assert primera_automatica.fecha_retiro == inicio + timedelta(minutes=2)
+    assert segunda_automatica.fecha_retiro is None
+    assert segunda_automatica.tipo_sancion_id == TipoSancion.ID_48_HORAS
+    assert Sancion.objects.count() == 3
+    assert list(
+        gestion_sanciones.sanciones_vigentes(
+            inicio + timedelta(minutes=2)
+        ).values_list("pk", flat=True)
+    ) == [segunda_automatica.pk]
+
+
 def test_reinicio_manual_conserva_historial_y_registra_retiro(usuarios_sanciones):
     admin, estudiante = usuarios_sanciones
     ahora = timezone.localtime()

@@ -243,6 +243,10 @@ class Notificacion(models.Model):
             "CANCELACION_GESTION",
             "Reserva cancelada por administración u operación",
         )
+        MODIFICACION_GESTION = (
+            "MODIFICACION_GESTION",
+            "Reserva modificada por administración u operación",
+        )
 
     id_notificacion = models.AutoField(primary_key=True)
     usuario = models.ForeignKey(
@@ -272,13 +276,13 @@ class Notificacion(models.Model):
         db_table = "notificaciones"
         ordering = ["-fecha", "-id_notificacion"]
         constraints = [
-            models.UniqueConstraint(
-                fields=["reserva", "tipo"],
-                name="uq_notificacion_reserva_tipo",
-            ),
             models.CheckConstraint(
                 condition=models.Q(
-                    tipo__in=["MANTENIMIENTO", "CANCELACION_GESTION"]
+                    tipo__in=[
+                        "MANTENIMIENTO",
+                        "CANCELACION_GESTION",
+                        "MODIFICACION_GESTION",
+                    ]
                 ),
                 name="notificacion_tipo_permitido",
             ),
@@ -299,6 +303,22 @@ class Auditoria(models.Model):
     actor = models.ForeignKey(
         Usuario, on_delete=models.PROTECT, db_column="codigo_actor",
         related_name="acciones_reserva",
+    )
+    sala_horario_anterior = models.ForeignKey(
+        SalaHorario,
+        on_delete=models.PROTECT,
+        db_column="id_sala_horario_anterior",
+        related_name="auditorias_como_origen",
+        null=True,
+        blank=True,
+    )
+    sala_horario_nuevo = models.ForeignKey(
+        SalaHorario,
+        on_delete=models.PROTECT,
+        db_column="id_sala_horario_nuevo",
+        related_name="auditorias_como_destino",
+        null=True,
+        blank=True,
     )
     accion = models.CharField(max_length=100, choices=Accion.choices)
     fecha_accion = models.DateTimeField(default=timezone.now)

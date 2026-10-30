@@ -76,7 +76,35 @@ def test_admin_modifica_reserva_iniciada_a_otro_bloque_y_operante_no(escenario):
         services.modify_reservation(admin.pk, reserva.pk, b[1].pk)
     reserva.refresh_from_db()
     assert reserva.sala_horario == b[1]
-    assert Auditoria.objects.get(reserva=reserva, accion="MODIFICAR").actor == admin
+    auditoria = Auditoria.objects.get(reserva=reserva, accion="MODIFICAR")
+    assert auditoria.actor == admin
+    assert auditoria.sala_horario_anterior == a[0]
+    assert auditoria.sala_horario_nuevo == b[1]
+    assert Notificacion.objects.get(
+        reserva=reserva,
+        tipo=Notificacion.Tipo.MODIFICACION_GESTION,
+    ).usuario == estudiante
+
+
+def test_modificacion_identica_se_rechaza_sin_auditoria_ni_aviso(escenario):
+    _, admin, estudiante, _, a, _, ahora = escenario
+    reserva = Reserva.objects.create(
+        usuario=estudiante,
+        sala_horario=a[0],
+        fecha=ahora.date(),
+        tipo_actividad="Tarea",
+    )
+
+    with patch("reservas.services.timezone.localtime", return_value=ahora):
+        with pytest.raises(services.ReservationError, match="diferente"):
+            services.modify_reservation(admin.pk, reserva.pk, a[0].pk)
+
+    reserva.refresh_from_db()
+    assert reserva.sala_horario == a[0]
+    assert not Auditoria.objects.filter(
+        reserva=reserva, accion=Auditoria.Accion.MODIFICAR
+    ).exists()
+    assert not Notificacion.objects.filter(reserva=reserva).exists()
 
 
 def test_admin_mueve_reserva_ajena_a_bloque_consecutivo_y_queda_como_actor(escenario):

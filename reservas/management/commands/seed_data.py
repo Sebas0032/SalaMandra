@@ -23,7 +23,10 @@ from django.utils import timezone
 from reservas.models import (
     Auditoria,
     Bloqueo,
+    Desbloqueo,
     Horario,
+    Notificacion,
+    ReinicioSanciones,
     Reserva,
     Rol,
     Sala,
@@ -74,7 +77,8 @@ class Command(BaseCommand):
         if options["reset"]:
             # Orden: primero las tablas que dependen de otras.
             for modelo in (
-                Auditoria, Bloqueo, Reserva, SalaHorario, Sancion,
+                Notificacion, Auditoria, Desbloqueo, Bloqueo,
+                ReinicioSanciones, Reserva, SalaHorario, Sancion,
                 Sala, Horario, TipoSancion, Usuario, Rol,
             ):
                 modelo.objects.all().delete()

@@ -105,6 +105,50 @@ def test_cancelacion_propia_no_crea_aviso(escenario_notificaciones):
     assert not Notificacion.objects.exists()
 
 
+@pytest.mark.parametrize("rol", [Rol.Nombre.ADMINISTRADOR, Rol.Nombre.OPERANTE])
+def test_modificacion_de_gestion_notifica_origen_y_destino(
+    escenario_notificaciones, rol
+):
+    solicitante, admin, operante, sala_horario, reserva, ahora = escenario_notificaciones
+    actor = admin if rol == Rol.Nombre.ADMINISTRADOR else operante
+    destino = SalaHorario.objects.create(
+        sala=Sala.objects.create(nombre_sala="Sala B"),
+        horario=sala_horario.horario,
+    )
+
+    with patch("reservas.services.timezone.localtime", return_value=ahora):
+        services.modify_reservation(actor.pk, reserva.pk, destino.pk)
+
+    aviso = Notificacion.objects.get()
+    assert aviso.usuario == solicitante
+    assert aviso.actor == actor
+    assert aviso.tipo == Notificacion.Tipo.MODIFICACION_GESTION
+    assert "Sala A" in aviso.mensaje
+    assert "Sala B" in aviso.mensaje
+
+
+def test_cada_modificacion_de_gestion_conserva_su_notificacion(
+    escenario_notificaciones,
+):
+    _, admin, _, sala_horario, reserva, ahora = escenario_notificaciones
+    destinos = [
+        SalaHorario.objects.create(
+            sala=Sala.objects.create(nombre_sala=nombre),
+            horario=sala_horario.horario,
+        )
+        for nombre in ("Sala B", "Sala C")
+    ]
+
+    with patch("reservas.services.timezone.localtime", return_value=ahora):
+        services.modify_reservation(admin.pk, reserva.pk, destinos[0].pk)
+        services.modify_reservation(admin.pk, reserva.pk, destinos[1].pk)
+
+    assert Notificacion.objects.filter(
+        reserva=reserva,
+        tipo=Notificacion.Tipo.MODIFICACION_GESTION,
+    ).count() == 2
+
+
 def test_panel_muestra_aviso_y_permite_marcarlo_como_leido(
     client, escenario_notificaciones
 ):

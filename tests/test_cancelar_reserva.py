@@ -10,6 +10,7 @@ from reservas import services
 from reservas.models import (
     Auditoria,
     Horario,
+    Notificacion,
     Reserva,
     Rol,
     Sala,
@@ -141,7 +142,7 @@ def test_solicitante_no_puede_cancelar_reserva_ajena(escenario_cancelacion):
     assert reserva.estado_reserva == Reserva.ESTADO_CONFIRMADA
 
 
-def test_operador_cancela_y_la_sancion_recae_en_el_titular(
+def test_operador_cancela_sin_sancionar_y_notifica_al_titular(
     escenario_cancelacion,
 ):
     usuario, _, reserva, ahora = escenario_cancelacion
@@ -156,11 +157,15 @@ def test_operador_cancela_y_la_sancion_recae_en_el_titular(
     )
 
     with patch("reservas.services.timezone.localtime", return_value=ahora):
-        services.cancel_reservation(operador.pk, reserva.pk)
+        resultado = services.cancel_reservation(operador.pk, reserva.pk)
     reserva.refresh_from_db()
     assert reserva.usuario == usuario
     assert reserva.estado_reserva == Reserva.ESTADO_CANCELADA
-    assert Sancion.objects.get().usuario == usuario
+    assert resultado["sancion"] is None
+    assert not Sancion.objects.exists()
+    aviso = Notificacion.objects.get(reserva=reserva)
+    assert aviso.usuario == usuario
+    assert aviso.actor == operador
 
 
 def test_cancelacion_desde_el_panel_muestra_resultado(

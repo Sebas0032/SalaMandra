@@ -8,7 +8,8 @@ from django.utils import timezone
 
 from reservas import services
 from reservas.models import (
-    Auditoria, Desbloqueo, Horario, Reserva, Rol, Sala, SalaHorario, Sancion,
+    Auditoria, Desbloqueo, Horario, Notificacion, Reserva, Rol, Sala,
+    SalaHorario, Sancion,
     Usuario,
 )
 
@@ -151,7 +152,11 @@ def test_operante_modifica_y_cancela_reserva_ajena(client, escenario_operante):
     reserva.refresh_from_db()
     assert reserva.estado_reserva == Reserva.ESTADO_CANCELADA
     assert reserva.auditorias.get(accion="CANCELAR").actor == operante
-    assert Sancion.objects.get().usuario == solicitante
+    assert not Sancion.objects.exists()
+    assert Notificacion.objects.get(
+        reserva=reserva,
+        tipo=Notificacion.Tipo.CANCELACION_GESTION,
+    ).usuario == solicitante
 
 
 def test_operante_gestiona_mantenimiento_sin_sancionar(client, escenario_operante):
