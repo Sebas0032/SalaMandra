@@ -77,6 +77,14 @@ def sanciones_vigentes(ahora):
     )
 
 
+def retirar_sanciones_vigentes(usuario, ahora, retirada_por=None):
+    """Retira sanciones superpuestas; el historial permanece y manda la nueva."""
+    return sanciones_vigentes(ahora).filter(usuario=usuario).update(
+        fecha_retiro=ahora,
+        retirada_por=retirada_por,
+    )
+
+
 def get_solicitantes(termino="", filtro="todos", ahora=None):
     """Devuelve solicitantes con su sanción vigente y estado de cuenta."""
     ahora = ahora or timezone.localtime()
@@ -152,6 +160,11 @@ def apply_manual_sanction(
         raise GestionSancionesError(
             "El catálogo de sanciones está incompleto. Ejecuta las migraciones."
         ) from exc
+    retirar_sanciones_vigentes(
+        solicitante,
+        ahora,
+        retirada_por=administrador,
+    )
     return Sancion.objects.create(
         usuario=solicitante,
         origen=Sancion.Origen.MANUAL,

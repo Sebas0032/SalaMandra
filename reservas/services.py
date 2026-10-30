@@ -30,6 +30,7 @@ from cuentas.services import ROL_ADMINISTRADOR, ROL_OPERANTE
 from .gestion_sanciones import (
     calcular_fecha_fin_sancion,
     contar_faltas,
+    retirar_sanciones_vigentes,
     sanciones_vigentes,
 )
 
@@ -102,6 +103,7 @@ def create_reservation(
     )
     Auditoria.objects.create(
         reserva=reserva, actor=actor, accion=Auditoria.Accion.CREAR,
+        sala_horario_nuevo=sala_horario,
         fecha_accion=ahora,
     )
     return reserva
@@ -120,12 +122,17 @@ def modify_reservation(codigo_actor, id_reserva, id_sala_horario):
     reserva = _obtener_reserva_confirmada(id_reserva, bloquear=True)
     _validar_acceso_reserva(actor, reserva)
     solicitante = reserva.usuario
+    sala_horario_anterior = reserva.sala_horario
     ahora = timezone.localtime()
     if not _es_administrador(actor):
         _validar_plazo_modificacion(reserva, ahora)
 
     _bloquear_sala_horario(id_sala_horario)
     nuevo_sala_horario = _obtener_sala_horario(id_sala_horario)
+    if nuevo_sala_horario.pk == sala_horario_anterior.pk:
+        raise ReservationError(
+            "Selecciona una sala u horario diferente de la reserva actual."
+        )
     _validar_reglas_reserva(
         solicitante,
         nuevo_sala_horario,
@@ -141,14 +148,19 @@ def modify_reservation(codigo_actor, id_reserva, id_sala_horario):
     reserva.save(update_fields=["sala_horario"])
     Auditoria.objects.create(
         reserva=reserva, actor=actor, accion=Auditoria.Accion.MODIFICAR,
+        sala_horario_anterior=sala_horario_anterior,
+        sala_horario_nuevo=nuevo_sala_horario,
         fecha_accion=ahora,
+    )
+    _notificar_modificacion_de_gestion(
+        actor, reserva, sala_horario_anterior, nuevo_sala_horario, ahora
     )
     return reserva
 
 
 @transaction.atomic
 def cancel_reservation(codigo_usuario_actor, id_reserva):
-    """Cancela una reserva y audita al actor; el administrador nunca sanciona."""
+    """Cancela una reserva; solo una cancelación propia puede sancionar."""
     actor = _obtener_usuario_reservante(codigo_usuario_actor)
     reserva = _obtener_reserva_para_cancelar(actor, id_reserva)
     ahora = timezone.localtime()
@@ -161,16 +173,45 @@ def cancel_reservation(codigo_usuario_actor, id_reserva):
 
     sancion = None
     if (
-        not _es_administrador(actor)
+        actor.rol.nombre_rol == Rol.Nombre.SOLICITANTE
         and _cancelacion_es_tardia(reserva, ahora)
     ):
         sancion = _registrar_sancion_por_cancelacion(reserva.usuario_id, ahora)
     Auditoria.objects.create(
         reserva=reserva, actor=actor, accion=Auditoria.Accion.CANCELAR,
+        sala_horario_anterior=reserva.sala_horario,
         fecha_accion=ahora,
     )
     _notificar_cancelacion_de_gestion(actor, reserva, ahora)
     return {"reserva": reserva, "sancion": sancion}
+
+
+def _notificar_modificacion_de_gestion(
+    actor, reserva, sala_horario_anterior, sala_horario_nuevo, ahora
+):
+    """Avisa al titular cuando otra persona autorizada mueve su reserva."""
+    if actor.pk == reserva.usuario_id:
+        return None
+    if actor.rol.nombre_rol not in [Rol.Nombre.ADMINISTRADOR, Rol.Nombre.OPERANTE]:
+        return None
+
+    horario_anterior = sala_horario_anterior.horario
+    horario_nuevo = sala_horario_nuevo.horario
+    return Notificacion.objects.create(
+        usuario_id=reserva.usuario_id,
+        reserva=reserva,
+        actor=actor,
+        tipo=Notificacion.Tipo.MODIFICACION_GESTION,
+        mensaje=(
+            f"Tu reserva #{reserva.pk} para el {reserva.fecha:%d/%m/%Y} fue "
+            f"modificada por un {actor.rol.nombre_rol}: "
+            f"{sala_horario_anterior.sala.nombre_sala} "
+            f"{horario_anterior.hora_inicio:%H:%M}-{horario_anterior.hora_fin:%H:%M} "
+            f"→ {sala_horario_nuevo.sala.nombre_sala} "
+            f"{horario_nuevo.hora_inicio:%H:%M}-{horario_nuevo.hora_fin:%H:%M}."
+        ),
+        fecha=ahora,
+    )
 
 
 def _notificar_cancelacion_de_gestion(actor, reserva, ahora):
@@ -336,6 +377,7 @@ def _registrar_sancion_por_cancelacion(codigo_usuario, ahora):
         raise ReservationError(
             "El catálogo de sanciones está incompleto. Contacta al administrador."
         ) from exc
+    retirar_sanciones_vigentes(usuario, ahora)
     return Sancion.objects.create(
         usuario=usuario,
         origen=Sancion.Origen.AUTOMATICA,
@@ -643,9 +685,16 @@ def get_reservation_modification_panel_for_actor(codigo_actor, id_reserva):
 
     reservas_fecha = _obtener_reservas_de_hoy(reserva.fecha)
     reservas_fecha.pop(reserva.sala_horario_id, None)
+    columnas = _construir_columnas_salas(ahora, reservas_fecha, reserva.fecha)
+    for columna in columnas:
+        columna["bloques"] = [
+            bloque
+            for bloque in columna["bloques"]
+            if bloque["id"] != reserva.sala_horario_id
+        ]
     return {
         "reserva": reserva,
-        "columnas": _construir_columnas_salas(ahora, reservas_fecha, reserva.fecha),
+        "columnas": [columna for columna in columnas if columna["bloques"]],
     }
 
 
@@ -777,6 +826,7 @@ def block_room_schedule_for_maintenance(codigo_usuario_admin, id_sala_horario, m
         Auditoria(
             reserva=reserva, actor_id=codigo_usuario_admin,
             accion=Auditoria.Accion.CANCELAR,
+            sala_horario_anterior=sala_horario,
         )
         for reserva in reservas_canceladas
     ])

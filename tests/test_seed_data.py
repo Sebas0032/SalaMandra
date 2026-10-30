@@ -6,7 +6,17 @@ from django.contrib.auth.hashers import check_password
 from django.core.management import call_command
 
 from cuentas.services import register_student_account
-from reservas.models import Horario, Reserva, Sala, SalaHorario, Usuario
+from reservas.models import (
+    Bloqueo,
+    Desbloqueo,
+    Horario,
+    Notificacion,
+    ReinicioSanciones,
+    Reserva,
+    Sala,
+    SalaHorario,
+    Usuario,
+)
 
 
 @pytest.mark.django_db
@@ -71,3 +81,35 @@ def test_seed_data_precarga_los_16_alumnos_y_no_reemplaza_cuentas_registradas():
     usuario = Usuario.objects.get(pk=101145)
     assert check_password("ClaveSegura2026!", usuario.password_hash)
     assert Usuario.objects.count() == 18  # Administrador, Operante y 16 alumnos.
+
+
+@pytest.mark.django_db
+def test_seed_data_reset_funciona_con_todo_el_historial_nuevo():
+    call_command("seed_data", stdout=StringIO())
+    admin = Usuario.objects.get(pk=900001)
+    reserva = Reserva.objects.first()
+    bloqueo = Bloqueo.objects.create(
+        usuario=admin,
+        sala_horario=reserva.sala_horario,
+        motivo="Prueba de reinicio",
+    )
+    Desbloqueo.objects.create(bloqueo=bloqueo, desbloqueado_por=admin)
+    Notificacion.objects.create(
+        usuario=reserva.usuario,
+        reserva=reserva,
+        actor=admin,
+        tipo=Notificacion.Tipo.CANCELACION_GESTION,
+        mensaje="Prueba",
+    )
+    ReinicioSanciones.objects.create(administrador=admin)
+
+    call_command("seed_data", reset=True, stdout=StringIO())
+
+    assert Notificacion.objects.count() == 0
+    assert Bloqueo.objects.count() == 0
+    assert Desbloqueo.objects.count() == 0
+    assert ReinicioSanciones.objects.count() == 0
+    assert Sala.objects.count() == 6
+    assert Horario.objects.count() == 6
+    assert SalaHorario.objects.count() == 36
+    assert Reserva.objects.count() == 2
