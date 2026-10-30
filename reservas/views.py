@@ -46,7 +46,7 @@ def student_panel_view(request):
     if request.method == "POST":
         reserva = _intentar_crear_reserva(request)
         if reserva is not None:
-            messages.success(request, f"Reserva #{reserva.pk} confirmada.")
+            messages.success(request, f"Reserva confirmada.")
         return redirect("student_panel")
 
     return render(
@@ -64,7 +64,7 @@ def modify_reservation_view(request, id_reserva):
         reserva = _intentar_modificar_reserva(request, id_reserva)
         if reserva is not None:
             messages.success(
-                request, f"Reserva #{reserva.pk} modificada correctamente."
+                request, f"Reserva modificada correctamente."
             )
             if (
                 usuario_tiene_rol(request.usuario.pk, Rol.Nombre.ADMINISTRADOR)
@@ -148,7 +148,7 @@ def admin_cancel_reservation_view(request, id_reserva):
     else:
         messages.success(
             request,
-            f"Reserva #{resultado['reserva'].pk} cancelada administrativamente "
+            f"Reserva cancelada administrativamente "
             "sin sanción.",
         )
     return redirect("admin_cancellations")
@@ -158,12 +158,12 @@ def _mostrar_resultado_cancelacion(request, resultado):
     reserva = resultado["reserva"]
     sancion = resultado["sancion"]
     if sancion is None:
-        messages.success(request, f"Reserva #{reserva.pk} cancelada sin sanción.")
+        messages.success(request, f"Reserva cancelada sin sanción.")
         return
     vence = timezone.localtime(sancion.fecha_fin).strftime("%d/%m/%Y %H:%M")
     messages.success(
         request,
-        f"Reserva #{reserva.pk} cancelada. Se aplicó {sancion.tipo_sancion} "
+        f"Reserva cancelada. Se aplicó {sancion.tipo_sancion} "
         f"hasta el {vence}.",
     )
 
@@ -226,7 +226,7 @@ def _intentar_modificar_reserva(request, id_reserva):
 
 def _leer_id_sala_horario(request):
     id_sala_horario = int(request.POST.get("id_sala_horario", ""))
-    if not 0 < id_sala_horario <= 9223372036854775807:
+    if not 0 < id_sala_horario <= 100:
         raise ValueError
     return id_sala_horario
 
@@ -403,7 +403,7 @@ def _procesar_accion_operante(request, accion):
             )
             messages.success(
                 request,
-                f"Reserva #{reserva.pk} creada para {reserva.usuario}."
+                f"Reserva creada para {reserva.usuario}."
             )
         else:
             id_reserva = _leer_id_reserva_operante(request, codigo_solicitante)
@@ -414,7 +414,7 @@ def _procesar_accion_operante(request, accion):
                     _leer_id_sala_horario(request),
                 )
                 messages.success(
-                    request, f"Reserva #{reserva.pk} modificada correctamente."
+                    request, f"Reserva modificada correctamente."
                 )
             else:
                 resultado = services.cancel_reservation(request.usuario.pk, id_reserva)

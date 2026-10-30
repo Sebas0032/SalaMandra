@@ -35,6 +35,7 @@ def escenario_operante(client):
         email="matheo@test.edu",
         nombre="Matheo",
         apellido="Oliva",
+        password_hash=make_password("Solicitante_2026!"),
     )
     horario_a = Horario.objects.create(hora_inicio=time(14), hora_fin=time(16))
     horario_b = Horario.objects.create(hora_inicio=time(16, 15), hora_fin=time(18, 15))
@@ -197,6 +198,76 @@ def test_operante_no_accede_a_sanciones_ni_gestion_de_horarios(client, escenario
     assert client.get(reverse("sanctions_admin")).status_code == 403
     assert client.post(reverse("apply_sanction"), {}).status_code == 403
     assert client.get(reverse("gestion_salas")).status_code == 403
+
+
+@pytest.fixture
+def solicitante_sin_cuenta(escenario_operante):
+    operante, solicitante, bloques, ahora = escenario_operante
+    solicitante.password_hash = ""
+    solicitante.save(update_fields=["password_hash"])
+    reserva = Reserva.objects.create(
+        usuario=solicitante,
+        sala_horario=bloques[0],
+        fecha=ahora.date(),
+        tipo_actividad="Tarea",
+    )
+    return operante, solicitante, bloques, reserva
+
+
+@pytest.mark.parametrize("accion", ["reservar", "modificar", "cancelar"])
+def test_panel_operante_rechaza_solicitante_sin_cuenta(
+    client, solicitante_sin_cuenta, accion
+):
+    _, solicitante, bloques, reserva = solicitante_sin_cuenta
+    parametros = {"accion": accion, "codigo": solicitante.pk, "reserva": reserva.pk}
+    panel = client.get(reverse("operator_panel"), parametros)
+    assert "debe registrar su cuenta" in panel.content.decode()
+    assert "solicitante" not in panel.context
+
+    # También rechaza un POST directo aunque no se haya usado el buscador.
+    respuesta = client.post(
+        reverse("operator_panel"),
+        {
+            "accion": accion,
+            "codigo_solicitante": solicitante.pk,
+            "id_reserva": reserva.pk,
+            "id_sala_horario": bloques[1].pk,
+            "actividad": "Proyecto",
+        },
+        follow=True,
+    )
+    assert "debe registrar su cuenta" in respuesta.content.decode()
+    reserva.refresh_from_db()
+    assert Reserva.objects.count() == 1
+    assert reserva.sala_horario == bloques[0]
+    assert reserva.estado_reserva == Reserva.ESTADO_CONFIRMADA
+    assert not Auditoria.objects.exists()
+    assert not Notificacion.objects.exists()
+    assert not Sancion.objects.exists()
+
+
+@pytest.mark.parametrize("accion", ["reservar", "modificar", "cancelar"])
+def test_servicios_operante_rechazan_solicitante_sin_cuenta(
+    solicitante_sin_cuenta, accion
+):
+    operante, solicitante, bloques, reserva = solicitante_sin_cuenta
+    with pytest.raises(services.ReservationError, match="debe registrar su cuenta"):
+        if accion == "reservar":
+            services.create_reservation(
+                operante.pk, solicitante.pk, bloques[1].pk, "Proyecto"
+            )
+        elif accion == "modificar":
+            services.modify_reservation(operante.pk, reserva.pk, bloques[1].pk)
+        else:
+            services.cancel_reservation(operante.pk, reserva.pk)
+
+    reserva.refresh_from_db()
+    assert Reserva.objects.count() == 1
+    assert reserva.sala_horario == bloques[0]
+    assert reserva.estado_reserva == Reserva.ESTADO_CONFIRMADA
+    assert not Auditoria.objects.exists()
+    assert not Notificacion.objects.exists()
+    assert not Sancion.objects.exists()
 
 
 # Test 53: verifica que el Solicitante no entre al panel Operante.

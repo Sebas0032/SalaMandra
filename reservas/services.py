@@ -315,6 +315,8 @@ def _obtener_solicitante(codigo_usuario, permitir_admin_propio=False):
 
 
 def _validar_actor_sobre_solicitante(actor, solicitante):
+    if actor.rol.nombre_rol == Rol.Nombre.OPERANTE:
+        get_operator_student(solicitante.pk)
     if actor.pk == solicitante.pk:
         return
     if actor.rol.nombre_rol not in [Rol.Nombre.OPERANTE, Rol.Nombre.ADMINISTRADOR]:
@@ -338,6 +340,8 @@ def _obtener_reserva_confirmada(id_reserva, bloquear=False):
 
 
 def _validar_acceso_reserva(actor, reserva):
+    if actor.rol.nombre_rol == Rol.Nombre.OPERANTE:
+        get_operator_student(reserva.usuario_id)
     if reserva.usuario_id == actor.pk:
         return
     if actor.rol.nombre_rol not in [Rol.Nombre.OPERANTE, Rol.Nombre.ADMINISTRADOR]:
@@ -553,12 +557,17 @@ def mark_notification_as_read(codigo_usuario, id_notificacion):
 
 def get_operator_student(codigo_usuario):
     """Obtiene el solicitante que el operante atenderá."""
-    return _obtener_solicitante(codigo_usuario)
+    solicitante = _obtener_solicitante(codigo_usuario)
+    if not solicitante.password_hash:
+        raise ReservationError(
+            "El solicitante debe registrar su cuenta antes de gestionar sus reservas."
+        )
+    return solicitante
 
 
 def get_operator_student_summary(codigo_usuario):
     """Prepara reservas y situación disciplinaria del solicitante seleccionado."""
-    solicitante = _obtener_solicitante(codigo_usuario)
+    solicitante = get_operator_student(codigo_usuario)
     ahora = timezone.localtime()
     reservas = Reserva.objects.filter(
         usuario=solicitante,
@@ -587,6 +596,7 @@ def get_operator_student_summary(codigo_usuario):
 
 def get_operator_availability(codigo_usuario):
     """Reutiliza el cálculo de disponibilidad para reservar a otro solicitante."""
+    get_operator_student(codigo_usuario)
     contexto = get_student_panel(codigo_usuario)
     contexto.pop("mis_reservas", None)
     return contexto
