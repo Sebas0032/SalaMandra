@@ -19,6 +19,9 @@ from reservas.models import (
 )
 
 
+pytestmark = pytest.mark.integration
+
+
 @pytest.mark.django_db
 def test_seed_data_carga_seis_salas_con_seis_horarios_sin_duplicar():
     horarios_esperados = {

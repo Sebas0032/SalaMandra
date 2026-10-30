@@ -48,30 +48,49 @@ def test_historial_crear_modificar_cancelar_conserva_titular(escenario_auditoria
     ]
 
 
-@pytest.mark.parametrize("accion", ["CREAR", "MODIFICAR", "CANCELAR"])
-def test_fallo_auditoria_revierte_operacion_y_sancion(escenario_auditoria, accion):
+@pytest.mark.integration
+def test_fallo_auditoria_revierte_operacion_y_sancion(escenario_auditoria):
     ana, _, bloques, ahora = escenario_auditoria
-    reserva = None
-    if accion != "CREAR":
-        reserva = services.create_student_reservation(ana.pk, bloques[0].pk, "Tarea")
-    with patch("reservas.services.Auditoria.objects.create", side_effect=RuntimeError("fallo")):
-        with pytest.raises(RuntimeError, match="fallo"):
-            if accion == "CREAR":
-                services.create_student_reservation(ana.pk, bloques[0].pk, "Tarea")
-            elif accion == "MODIFICAR":
-                services.modify_student_reservation(ana.pk, reserva.pk, bloques[1].pk)
-            else:
-                with patch("reservas.services.timezone.localtime", return_value=ahora.replace(hour=13, minute=30)):
-                    services.cancel_reservation(ana.pk, reserva.pk)
-    assert not Sancion.objects.exists()
-    if reserva is None:
-        assert not Reserva.objects.exists()
-        assert not Auditoria.objects.exists()
-    else:
-        reserva.refresh_from_db()
-        assert reserva.estado_reserva == Reserva.ESTADO_CONFIRMADA
-        assert reserva.sala_horario == bloques[0]
-        assert list(reserva.auditorias.values_list("accion", flat=True)) == ["CREAR"]
+    for accion in ("CREAR", "MODIFICAR", "CANCELAR"):
+        Reserva.objects.all().delete()
+        Sancion.objects.all().delete()
+        reserva = None
+        if accion != "CREAR":
+            reserva = services.create_student_reservation(
+                ana.pk, bloques[0].pk, "Tarea"
+            )
+
+        with patch(
+            "reservas.services.Auditoria.objects.create",
+            side_effect=RuntimeError("fallo"),
+        ):
+            with pytest.raises(RuntimeError, match="fallo"):
+                if accion == "CREAR":
+                    services.create_student_reservation(
+                        ana.pk, bloques[0].pk, "Tarea"
+                    )
+                elif accion == "MODIFICAR":
+                    services.modify_student_reservation(
+                        ana.pk, reserva.pk, bloques[1].pk
+                    )
+                else:
+                    with patch(
+                        "reservas.services.timezone.localtime",
+                        return_value=ahora.replace(hour=13, minute=30),
+                    ):
+                        services.cancel_reservation(ana.pk, reserva.pk)
+
+        assert not Sancion.objects.exists()
+        if reserva is None:
+            assert not Reserva.objects.exists()
+            assert not Auditoria.objects.exists()
+        else:
+            reserva.refresh_from_db()
+            assert reserva.estado_reserva == Reserva.ESTADO_CONFIRMADA
+            assert reserva.sala_horario == bloques[0]
+            assert list(
+                reserva.auditorias.values_list("accion", flat=True)
+            ) == ["CREAR"]
 
 
 def test_cancelacion_repetida_no_duplica_historial_ni_sancion(escenario_auditoria):
@@ -100,16 +119,25 @@ def test_solicitante_no_puede_sancionar_manualmente(escenario_auditoria):
     assert not Sancion.objects.exists()
 
 
-@pytest.mark.parametrize("origen,con_actor", [("MANUAL", False), ("AUTOMATICA", True), ("OTRO", False)])
-def test_bd_rechaza_origen_aplicador_incoherentes(escenario_auditoria, origen, con_actor):
+def test_bd_rechaza_origen_aplicador_incoherentes(escenario_auditoria):
     ana, admin, _, ahora = escenario_auditoria
     tipo = TipoSancion.objects.get(pk=TipoSancion.ID_24_HORAS)
-    with pytest.raises(IntegrityError), transaction.atomic():
-        Sancion.objects.create(
-            usuario=ana, tipo_sancion=tipo, origen=origen,
-            aplicada_por=admin if con_actor else None,
-            motivo="Motivo", fecha_inicio=ahora, fecha_fin=ahora + timedelta(hours=24),
-        )
+    casos_invalidos = (
+        ("MANUAL", False),
+        ("AUTOMATICA", True),
+        ("OTRO", False),
+    )
+    for origen, con_actor in casos_invalidos:
+        with pytest.raises(IntegrityError), transaction.atomic():
+            Sancion.objects.create(
+                usuario=ana,
+                tipo_sancion=tipo,
+                origen=origen,
+                aplicada_por=admin if con_actor else None,
+                motivo="Motivo",
+                fecha_inicio=ahora,
+                fecha_fin=ahora + timedelta(hours=24),
+            )
 
 
 def test_modelo_valida_rol_del_aplicador(escenario_auditoria):

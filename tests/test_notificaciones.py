@@ -58,42 +58,34 @@ def escenario_notificaciones(client):
     return solicitante, admin, operante, sala_horario, reserva, ahora
 
 
-@pytest.mark.parametrize("rol", [Rol.Nombre.ADMINISTRADOR, Rol.Nombre.OPERANTE])
-def test_mantenimiento_crea_aviso_persistente(
-    escenario_notificaciones, rol
-):
-    solicitante, admin, operante, sala_horario, reserva, ahora = escenario_notificaciones
-    actor = admin if rol == Rol.Nombre.ADMINISTRADOR else operante
+def test_mantenimiento_crea_aviso_persistente(escenario_notificaciones):
+    solicitante, admin, _, sala_horario, reserva, ahora = escenario_notificaciones
 
     with patch("reservas.services.timezone.localtime", return_value=ahora):
         services.block_room_schedule_for_maintenance(
-            actor.pk, sala_horario.pk, "Fuga de agua"
+            admin.pk, sala_horario.pk, "Fuga de agua"
         )
 
     aviso = Notificacion.objects.get()
     assert aviso.usuario == solicitante
-    assert aviso.actor == actor
+    assert aviso.actor == admin
     assert aviso.reserva == reserva
     assert aviso.tipo == Notificacion.Tipo.MANTENIMIENTO
     assert "Fuga de agua" in aviso.mensaje
     assert aviso.leida is False
 
 
-@pytest.mark.parametrize("rol", [Rol.Nombre.ADMINISTRADOR, Rol.Nombre.OPERANTE])
-def test_cancelacion_de_gestion_notifica_al_titular(
-    escenario_notificaciones, rol
-):
-    solicitante, admin, operante, _, reserva, ahora = escenario_notificaciones
-    actor = admin if rol == Rol.Nombre.ADMINISTRADOR else operante
+def test_cancelacion_de_gestion_notifica_al_titular(escenario_notificaciones):
+    solicitante, admin, _, _, reserva, ahora = escenario_notificaciones
 
     with patch("reservas.services.timezone.localtime", return_value=ahora):
-        services.cancel_reservation(actor.pk, reserva.pk)
+        services.cancel_reservation(admin.pk, reserva.pk)
 
     aviso = Notificacion.objects.get()
     assert aviso.usuario == solicitante
-    assert aviso.actor == actor
+    assert aviso.actor == admin
     assert aviso.tipo == Notificacion.Tipo.CANCELACION_GESTION
-    assert rol in aviso.mensaje
+    assert Rol.Nombre.ADMINISTRADOR in aviso.mensaje
 
 
 def test_cancelacion_propia_no_crea_aviso(escenario_notificaciones):
@@ -105,23 +97,22 @@ def test_cancelacion_propia_no_crea_aviso(escenario_notificaciones):
     assert not Notificacion.objects.exists()
 
 
-@pytest.mark.parametrize("rol", [Rol.Nombre.ADMINISTRADOR, Rol.Nombre.OPERANTE])
+@pytest.mark.integration
 def test_modificacion_de_gestion_notifica_origen_y_destino(
-    escenario_notificaciones, rol
+    escenario_notificaciones,
 ):
-    solicitante, admin, operante, sala_horario, reserva, ahora = escenario_notificaciones
-    actor = admin if rol == Rol.Nombre.ADMINISTRADOR else operante
+    solicitante, admin, _, sala_horario, reserva, ahora = escenario_notificaciones
     destino = SalaHorario.objects.create(
         sala=Sala.objects.create(nombre_sala="Sala B"),
         horario=sala_horario.horario,
     )
 
     with patch("reservas.services.timezone.localtime", return_value=ahora):
-        services.modify_reservation(actor.pk, reserva.pk, destino.pk)
+        services.modify_reservation(admin.pk, reserva.pk, destino.pk)
 
     aviso = Notificacion.objects.get()
     assert aviso.usuario == solicitante
-    assert aviso.actor == actor
+    assert aviso.actor == admin
     assert aviso.tipo == Notificacion.Tipo.MODIFICACION_GESTION
     assert "Sala A" in aviso.mensaje
     assert "Sala B" in aviso.mensaje

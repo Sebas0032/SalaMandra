@@ -86,6 +86,7 @@ def reserva(estudiante, sh_a_manana, manana):
 @pytest.mark.usefixtures("antes_del_mantenimiento")
 class TestBloqueoMantenimiento:
 
+    @pytest.mark.integration
     def test_bloqueo_exitoso_y_cancelacion_sin_sancion(self, admin, estudiante, sh_a_manana, reserva):
         """Flujo Principal: Bloquea horario, cancela reserva asociada sin aplicar sanción al estudiante."""
         services.block_room_schedule_for_maintenance(admin.codigo_usuario, sh_a_manana.id_sala_horario, MOTIVO)

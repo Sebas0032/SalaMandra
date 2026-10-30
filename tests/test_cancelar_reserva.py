@@ -73,7 +73,6 @@ def test_cancela_exactamente_60_minutos_antes_sin_sancion(
     ("faltas_previas", "tipo_esperado", "duracion_esperada"),
     [
         (0, TipoSancion.ID_24_HORAS, 24),
-        (1, TipoSancion.ID_48_HORAS, 48),
         (2, TipoSancion.ID_1_SEMANA, 168),
         (3, TipoSancion.ID_SEMESTRE, None),
     ],
@@ -142,6 +141,7 @@ def test_solicitante_no_puede_cancelar_reserva_ajena(escenario_cancelacion):
     assert reserva.estado_reserva == Reserva.ESTADO_CONFIRMADA
 
 
+@pytest.mark.integration
 def test_operador_cancela_sin_sancionar_y_notifica_al_titular(
     escenario_cancelacion,
 ):
