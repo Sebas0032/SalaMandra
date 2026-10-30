@@ -23,6 +23,7 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.mark.django_db
+# Test 79: verifica la carga inicial de salas y horarios sin duplicados.
 def test_seed_data_carga_seis_salas_con_seis_horarios_sin_duplicar():
     horarios_esperados = {
         (time(7, 45), time(9, 45)),
@@ -51,6 +52,7 @@ def test_seed_data_carga_seis_salas_con_seis_horarios_sin_duplicar():
 
 
 @pytest.mark.django_db
+# Test 80: verifica la precarga sin reemplazar cuentas registradas.
 def test_seed_data_precarga_los_16_alumnos_y_no_reemplaza_cuentas_registradas():
     alumnos_esperados = {
         (95445, "95445@salamandra.test", "Santiago", "Arauz"),
@@ -87,6 +89,7 @@ def test_seed_data_precarga_los_16_alumnos_y_no_reemplaza_cuentas_registradas():
 
 
 @pytest.mark.django_db
+# Test 81: verifica el reinicio de datos con el historial actual.
 def test_seed_data_reset_funciona_con_todo_el_historial_nuevo():
     call_command("seed_data", stdout=StringIO())
     admin = Usuario.objects.get(pk=900001)

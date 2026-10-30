@@ -58,6 +58,7 @@ def escenario_notificaciones(client):
     return solicitante, admin, operante, sala_horario, reserva, ahora
 
 
+# Test 40: verifica la notificación persistente por mantenimiento.
 def test_mantenimiento_crea_aviso_persistente(escenario_notificaciones):
     solicitante, admin, _, sala_horario, reserva, ahora = escenario_notificaciones
 
@@ -75,6 +76,7 @@ def test_mantenimiento_crea_aviso_persistente(escenario_notificaciones):
     assert aviso.leida is False
 
 
+# Test 41: verifica la notificación por cancelación gestionada.
 def test_cancelacion_de_gestion_notifica_al_titular(escenario_notificaciones):
     solicitante, admin, _, _, reserva, ahora = escenario_notificaciones
 
@@ -88,6 +90,7 @@ def test_cancelacion_de_gestion_notifica_al_titular(escenario_notificaciones):
     assert Rol.Nombre.ADMINISTRADOR in aviso.mensaje
 
 
+# Test 42: verifica que una cancelación propia no cree aviso de gestión.
 def test_cancelacion_propia_no_crea_aviso(escenario_notificaciones):
     solicitante, _, _, _, reserva, ahora = escenario_notificaciones
 
@@ -98,6 +101,7 @@ def test_cancelacion_propia_no_crea_aviso(escenario_notificaciones):
 
 
 @pytest.mark.integration
+# Test 43: verifica que la modificación notifique origen y destino.
 def test_modificacion_de_gestion_notifica_origen_y_destino(
     escenario_notificaciones,
 ):
@@ -118,6 +122,7 @@ def test_modificacion_de_gestion_notifica_origen_y_destino(
     assert "Sala B" in aviso.mensaje
 
 
+# Test 44: verifica una notificación independiente por modificación.
 def test_cada_modificacion_de_gestion_conserva_su_notificacion(
     escenario_notificaciones,
 ):
@@ -140,6 +145,7 @@ def test_cada_modificacion_de_gestion_conserva_su_notificacion(
     ).count() == 2
 
 
+# Test 45: verifica mostrar y marcar una notificación como leída.
 def test_panel_muestra_aviso_y_permite_marcarlo_como_leido(
     client, escenario_notificaciones
 ):
@@ -169,6 +175,7 @@ def test_panel_muestra_aviso_y_permite_marcarlo_como_leido(
     assert "Tu reserva fue cancelada" not in panel.content.decode()
 
 
+# Test 46: verifica que no se modifiquen notificaciones ajenas.
 def test_estudiante_no_puede_marcar_aviso_ajeno(
     client, escenario_notificaciones
 ):

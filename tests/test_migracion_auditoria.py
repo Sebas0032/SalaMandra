@@ -34,6 +34,7 @@ def base_anterior(tmp_path, settings, django_db_blocker):
             del connections.databases[alias]
 
 
+# Test 97: verifica la migración sin inventar auditorías.
 def test_migra_roles_y_sanciones_sin_inventar_auditoria(base_anterior):
     conexion, apps = base_anterior
     db = conexion.alias
@@ -73,6 +74,7 @@ def test_migra_roles_y_sanciones_sin_inventar_auditoria(base_anterior):
 
 
 @pytest.mark.parametrize("caso", ["roles_ambiguos", "sancion_sin_autor"])
+# Tests 98-99: verifican el rechazo seguro de datos ambiguos.
 def test_migracion_rechaza_datos_ambiguos_sin_perderlos(base_anterior, caso):
     conexion, apps = base_anterior
     db = conexion.alias

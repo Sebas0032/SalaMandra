@@ -28,6 +28,7 @@ def escenario(client):
 
 
 @pytest.mark.e2e
+# Test 54: verifica la identidad de sesión en panel y reserva.
 def test_panel_y_reserva_usan_la_identidad_de_la_sesion(client, escenario):
     usuario, bloques, ahora = escenario
     response = client.get(reverse("student_panel"))
@@ -46,6 +47,7 @@ def test_panel_y_reserva_usan_la_identidad_de_la_sesion(client, escenario):
     assert b"Luciana Soledad" in client.get(reverse("student_panel")).content
 
 
+# Test 55: verifica el efecto del mantenimiento sobre reservas.
 def test_mantenimiento_cancela_y_rechaza_nueva_reserva(escenario):
     usuario, bloques, _ = escenario
     reserva = services.create_student_reservation(usuario.pk, bloques[0].pk, "Tarea")
@@ -59,6 +61,7 @@ def test_mantenimiento_cancela_y_rechaza_nueva_reserva(escenario):
     assert Sancion.objects.count() == 0
 
 
+# Test 56: verifica bloques consecutivos y separados.
 def test_bloques_consecutivos_y_separados(escenario):
     usuario, bloques, _ = escenario
     services.create_student_reservation(usuario.pk, bloques[0].pk, "Tarea")
@@ -68,6 +71,7 @@ def test_bloques_consecutivos_y_separados(escenario):
     assert Reserva.objects.count() == 2
 
 
+# Test 57: verifica la unicidad por fecha y estado.
 def test_restriccion_bd_por_fecha_y_estado(escenario):
     usuario, bloques, ahora = escenario
     services.create_student_reservation(usuario.pk, bloques[0].pk, "Tarea")
@@ -78,6 +82,7 @@ def test_restriccion_bd_por_fecha_y_estado(escenario):
     assert Reserva.objects.count() == 3
 
 
+# Test 58: verifica que una sanción permita consultar pero no reservar.
 def test_sancion_permite_consultar_pero_no_reservar(client, escenario):
     usuario, bloques, ahora = escenario
     tipo = TipoSancion.objects.get(pk=TipoSancion.ID_24_HORAS)
@@ -88,6 +93,7 @@ def test_sancion_permite_consultar_pero_no_reservar(client, escenario):
     assert not Reserva.objects.exists()
 
 
+# Test 59: verifica fines de semana y feriados.
 def test_fin_de_semana_y_feriados(escenario, settings):
     usuario, bloques, ahora = escenario
     settings.RESERVAS_FERIADOS = [ahora.date().isoformat()]
@@ -99,6 +105,7 @@ def test_fin_de_semana_y_feriados(escenario, settings):
             services.create_student_reservation(usuario.pk, bloques[0].pk, "Tarea")
 
 
+# Test 60: verifica que un bloque finalizado se oculte y rechace.
 def test_bloque_finalizado_se_oculta_y_se_rechaza(escenario):
     usuario, bloques, ahora = escenario
     with patch("reservas.services.timezone.localtime", return_value=ahora.replace(hour=10)):
@@ -107,6 +114,7 @@ def test_bloque_finalizado_se_oculta_y_se_rechaza(escenario):
             services.create_student_reservation(usuario.pk, bloques[0].pk, "Tarea")
 
 
+# Test 61: verifica los 15 minutos de limpieza.
 def test_intervalo_de_limpieza(escenario):
     usuario, bloques, ahora = escenario
     otro = Usuario.objects.create(rol=Rol.objects.get_or_create(nombre_rol="Solicitante")[0], pk=94186, email="otro@test.edu", nombre="Otro", apellido="Test")
@@ -120,10 +128,12 @@ def test_intervalo_de_limpieza(escenario):
     services.create_student_reservation(usuario.pk, bloques[0].pk, "Tarea")
 
 
+# Test 62: verifica que un anónimo no pueda reservar.
 def test_anonimo_no_puede_reservar(client):
     assert client.post(reverse("student_panel"), {}).url == reverse("login")
 
 
+# Test 63: verifica la interfaz durante un día no habilitado.
 def test_dia_no_habilitado_oculta_salas_y_formulario(
     client, escenario, settings
 ):
@@ -150,6 +160,7 @@ def test_dia_no_habilitado_oculta_salas_y_formulario(
             assert not Reserva.objects.exists()
 
 
+# Test 64: verifica modificar sin crear otra reserva.
 def test_modificar_reserva_cambia_sala_y_conserva_la_misma_fila(client, escenario):
     usuario, bloques, _ = escenario
     reserva = services.create_student_reservation(
@@ -177,6 +188,7 @@ def test_modificar_reserva_cambia_sala_y_conserva_la_misma_fila(client, escenari
     assert reserva.tipo_actividad == "Proyecto"
 
 
+# Test 65: verifica el plazo y la conservación de la reserva.
 def test_modificacion_exige_60_minutos_y_conserva_reserva_original(escenario):
     usuario, bloques, ahora = escenario
     horario_original = Horario.objects.create(
@@ -221,6 +233,7 @@ def test_modificacion_exige_60_minutos_y_conserva_reserva_original(escenario):
     assert reserva.sala_horario == destino
 
 
+# Test 66: verifica que un destino ocupado no altere el origen.
 def test_destino_ocupado_no_libera_la_reserva_original(escenario):
     usuario, bloques, ahora = escenario
     reserva = services.create_student_reservation(
@@ -251,6 +264,7 @@ def test_destino_ocupado_no_libera_la_reserva_original(escenario):
     assert reserva.estado_reserva == Reserva.ESTADO_CONFIRMADA
 
 
+# Test 67: verifica consecutividad al modificar.
 def test_modificacion_respeta_bloques_consecutivos(escenario):
     usuario, bloques, ahora = escenario
     reserva = services.create_student_reservation(
@@ -272,6 +286,7 @@ def test_modificacion_respeta_bloques_consecutivos(escenario):
     assert reserva.sala_horario == bloques[0]
 
 
+# Test 68: verifica que no se modifiquen reservas ajenas.
 def test_no_se_puede_modificar_una_reserva_ajena(escenario):
     usuario, bloques, ahora = escenario
     reserva = services.create_student_reservation(
