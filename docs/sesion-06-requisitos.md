@@ -6,6 +6,14 @@
 - Cliente o fuente consultada: Sergio Barrientos (Docente / Cliente)
 - Flujo seleccionado: Gestión, modificación, cancelación y bloqueos de reservas de salas (PB-01 / PB-03 / PB-04)
 
+## Actualización documental del sistema — 1 de noviembre de 2026
+
+Los hallazgos ENT-01 a ENT-25 conservan las respuestas y fuentes de la entrevista original. Las precisiones posteriores que figuran en los requisitos y escenarios se basan en el código actual y en los ajustes acordados durante la evolución del sistema; no constituyen nuevas confirmaciones del cliente. Los estados originales de aprobación se refieren a la base del requisito, no a una aprobación adicional de estas precisiones.
+
+La regla de reservas se mantiene: no se permite reservar sábados, domingos ni feriados configurados (ENT-13 y RES-RF-08). Por separado, el cálculo de sanciones de duración fija omite sábados y domingos (RES-RF-02 y RES-RF-14).
+
+Documentación relacionada: [arquitectura general](arquitectura.md) y [trazabilidad de pruebas](trazabilidad-pruebas.md).
+
 ## 1. Hallazgos de la entrevista
 
 | ID | Pregunta | Respuesta o hallazgo | Fuente | Estado |
@@ -39,6 +47,7 @@
 ## 2. Alcance del flujo
 
 - Incluye: Validación del tiempo de modificación (mínimo 1 hora antes); control de cancelaciones con penalización según bloque de 1 hora; registro y escala progresiva de sanciones a estudiantes (24h, 48h, 1 semana, todo el semestre); cancelación asistida por Operante sin sanción al Solicitante; notificaciones persistentes por modificaciones gestionadas; reemplazo de sanciones vigentes conservando el historial; facultad de Administrador y Operante autorizado para bloquear y desbloquear manualmente horarios por mantenimiento, con persistencia del bloqueo hasta su retiro; cancelación administrativa sin sanciones; reinicio general de sanciones con historial preservado y gestión del estado de cuentas de solicitantes.
+- Precisiones actuales: las sanciones de duración fija omiten sábados y domingos; el Operante requiere un Solicitante activo con cuenta registrada; el panel `student_panel` admite exclusivamente Solicitante y Administrador; el reinicio manual registra el retiro de las sanciones vigentes y los mensajes de impedimento indican su fecha y hora de vencimiento. La separación visual de las acciones Modificar y Cancelar es un ajuste de presentación, sin efecto sobre las reglas.
 - No incluye: registro y autenticación de cuentas, incluida la confirmación de contraseña (funcionalidad existente que queda fuera del flujo analizado en esta sesión); pagos o multas monetarias; notificaciones por correo electrónico. Las notificaciones por cancelación debida a mantenimiento se muestran dentro de la página web del sistema e indican el motivo de la cancelación.
 
 ## 3. Requisitos
@@ -65,10 +74,12 @@
 - **Prioridad y razón:** Alta, porque desincentiva las cancelaciones tardías y promueve la liberación oportuna de las salas.
 - **Estado:** Aprobado por el cliente
 - **Requisito:** El sistema debe permitir al Solicitante cancelar una reserva antes de que comience su uso. Si el propio Solicitante cancela con menos de una hora de anticipación respecto al inicio, debe registrar una falta y aplicar una sanción según la siguiente escala: primera falta, bloqueo durante 24 horas; segunda falta, 48 horas; tercera falta, una semana; cuarta falta, el resto del semestre académico.
+- **Precisión de la implementación actual:** Las duraciones fijas de 24, 48 y 168 horas se convierten en uno, dos y siete días de conteo, omitiendo sábados y domingos y conservando la hora local. La opción «una semana» corresponde a siete días de lunes a viernes, no a cinco. Si se aplica durante un fin de semana, el cálculo comienza el lunes a la misma hora; la sanción bloquea desde su aplicación. No se excluyen feriados del cálculo. La sanción semestral conserva como vencimiento el próximo 1 de enero o 1 de julio a las 00:00, en `America/La_Paz`.
+- **Conteo:** Solo las sanciones de origen `AUTOMATICA` suman faltas para la escala. Las manuales no incrementan ese contador. El vencimiento o retiro individual no elimina la falta del período.
 - **Criterio de aceptación o comprobación:**
   - **Situación inicial:** Un estudiante tiene una reserva confirmada para las 10:00 y no registra faltas previas durante el semestre.
   - **Acción:** Cancela la reserva a las 09:30.
-  - **Resultado esperado:** El sistema cancela la reserva, registra la primera falta y aplica un bloqueo que impide crear nuevas reservas durante las siguientes 24 horas.
+  - **Resultado esperado:** El sistema cancela la reserva, registra la primera falta y aplica la duración de 24 horas calculada omitiendo sábados y domingos. Si la cancelación ocurre un viernes a las 09:30, el vencimiento calculado es el lunes a las 09:30, salvo que antes deje de bloquear por retiro o cambio de semestre.
   - **Caso adicional:** Si cancela a las 08:00, cuando faltan exactamente dos horas, la reserva se cancela sin aplicar la sanción por cancelación tardía, siempre que no exista otra regla de bloqueo aplicable.
 
 ---
@@ -98,11 +109,11 @@
 - **Origen:** ENT-02 y ENT-11
 - **Prioridad y razón:** Alta, porque garantiza que las sanciones por cancelaciones tardías se apliquen efectivamente.
 - **Estado:** Aprobado por el cliente
-- **Requisito:** El sistema debe verificar si el solicitante tiene una sanción o un bloqueo vigente antes de confirmar una nueva reserva. Si existe un bloqueo activo, debe impedir la creación de la reserva e informar el motivo y el tiempo restante de la sanción. El usuario podrá seguir consultando las salas y sus horarios disponibles.
+- **Requisito:** El sistema debe verificar si el solicitante tiene una sanción o un bloqueo vigente antes de confirmar una nueva reserva. Si existe una sanción activa, debe impedir la creación o modificación de la reserva e informar su motivo y la fecha y hora de vencimiento calculadas, en hora local de La Paz (`DD/MM/AAAA HH:MM`). El usuario podrá seguir consultando las salas y sus horarios disponibles.
 - **Criterio de aceptación o comprobación:**
   - **Situación inicial:** Un estudiante tiene un bloqueo de 24 horas que comenzó hace dos horas.
   - **Acción:** Intenta reservar una sala disponible.
-  - **Resultado esperado:** El sistema rechaza la reserva, informa que el estudiante tiene una sanción activa y muestra el tiempo restante del bloqueo. El estudiante puede seguir consultando la disponibilidad de las salas.
+  - **Resultado esperado:** El sistema rechaza la reserva, informa que el estudiante tiene una sanción activa y muestra «Sanción activa: [motivo]. Finaliza el [DD/MM/AAAA HH:MM]». El estudiante puede seguir consultando la disponibilidad de las salas.
 
 ---
 
@@ -112,11 +123,11 @@
 - **Origen:** ENT-06, ENT-20 
 - **Prioridad y razón:** Alta, ya que evita reservas asociadas a personas no registradas y reduce la introducción manual de datos.
 - **Estado:** Aprobado 
-- **Requisito:** El sistema debe identificar al Solicitante mediante su código universitario y verificar que esté precargado o registrado, que su cuenta esté activa y que tenga asignado el rol `Solicitante`, antes de permitir operaciones en su nombre. Tras validarlo, debe completar automáticamente sus datos registrados. La validación debe consultar los datos vigentes, considerando que pueden incorporarse nuevos estudiantes durante el semestre.
+- **Requisito:** El sistema debe identificar al Solicitante mediante su código universitario y verificar que exista en la base de datos, que su cuenta esté activa y que tenga asignado el rol `Solicitante`. Para las operaciones del Operante, además debe haber completado su registro y tener `password_hash` no vacío; una fila precargada sin contraseña no es suficiente para crear, modificar ni cancelar reservas en su nombre. Tras validarlo, debe completar automáticamente sus datos registrados. La validación debe consultar los datos vigentes, considerando que pueden incorporarse nuevos estudiantes durante el semestre.
 - **Criterio de aceptación o comprobación:**
   - **Situación inicial:** Existe un solicitante registrado con un código institucional válido.
   - **Acción:** El usuario autorizado introduce o selecciona ese código durante la creación de una reserva.
-  - **Resultado esperado:** El sistema identifica al Solicitante habilitado y muestra sus datos sin exigir su introducción manual; si el código no existe, la cuenta está desactivada o el rol no corresponde, se rechaza la operación.
+  - **Resultado esperado:** El sistema identifica al Solicitante habilitado y muestra sus datos sin exigir su introducción manual; si el código no existe, la cuenta está desactivada, el rol no corresponde o el estudiante aún no registró su cuenta al ser atendido por el Operante, se rechaza la operación. La validación se aplica tanto en la búsqueda como en los servicios ante solicitudes directas.
 
 ---
 
@@ -172,9 +183,9 @@
   - **Resultado esperado:** El sistema puede aceptar la reserva porque existe un intervalo de 15 minutos entre ambos bloques, siempre que se cumplan las demás reglas de disponibilidad.
 
   **Caso 2 — Reserva en sábado, domingo o feriado**
-  - **Situación inicial:** La fecha solicitada corresponde a un sábado, domingo o feriado registrado.
+  - **Situación inicial:** La fecha actual corresponde a un sábado, domingo o feriado registrado.
   - **Acción:** Un solicitante intenta crear una reserva.
-  - **Resultado esperado:** El sistema rechaza la solicitud en sábado o domingo; para un feriado, la fecha debe figurar previamente en `RESERVAS_FERIADOS`.
+  - **Resultado esperado:** El sistema rechaza la solicitud en sábado o domingo; para un feriado, la fecha debe figurar previamente en `RESERVAS_FERIADOS`. La habilitación temporal de fines de semana para demostraciones no cambia este resultado esperado.
 
   **Caso 3 — Restricción de horarios consecutivos para un mismo solicitante**
   - **Situación inicial:** En la configuración inicial de bloques, un solicitante tiene una reserva confirmada en la sala A durante el bloque horario A, que finaliza a las 09:45.
@@ -257,6 +268,8 @@
 - **Prioridad y razón:** Alta, porque limita las operaciones según la responsabilidad de cada usuario.
 - **Estado:** Confirmado
 - **Requisito:** El sistema debe asignar un único rol a cada usuario y permitir exclusivamente las operaciones correspondientes a él. El Operante puede crear, modificar y cancelar reservas en nombre de solicitantes identificados por su código institucional; también puede bloquear horarios por mantenimiento antes de su inicio y desbloquear manualmente bloqueos conforme a sus permisos. El Administrador dispone de las excepciones autorizadas para operaciones sobre reservas y bloqueos. Ningún mantenimiento se libera automáticamente al terminar el turno. Las validaciones de sanciones, disponibilidad y permisos se aplican también a operaciones iniciadas por el Operante. El Administrador puede activar o desactivar cuentas de solicitantes, conservando su historial.
+- **Acceso a pantallas:** El panel `student_panel` (`/salas/`) solo admite los roles Solicitante y Administrador. El Operante utiliza `operator_panel` y recibe HTTP 403 si intenta abrir `/salas/` o enviarle un formulario directamente; el rechazo ocurre antes de consultar su contexto o procesar una reserva. Una persona sin sesión es redirigida al login. El Administrador conserva ese panel para gestionar sus reservas propias.
+- **Criterio de acceso directo:** GET y POST del Operante a `student_panel` devuelven 403; Solicitante y Administrador mantienen su acceso autorizado.
 - **Criterios de aceptación:**
   - Un Solicitante intenta bloquear un horario por mantenimiento: el sistema rechaza la operación.
   - El Operante intenta bloquear un horario iniciado: el sistema rechaza la operación.
@@ -274,6 +287,7 @@
 - **Prioridad y razón:** Alta, porque permite aplicar sanciones y conservar su trazabilidad.
 - **Estado:** Confirmado
 - **Requisito:** El Administrador puede aplicar manualmente una sanción mediante una lista de opciones: **24 horas, 48 horas, una semana o semestre completo**, sin opción de un mes. Debe registrar un motivo obligatorio. Se conservan Solicitante, tipo de sanción, motivo, fechas y Administrador responsable para auditoría. Para la sanción de **semestre completo**, `TipoSancion.duracion` es `NULL` porque no representa un número fijo de horas: su vencimiento se calcula en el siguiente cambio semestral, el **1 de enero o el 1 de julio**, según corresponda. Al crear una nueva sanción manual, se retira automáticamente cualquier sanción todavía vigente del mismo Solicitante, conservando su registro histórico.
+- **Cálculo de duración:** Las sanciones manuales fijas usan el mismo cálculo que las automáticas: 24, 48 y 168 horas equivalen a uno, dos y siete días de conteo de lunes a viernes, conservando la hora local y omitiendo sábados y domingos. Los feriados no se omiten. Por ejemplo, 48 horas aplicadas el viernes a las 10:00 vencen el martes a las 10:00; una sanción de 168 horas aplicada el lunes vence el miércoles de la semana siguiente a la misma hora. Un retiro o el cambio de semestre puede hacer que deje de bloquear antes del vencimiento calculado.
 - **Criterios de aceptación:**
   - El Administrador selecciona «1 semana», introduce el motivo y confirma; la sanción queda registrada y bloquea reservas durante su vigencia.
   - El Administrador puede elegir también 24 horas, 48 horas o semestre completo.
@@ -291,6 +305,9 @@
 - **Prioridad y razón:** Alta, porque la escala debe calcularse para el semestre vigente sin perder los antecedentes.
 - **Estado:** Confirmado
 - **Requisito:** El sistema debe **calcular automáticamente el contador de faltas de cada solicitante según semestres de calendario**: del 1 de enero al 30 de junio y del 1 de julio al 31 de diciembre. El Administrador también puede realizar un reinicio manual general del conteo de faltas, registrando la operación y retirando las sanciones vigentes sin borrar el historial. Al comenzar un nuevo semestre, el conteo correspondiente al nuevo período es cero y solo considera las faltas registradas dentro de las fechas del período correspondiente. Al registrar cualquier sanción manual o automática, se retira previamente la sanción vigente del mismo Solicitante, si existe, de modo que solo permanezca activa la más reciente. **No se eliminan los registros históricos de sanciones**: sus datos originales se conservan y cualquier retiro o reinicio administrativo queda registrado para trazabilidad, consultas y auditorías. El cambio semestral no requiere una tarea programada ni una acción manual; el reinicio administrativo es una operación extraordinaria y explícita.
+- **Retiro en el reinicio manual:** Al procesar el botón, el sistema obtiene una única fecha y hora local y la guarda en `ReinicioSanciones.fecha` y en `fecha_retiro` de todas las sanciones vigentes, manuales y automáticas, de todos los usuarios afectados. Registra al Administrador en `retirada_por`. No sobrescribe `fecha_fin`, no altera sanciones ya vencidas o retiradas y no elimina filas.
+- **Contador automático:** Se cuentan únicamente faltas de origen `AUTOMATICA` desde el inicio del semestre o, si existe, posteriores al último reinicio general manual del período. Las sanciones de semestres anteriores dejan de bloquear aunque su `fecha_fin` sea posterior al corte; el cambio automático no completa `fecha_retiro`.
+- **Criterio del reinicio:** Tras un reinicio manual con varias sanciones vigentes, todas tienen el mismo instante de retiro y responsable, dejan de bloquear y el contador queda en cero; sus fechas originales e historial se conservan.
 - **Criterios de aceptación:**
   - **Situación inicial:** Un estudiante acumula tres faltas durante un período semestral definido por el sistema.
   - **Acción:** Comienza el siguiente semestre y el sistema consulta el contador del estudiante.
@@ -337,10 +354,11 @@
 - **Origen:** ENT-06 y ENT-19
 - **Prioridad:** Alta
 - **Estado:** Confirmado
-- **Requisito:** El Operante debe autenticarse con su propia cuenta. Para crear, modificar o cancelar reservas en nombre de un solicitante, introduce el código institucional de este; el sistema comprueba su existencia, muestra sus datos y permite seleccionar la reserva o el horario aplicable. La identidad del Operante permanece diferenciada de la del solicitante y se registra junto con la fecha y hora de cada operación. Para bloquear por mantenimiento se selecciona sala, horario y motivo, sin requerir código de solicitante. Para desbloquear se selecciona el bloqueo activo y se confirma el retiro manual por un usuario autorizado **solo antes del inicio del horario en la fecha de registro del bloqueo**. Desde ese momento el sistema rechaza el desbloqueo, incluso en días posteriores. Los bloqueos no vencen automáticamente.
+- **Requisito:** El Operante debe autenticarse con su propia cuenta. Para crear, modificar o cancelar reservas en nombre de un solicitante, introduce el código institucional de este; el sistema comprueba su existencia, rol Solicitante, estado activo y registro completado (`password_hash` no vacío), muestra sus datos y permite seleccionar la reserva o el horario aplicable. La identidad del Operante permanece diferenciada de la del solicitante y se registra junto con la fecha y hora de cada operación. Para bloquear por mantenimiento se selecciona sala, horario y motivo, sin requerir código de solicitante. Para desbloquear se selecciona el bloqueo activo y se confirma el retiro manual por un usuario autorizado **solo antes del inicio del horario en la fecha de registro del bloqueo**. Desde ese momento el sistema rechaza el desbloqueo, incluso en días posteriores. Los bloqueos no vencen automáticamente.
 - **Criterios de aceptación:**
-  - Con un código institucional válido, el sistema muestra los datos del solicitante y aplica sus restricciones de sanciones y disponibilidad.
-  - Con un código inexistente, la operación se rechaza sin alterar datos.
+  - Con un código institucional válido de un Solicitante activo y registrado, el sistema muestra sus datos y aplica las restricciones que correspondan a la operación; crear o modificar exige no tener sanción vigente, pero cancelar no se impide por esa sanción.
+  - Con un código inexistente, cuenta inactiva o estudiante precargado sin registro completado, se rechaza la operación sin alterar reservas, auditorías, notificaciones ni sanciones. Para el caso sin registro se muestra «El solicitante debe registrar su cuenta antes de gestionar sus reservas».
+  - El rechazo se aplica al buscar y al enviar directamente una creación, modificación o cancelación, incluso mediante los servicios.
   - Para modificar o cancelar, el Operante selecciona una reserva del titular indicado.
   - Para bloquear por mantenimiento, selecciona sala, horario y motivo; el sistema comprueba los permisos temporales del Operante y registra quién realizó la acción.
   - Para desbloquear, selecciona un bloqueo activo antes de la hora de inicio del turno en la fecha original del bloqueo; el sistema registra responsable y fecha y habilita el horario. Si el turno ya comenzó, rechaza el desbloqueo incluso en días posteriores.
@@ -400,6 +418,7 @@
 - **Prioridad:** Alta
 - **Estado:** Confirmado
 - **Requisito:** El sistema debe almacenar y mostrar notificaciones internas por cancelaciones de mantenimiento, cancelaciones administrativas, cancelaciones asistidas por el Operante y modificaciones gestionadas por Administrador u Operante. Las notificaciones deben conservarse individualmente, incluso después de marcarse como leídas. Los avisos de mantenimiento indicarán el motivo de cancelación. Los avisos de modificación de tipo `MODIFICACION_GESTION` identificarán la sala y el horario anteriores y los nuevos. No se enviarán correos electrónicos.
+- **Mensajes de sanción frente a notificaciones:** Aplicar una sanción manual no crea actualmente una `Notificacion` para el Solicitante. Si este intenta crear o modificar una reserva, recibe un mensaje de rechazo con motivo y vencimiento. Cuando su propia cancelación tardía genera una sanción automática, la respuesta de cancelación informa la sanción y su fecha de fin. Estos mensajes no son avisos persistentes de la tabla de notificaciones.
 - **Criterios de aceptación:**
   - Al bloquear por mantenimiento un horario reservado, se crea un aviso interno con el motivo.
   - Cuando el Operante cancela una reserva en nombre del titular, se guarda un aviso de la cancelación sin sanción.
@@ -415,6 +434,7 @@
 - **Prioridad:** Alta
 - **Estado:** Confirmado
 - **Requisito:** El Administrador puede retirar una sanción vigente sin borrar su información original. Al registrar una **nueva sanción manual o automática**, el sistema retira cualquier sanción que todavía se encuentre vigente para ese Solicitante antes de activar la nueva. Por consiguiente, **solo puede haber una sanción vigente por Solicitante**. Las sanciones anteriores y sus retiros permanecen en el historial para consulta y auditoría; se registra la información del retiro y del responsable cuando corresponda.
+- **Datos del retiro:** El retiro manual individual guarda `fecha_retiro` y `retirada_por` y conserva las fechas originales de inicio y fin. El retiro no elimina la falta automática del contador; solo el corte semestral o el reinicio general cambia el período de conteo.
 - **Criterios de aceptación:**
   - Al retirar manualmente una sanción vigente, esta deja de impedir nuevas reservas y se conserva su historial.
   - Al aplicar una nueva sanción manual a un Solicitante que ya tiene una vigente, la anterior se retira y se registra la nueva como única sanción vigente.
@@ -442,7 +462,7 @@
 - Origen: ENT-02, ENT-11, ENT-23
 - Prioridad y razón: Media porque proporciona retroalimentación transparente al usuario sobre por qué no puede realizar la operación.
 - Estado: Aprobado por el cliente
-- Requisito: Ante el rechazo de una operación por penalización o bloqueo de mantenimiento, el sistema debe mostrar un mensaje explicativo detallado con el motivo del rechazo y, cuando se trate de una sanción temporal, su fecha de finalización o tiempo restante.
+- Requisito: Ante el rechazo de una operación por penalización o bloqueo de mantenimiento, el sistema debe mostrar un mensaje explicativo detallado con el motivo del rechazo y, cuando se trate de una sanción, su fecha y hora de vencimiento calculadas en `America/La_Paz`, con formato `DD/MM/AAAA HH:MM`, en lugar de los minutos restantes.
 - Criterio de aceptación o comprobación:
   - Situación inicial: Estudiante sancionado intenta realizar una reserva.
   - Acción: Ejecutar la solicitud de reserva desde el sistema.
@@ -468,7 +488,13 @@
 |---|---|---|---|
 | Normal | RES-RF-01 | Reserva confirmada a las 16:00. Solicitud de modificación enviada a las 14:30 (1 hora y 30 minutos antes). | El sistema aprueba la modificación, siempre que se cumplan las demás reglas, y actualiza el horario de la reserva. |
 | Límite | RES-RF-01 | Reserva confirmada a las 16:00. Solicitud de modificación enviada a las 15:00 (exactamente 1 hora antes). | El sistema permite la modificación porque cumple el límite mínimo de una hora de anticipación. |
-| Cancelación tardía | RES-RF-02 | Reserva confirmada a las 12:00. El estudiante cancela a las 11:30 (30 minutos antes), siendo su primera falta del semestre. | El sistema cancela la reserva, registra la primera falta y bloquea al estudiante para realizar nuevas reservas durante 24 horas. |
+| Cancelación tardía | RES-RF-02 | Reserva confirmada el viernes a las 12:00. El estudiante cancela a las 11:30, siendo su primera falta del semestre y sin un corte semestral intermedio. | Se cancela y registra una falta; la sanción de 24 horas omite sábado y domingo y vence el lunes a las 11:30. |
+| Sanción manual | RES-RF-14 | El Administrador aplica 48 horas el viernes a las 10:00, sin un corte semestral intermedio. | Vence el martes a las 10:00; no incrementa el contador de faltas automáticas. |
+| Reserva en fin de semana o feriado | RES-RF-08 | Un Solicitante intenta reservar un bloque del día actual en sábado, domingo o feriado configurado. | Se rechaza la reserva por calendario, aunque el bloque esté libre. |
+| Registro pendiente | RES-RF-05, RES-RF-18 | El Operante busca o envía una operación para un estudiante precargado con contraseña vacía. | Se informa que debe registrar su cuenta y no se crea, modifica ni cancela una reserva. |
+| Acceso directo no permitido | RES-RF-13 | El Operante abre o envía POST a `/salas/`. | HTTP 403; continúa utilizando su propio panel. |
+| Reinicio general manual | RES-RF-15, RES-RF-23 | El Administrador reinicia a las 15:30 y existen sanciones manuales y automáticas vigentes de varios estudiantes. | Todas reciben la misma `fecha_retiro` de las 15:30 y el responsable; dejan de bloquear, los contadores quedan en cero y las fechas originales se conservan. |
+| Mensaje de impedimento | RES-RF-04, RES-RC-01 | Un Solicitante sancionado intenta crear o modificar una reserva. | El rechazo informa motivo y «Finaliza el [DD/MM/AAAA HH:MM]» en hora de La Paz. |
 
 El proyecto contiene pruebas automatizadas con `pytest` relacionadas con modificaciones, cancelaciones, sanciones y mantenimiento. La ejecución y los resultados de las pruebas deben verificarse en el entorno del proyecto.
 

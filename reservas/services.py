@@ -435,7 +435,7 @@ def _validar_dia_habil(fecha):
 
 
 def _es_dia_habilitado(fecha):
-    return fecha.weekday() <= 7 and fecha.isoformat() not in settings.RESERVAS_FERIADOS
+    return fecha.weekday() < 5 and fecha.isoformat() not in settings.RESERVAS_FERIADOS
 
 
 def _validar_sin_sancion(usuario, ahora):
