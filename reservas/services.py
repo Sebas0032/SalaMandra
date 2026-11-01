@@ -443,8 +443,10 @@ def _validar_sin_sancion(usuario, ahora):
         usuario=usuario
     ).order_by("-fecha_fin").first()
     if sancion:
-        minutos = int((sancion.fecha_fin - ahora).total_seconds() / 60) + 1
-        raise ReservationError(f"Sanción activa: {sancion.motivo}. Restan {minutos} minutos.")
+        vence = timezone.localtime(sancion.fecha_fin).strftime("%d/%m/%Y %H:%M")
+        raise ReservationError(
+            f"Sanción activa: {sancion.motivo}. Finaliza el {vence}."
+        )
 
 
 def _validar_actividad(actividad):
