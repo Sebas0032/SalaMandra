@@ -46,11 +46,35 @@ def fin_semestre(ahora):
     return timezone.make_aware(limite)
 
 
+def _sumar_horas_de_sancion_sin_fin_de_semana(inicio, horas):
+    """Suma horas como días de 24 h, saltando sábados y domingos."""
+    resultado = timezone.localtime(inicio)
+    dias, horas_restantes = divmod(horas, 24)
+
+    # Si la sanción nace durante el fin de semana, el conteo comienza el lunes.
+    while resultado.weekday() >= 5:
+        resultado += timedelta(days=1)
+
+    for _ in range(dias):
+        resultado += timedelta(days=1)
+        while resultado.weekday() >= 5:
+            resultado += timedelta(days=1)
+
+    if horas_restantes:
+        resultado += timedelta(hours=horas_restantes)
+        while resultado.weekday() >= 5:
+            resultado += timedelta(days=1)
+
+    return resultado
+
+
 def calcular_fecha_fin_sancion(ahora, tipo_sancion):
-    """Calcula una duración fija o el límite real del semestre."""
+    """Calcula la fecha final sin descontar sábados ni domingos."""
     if tipo_sancion.pk == TipoSancion.ID_SEMESTRE:
         return fin_semestre(ahora)
-    return ahora + timedelta(hours=tipo_sancion.duracion)
+    return _sumar_horas_de_sancion_sin_fin_de_semana(
+        ahora, tipo_sancion.duracion
+    )
 
 
 def contar_faltas(usuario, ahora):

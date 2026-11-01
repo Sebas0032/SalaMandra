@@ -70,7 +70,24 @@ def test_aplica_sancion_manual_con_motivo_y_duracion(usuarios_sanciones):
     assert sancion.tipo_sancion_id == TipoSancion.ID_1_SEMANA
     assert TipoSancion.objects.count() == 4
     assert sancion.fecha_inicio == ahora
-    assert sancion.fecha_fin == ahora + timedelta(hours=168)
+    assert sancion.fecha_fin == timezone.make_aware(
+        datetime(2026, 11, 5, 9)
+    )
+
+    tipo_24 = TipoSancion.objects.get(pk=TipoSancion.ID_24_HORAS)
+    tipo_48 = TipoSancion.objects.get(pk=TipoSancion.ID_48_HORAS)
+    casos_fin_de_semana = (
+        # Viernes + 24 h hábiles: lunes.
+        (datetime(2026, 10, 30, 9), tipo_24, datetime(2026, 11, 2, 9)),
+        # Viernes + 48 h hábiles: martes.
+        (datetime(2026, 10, 30, 9), tipo_48, datetime(2026, 11, 3, 9)),
+        # Jueves + 48 h hábiles: lunes.
+        (datetime(2026, 10, 29, 9), tipo_48, datetime(2026, 11, 2, 9)),
+    )
+    for inicio, tipo, fin_esperado in casos_fin_de_semana:
+        assert gestion_sanciones.calcular_fecha_fin_sancion(
+            timezone.make_aware(inicio), tipo
+        ) == timezone.make_aware(fin_esperado)
 
 
 # Test 26: verifica el vencimiento en el próximo corte semestral.

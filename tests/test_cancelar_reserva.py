@@ -107,7 +107,13 @@ def test_cancelacion_tardia_aplica_sancion_escalar(
     if tipo_esperado == TipoSancion.ID_SEMESTRE:
         assert sancion.fecha_fin == timezone.make_aware(datetime(2027, 1, 1))
     else:
-        assert sancion.fecha_fin == ahora + timedelta(hours=duracion_esperada)
+        finales_esperados = {
+            24: datetime(2026, 10, 20, 13, 30),
+            168: datetime(2026, 10, 28, 13, 30),
+        }
+        assert sancion.fecha_fin == timezone.make_aware(
+            finales_esperados[duracion_esperada]
+        )
     assert Sancion.objects.filter(usuario=usuario).count() == faltas_previas + 1
     reserva.refresh_from_db()
     assert reserva.estado_reserva == Reserva.ESTADO_CANCELADA
