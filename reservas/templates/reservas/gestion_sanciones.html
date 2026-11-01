@@ -67,9 +67,9 @@
                     {% empty %}<tr><td colspan="5">No se encontraron solicitantes.</td></tr>{% endfor %}
                     </tbody>
                 </table></div>
-                <form class="reinicio-semestre" method="post" action="{% url 'clear_sanctions' %}" onsubmit="return confirm('¿Reiniciar los contadores y retirar las sanciones vigentes de todos? El historial se conservará.')">
+                <form class="reinicio-semestre" method="post" action="{% url 'clear_sanctions' %}" onsubmit="return confirm('¿Reiniciar los contadores y retirar las sanciones vigentes de todos?')">
                     {% csrf_token %}
-                    <p><strong>Reinicio general:</strong> retira las sanciones vigentes y pone los contadores en cero sin borrar el historial. Los contadores también se reinician automáticamente el 1 de enero y el 1 de julio.</p>
+                    <p><strong>Reinicio general:</strong> retira las sanciones vigentes y pone los contadores en cero. Los contadores también se reinician automáticamente el 1 de enero y el 1 de julio.</p>
                     <button type="submit">Reiniciar sanciones y contadores</button>
                 </form>
             </section>
