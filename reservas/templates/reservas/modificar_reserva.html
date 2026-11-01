@@ -6,10 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Modificar reserva — SalaMandra</title>
     <link rel="stylesheet" href="{% static 'reservas/css/panel_solicitante.css' %}">
+    <link rel="stylesheet" href="{% static 'reservas/css/modificar_reserva.css' %}">
 </head>
 <body>
 <header class="cabecera">
     <a class="marca" href="{% url 'student_panel' %}"><span class="emblema" aria-hidden="true">S</span><span>Sala<strong>Mandra</strong></span></a>
+    {% if es_admin %}<span class="contexto-cabecera">| Administración</span>{% endif %}
     <nav aria-label="Cuenta">
         <span>Hola {{ usuario.nombre }}</span>
         {% if es_admin %}<a href="{% url 'dashboard' %}">Mantenimiento</a>{% endif %}
@@ -18,33 +20,86 @@
 </header>
 <main class="pagina-modificacion">
     {% if messages %}<div class="avisos" aria-live="polite">{% for message in messages %}<p class="aviso {{ message.tags }}">{{ message }}</p>{% endfor %}</div>{% endif %}
-    <section class="formulario formulario-modificacion">
-        <h1>Modificar reserva #{{ reserva.pk }}</h1>
-        <p>Reserva de <strong>{{ reserva.usuario }}</strong> (código {{ reserva.usuario_id }}) para el {{ reserva.fecha|date:"d/m/Y" }}.</p>
-        <div class="reserva-actual">
-            <span>Reserva actual</span>
-            <strong>{{ reserva.sala_horario.sala.nombre_sala }}</strong>
-            <span>{{ reserva.sala_horario.horario.hora_inicio|time:"H:i" }} – {{ reserva.sala_horario.horario.hora_fin|time:"H:i" }}</span>
-        </div>
-        <p>Selecciona la nueva sala y horario. La reserva actual se conserva hasta que el cambio sea confirmado.</p>
-        <form method="post">
-            {% csrf_token %}
-            <label class="etiqueta" for="id_sala_horario">Nueva sala y horario</label>
-            <select id="id_sala_horario" name="id_sala_horario" required>
+    <header class="encabezado-modificacion">
+        <span class="paso-modificacion">Reserva #{{ reserva.pk }}</span>
+        <h1>Modificar sala y horario</h1>
+        <p>Elige un nuevo bloque disponible. La reserva actual no cambiará hasta que confirmes.</p>
+    </header>
+
+    <div class="rejilla-modificacion">
+        <aside class="tarjeta-modificacion resumen-reserva" aria-labelledby="titulo-reserva-actual">
+            <div class="titulo-tarjeta-modificacion">
+                <div>
+                    <span class="sobrelinea">Reserva seleccionada</span>
+                    <h2 id="titulo-reserva-actual">{{ reserva.usuario }}</h2>
+                </div>
+                <span class="insignia-reserva">Confirmada</span>
+            </div>
+
+            <dl class="datos-reserva">
+                <div><dt>Código</dt><dd>{{ reserva.usuario_id }}</dd></div>
+                <div><dt>Fecha</dt><dd>{{ reserva.fecha|date:"d/m/Y" }}</dd></div>
+                <div><dt>Actividad</dt><dd>{{ reserva.tipo_actividad }}</dd></div>
+            </dl>
+
+            <div class="bloque-actual">
+                <span>Sala y horario actuales</span>
+                <strong>{{ reserva.sala_horario.sala.nombre_sala }}</strong>
+                <b>{{ reserva.sala_horario.horario.hora_inicio|time:"H:i" }} – {{ reserva.sala_horario.horario.hora_fin|time:"H:i" }}</b>
+            </div>
+
+            <p class="nota-seguridad">
+                {% if gestion_admin %}
+                    El estudiante será notificado y el cambio quedará registrado a nombre del administrador.
+                {% else %}
+                    Si abandonas esta pantalla, tu reserva permanecerá exactamente como está.
+                {% endif %}
+            </p>
+        </aside>
+
+        <section class="tarjeta-modificacion selector-destino" aria-labelledby="titulo-nuevo-destino">
+            <div class="titulo-tarjeta-modificacion">
+                <div>
+                    <span class="sobrelinea">Paso único</span>
+                    <h2 id="titulo-nuevo-destino">Selecciona la nueva sala y horario</h2>
+                </div>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                <fieldset>
+                    <legend class="solo-lectores">Destinos disponibles</legend>
+                    <div class="destinos-scroll">
                 {% for columna in columnas %}
+                    <section class="grupo-destinos" aria-labelledby="sala-{{ columna.sala.pk }}">
+                        <h3 id="sala-{{ columna.sala.pk }}">{{ columna.sala.nombre_sala }}</h3>
+                        <div class="opciones-destino">
                     {% for bloque in columna.bloques %}
-                        {% if bloque.disponible %}
-                        <option value="{{ bloque.id }}" {% if bloque.id == reserva.sala_horario_id %}selected{% endif %}>
-                            {{ columna.sala.nombre_sala }} — {{ bloque.horario.hora_inicio|time:"H:i" }} a {{ bloque.horario.hora_fin|time:"H:i" }}
-                        </option>
-                        {% endif %}
+                            <label class="opcion-destino{% if not bloque.disponible %} destino-no-disponible{% endif %}">
+                                <input type="radio" name="id_sala_horario" value="{{ bloque.id }}" required {% if not bloque.disponible %}disabled{% endif %}>
+                                <span class="contenido-destino">
+                                    <strong>{{ bloque.horario.hora_inicio|time:"H:i" }} – {{ bloque.horario.hora_fin|time:"H:i" }}</strong>
+                                    {% if bloque.mantenimiento %}<small>Mantenimiento</small>
+                                    {% elif bloque.reserva %}<small>Reservado</small>
+                                    {% else %}<small>Disponible</small>{% endif %}
+                                </span>
+                            </label>
                     {% endfor %}
+                        </div>
+                    </section>
+                {% empty %}
+                    <p class="sin-destinos">No existen otros bloques disponibles para modificar esta reserva.</p>
                 {% endfor %}
-            </select>
-            <button class="confirmar" type="submit">Confirmar modificación</button>
-            <a class="cancelar" href="{% if gestion_admin %}{% url 'admin_cancellations' %}{% else %}{% url 'student_panel' %}{% endif %}">Volver sin modificar</a>
-        </form>
-    </section>
+                    </div>
+                </fieldset>
+
+                <div class="acciones-modificacion">
+                    <a class="boton-volver" href="{% if gestion_admin %}{% url 'admin_cancellations' %}{% else %}{% url 'student_panel' %}{% endif %}">Volver sin modificar</a>
+                    <button class="boton-guardar" type="submit">Guardar cambios</button>
+                </div>
+            </form>
+        </section>
+    </div>
 </main>
 </body>
 </html>
