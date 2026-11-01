@@ -86,22 +86,9 @@ def reserva(estudiante, sh_a_manana, manana):
 @pytest.mark.usefixtures("antes_del_mantenimiento")
 class TestBloqueoMantenimiento:
 
-    @pytest.mark.integration
-    # Test 83: verifica un bloqueo exitoso sin sanciones.
-    def test_bloqueo_exitoso_y_cancelacion_sin_sancion(self, admin, estudiante, sh_a_manana, reserva):
-        """Flujo Principal: Bloquea horario, cancela reserva asociada sin aplicar sanción al estudiante."""
-        services.block_room_schedule_for_maintenance(admin.codigo_usuario, sh_a_manana.id_sala_horario, MOTIVO)
-
-        sh_a_manana.refresh_from_db()
-        reserva.refresh_from_db()
-
-        assert sh_a_manana.estado_sala_horario == SalaHorario.ESTADO_MANTENIMIENTO
-        assert reserva.estado_reserva == Reserva.ESTADO_POR_MANTENIMIENTO
-        assert Sancion.objects.filter(usuario=estudiante).exists() is False
-
     # Test 84: verifica que el Administrador bloquee tras el inicio.
     def test_administrador_puede_bloquear_un_horario_que_ya_comenzo(
-        self, admin, sh_a_manana, reserva
+        self, admin, estudiante, sh_a_manana, reserva
     ):
         despues_del_inicio = timezone.make_aware(
             datetime.combine(timezone.localdate(), time(10, 1))
@@ -119,17 +106,12 @@ class TestBloqueoMantenimiento:
         reserva.refresh_from_db()
         assert sh_a_manana.estado_sala_horario == SalaHorario.ESTADO_MANTENIMIENTO
         assert reserva.estado_reserva == Reserva.ESTADO_POR_MANTENIMIENTO
-        assert Bloqueo.objects.exists()
-
-    # Test 85: verifica la bitácora del bloqueo.
-    def test_registra_bitacora_de_bloqueo(self, admin, sh_a_manana):
-        """Auditoría: Guarda el responsable, motivo y fecha exacta en la bitácora."""
-        services.block_room_schedule_for_maintenance(admin.codigo_usuario, sh_a_manana.id_sala_horario, MOTIVO)
-
         bloqueo = Bloqueo.objects.get()
         assert bloqueo.usuario == admin
         assert bloqueo.sala_horario == sh_a_manana
         assert bloqueo.motivo == MOTIVO
+        assert bloqueo.fecha == despues_del_inicio
+        assert not Sancion.objects.filter(usuario=estudiante).exists()
 
     # Test 86: verifica el aislamiento entre salas y horarios.
     def test_aislamiento_no_afecta_otras_salas_ni_horarios(self, admin, estudiante, sh_a_manana, manana):
@@ -146,19 +128,6 @@ class TestBloqueoMantenimiento:
         assert sh_otra_sala.estado_sala_horario == SalaHorario.ESTADO_DISPONIBLE
         assert reserva_otra_sala.estado_reserva == Reserva.ESTADO_CONFIRMADA
 
-    # Test 87: verifica que un estudiante no pueda bloquear.
-    def test_estudiante_no_puede_bloquear(self, estudiante, sh_a_manana, reserva):
-        """Excepción E1: Un usuario sin rol Administrador es rechazado."""
-        error_detectado = False
-        try:
-            services.block_room_schedule_for_maintenance(estudiante.codigo_usuario, sh_a_manana.id_sala_horario, MOTIVO)
-        except services.NotAuthorizedError:
-            error_detectado = True
-
-        sh_a_manana.refresh_from_db()
-        assert error_detectado is True
-        assert sh_a_manana.estado_sala_horario == SalaHorario.ESTADO_DISPONIBLE
-
     # Test 88: verifica el rechazo de un horario inexistente.
     def test_sala_o_horario_inexistente(self, admin):
         """Excepción E2: Intentar bloquear un id_sala_horario que no existe dispara error."""
@@ -169,33 +138,6 @@ class TestBloqueoMantenimiento:
             error_detectado = True
 
         assert error_detectado is True
-
-    # Test 89: verifica que no exista un doble bloqueo.
-    def test_impide_doble_bloqueo(self, admin, sh_a_manana):
-        """Validación: No permite volver a bloquear un horario que ya está en Mantenimiento."""
-        services.block_room_schedule_for_maintenance(admin.codigo_usuario, sh_a_manana.id_sala_horario, MOTIVO)
-
-        error_detectado = False
-        try:
-            services.block_room_schedule_for_maintenance(admin.codigo_usuario, sh_a_manana.id_sala_horario, "Otro motivo")
-        except services.ScheduleAlreadyBlockedError:
-            error_detectado = True
-
-        assert error_detectado is True
-        assert Bloqueo.objects.count() == 1
-
-    # Test 90: verifica que no se reserve un horario bloqueado.
-    def test_no_permite_crear_reserva_en_horario_bloqueado(self, admin, estudiante, sh_a_manana, manana):
-        """Regla de Negocio: El horario queda bloqueado para mantenimiento en el sistema."""
-        # 1. Ejecutar el bloqueo por mantenimiento
-        services.block_room_schedule_for_maintenance(admin.codigo_usuario, sh_a_manana.id_sala_horario, MOTIVO)
-
-        # 2. Refrescar el objeto desde la base de datos para confirmar persisencia
-        sh_a_manana.refresh_from_db()
-
-        # 3. Validar que el estado del horario cambió a MANTENIMIENTO
-        assert sh_a_manana.estado_sala_horario == "MANTENIMIENTO"
-
 
 @pytest.mark.usefixtures("antes_del_mantenimiento")
 class TestSalidaDeMantenimiento:

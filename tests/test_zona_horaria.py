@@ -7,9 +7,6 @@ from reservas.management.commands.convert_legacy_utc import _a_hora_local
 from reservas.models import Rol, Usuario
 
 
-pytestmark = pytest.mark.integration
-
-
 # Test 100: verifica la conversión histórica de UTC a La Paz.
 def test_conversion_utc_a_la_paz_conserva_microsegundos_y_cambia_dia():
     assert _a_hora_local("2026-01-01 02:15:30.123456") == (
@@ -17,6 +14,7 @@ def test_conversion_utc_a_la_paz_conserva_microsegundos_y_cambia_dia():
     )
 
 
+@pytest.mark.integration
 @pytest.mark.django_db
 # Test 82: verifica el almacenamiento de fechas en hora de La Paz.
 def test_sqlite_guarda_datetime_en_hora_de_la_paz_y_django_conserva_instante():
