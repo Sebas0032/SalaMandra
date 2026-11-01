@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 from django.contrib import messages
 from django.conf import settings
 from django.db import IntegrityError, OperationalError, ProgrammingError
-from django.http import Http404
+from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -43,6 +43,12 @@ def handle_db_errors(view_func):
 @login_required
 def student_panel_view(request):
     """Muestra el panel y procesa las solicitudes de reserva del estudiante."""
+    if request.usuario.rol.nombre_rol not in (
+        Rol.Nombre.SOLICITANTE, Rol.Nombre.ADMINISTRADOR
+    ):
+        return HttpResponseForbidden(
+            "Solo un Solicitante o Administrador puede acceder a este panel."
+        )
     if request.method == "POST":
         reserva = _intentar_crear_reserva(request)
         if reserva is not None:
@@ -655,7 +661,7 @@ def withdraw_sanction_view(request, id_sancion):
     except gestion_sanciones.GestionSancionesError as exc:
         messages.error(request, str(exc))
     else:
-        messages.success(request, "Sanción retirada. Se conservó su historial.")
+        messages.success(request, "Sanción retirada.")
     return redirect("sanctions_admin")
 
 

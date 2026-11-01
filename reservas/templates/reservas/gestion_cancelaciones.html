@@ -38,7 +38,15 @@
                         <td>{{ reserva.sala_horario.sala }}</td>
                         <td>{{ reserva.sala_horario.horario }}</td>
                         <td>{{ reserva.tipo_actividad }}</td>
-                        <td><a class="boton-habilitar" href="{% url 'modify_reservation' reserva.pk %}">Modificar</a> <form method="post" action="{% url 'admin_cancel_reservation' reserva.pk %}" onsubmit="return confirm('¿Cancelar esta reserva sin sancionar al solicitante?')">{% csrf_token %}<button class="boton-habilitar" type="submit">Cancelar</button></form></td>
+                        <td>
+                            <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px;">
+                                <a class="boton-habilitar" href="{% url 'modify_reservation' reserva.pk %}">Modificar</a>
+                                <form method="post" action="{% url 'admin_cancel_reservation' reserva.pk %}" onsubmit="return confirm('¿Cancelar esta reserva sin sancionar al solicitante?')" style="margin: 0;">
+                                    {% csrf_token %}
+                                    <button class="boton-habilitar" type="submit">Cancelar</button>
+                                </form>
+                            </div>
+                        </td>
                     </tr>
                 {% empty %}
                     <tr><td colspan="7">No hay reservas confirmadas para hoy o fechas posteriores.</td></tr>
